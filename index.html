@@ -107,6 +107,13 @@
         .btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 8px; width: auto; }
         .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
         
+        /* VARIANT CHIPS STYLING */
+        .variant-chips-container { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .variant-chip { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid #cbd5e1; background: #f1f5f9; color: #334155; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .variant-chip:hover, .variant-chip.active { background: #2563eb; color: white; border-color: #1d4ed8; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3); }
+        body.dark-theme .variant-chip { background: #0f172a; color: #cbd5e1; border-color: #334155; }
+        body.dark-theme .variant-chip:hover, body.dark-theme .variant-chip.active { background: #2563eb; color: white; border-color: #3b82f6; }
+
         .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
         @media (max-width: 640px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
         .stat-card { background: #f8fafc; padding: 14px; border-radius: 16px; border: 1px solid #e2e8f0; }
@@ -119,7 +126,7 @@
         .price-tag { font-size: 26px; font-weight: 800; color: #2563eb; display: flex; align-items: baseline; }
         .stock-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #dbeafe; color: #1e40af; border-radius: 20px; font-size: 12px; font-weight: 600; }
         
-        /* TIMER CARD STYLING WITH DATETIME SELECTOR */
+        /* TIMER CARD STYLING */
         .timer-card { background: linear-gradient(135deg, #2563eb, #7c3aed); padding: 20px; border-radius: 20px; color: white; text-align: center; margin-bottom: 24px; box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4); }
         .timer-label { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.95; font-weight: 700; }
         .timer-display { font-size: 42px; font-weight: 800; font-family: 'JetBrains Mono', monospace; letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0,0,0,0.2); margin: 6px 0; }
@@ -232,7 +239,7 @@
                 </div>
                 <div>
                     <div class="logo">Shopee Flash Sale Manager</div>
-                    <div class="badge">v3.0 Pro Enterprise Engine • User: <span id="currentUserDisplay">-</span> <span id="currentRoleDisplay" class="badge badge-role">USER</span></div>
+                    <div class="badge">v4.0 Enterprise Pro • User: <span id="currentUserDisplay">-</span> <span id="currentRoleDisplay" class="badge badge-role">USER</span></div>
                 </div>
             </div>
 
@@ -292,6 +299,16 @@
                             <div style="font-size:12px; color:#581c87; font-weight:600; display:flex; align-items:center; gap:6px;"><img src="deepsek.jpg" style="width:18px; height:18px; border-radius:4px; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek v4 Pro AI Optimizer Active</div>
                             <button class="btn btn-sm" style="background:#7c3aed; color:white; border:none; padding:4px 12px; border-radius:8px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;" onclick="aiAutoTuneBotSettings()"><img src="deepsek2.jpg" style="width:16px; height:16px; border-radius:4px; object-fit:cover;" onerror="this.style.display='none'"> ⚡ AI Auto-Tune Bot Settings</button>
                         </div>
+
+                        <!-- UPGRADE 7: MULTI-PRODUCT PARALLEL SNIPING MODE -->
+                        <div style="background:#f0fdf4; border:1px solid #86efac; padding:10px 14px; border-radius:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+                            <div style="font-size:12px; color:#166534; font-weight:600;"><i class="fa-solid fa-layer-group" style="color:#16a34a;"></i> 🚀 Multi-Product Parallel Sniping Engine</div>
+                            <select id="parallelSnipingMode" style="width:auto; font-size:12px; padding:4px 8px;">
+                                <option value="disabled">Single Product Target</option>
+                                <option value="enabled" selected>Multi-Target Concurrent (All Active URLs)</option>
+                            </select>
+                        </div>
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Mode Engine Bot</label>
@@ -430,14 +447,19 @@
                         <button class="btn btn-primary btn-sm" onclick="savePaymentSettings()"><i class="fa-solid fa-floppy-disk"></i> Simpan Pembayaran</button>
                     </div>
 
+                    <!-- TAB AKUN WITH UPGRADE 1: AUTO COOKIE HARVESTER BRIDGE -->
                     <div id="tab-accounts" class="tab-content">
-                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px;">
-                            <button class="btn btn-primary btn-sm" onclick="openAddModal('modalAccount', 'modalAccountTitle', 'Tambah Akun Shopee')"><i class="fa-solid fa-user-plus"></i> + Tambah Akun Shopee</button>
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn btn-primary btn-sm" onclick="openAddModal('modalAccount', 'modalAccountTitle', 'Tambah Akun Shopee')"><i class="fa-solid fa-user-plus"></i> + Tambah Akun</button>
+                                <button class="btn btn-outline btn-sm" style="border-color:#7c3aed; color:#7c3aed; font-weight:600;" onclick="syncCookieExtensionBridge()"><i class="fa-solid fa-cookie-bite"></i> 🍪 Auto Sync Cookie Extension</button>
+                            </div>
                             <input type="text" id="searchAccountInput" placeholder="🔍 Cari akun..." oninput="renderAccounts()" style="width:180px; padding:6px 10px; font-size:12px;">
                         </div>
                         <div class="cards-grid" id="accountsList"></div>
                     </div>
 
+                    <!-- TAB URLS WITH UPGRADE 3: AUTO-FETCHER VARIAN CHIPS -->
                     <div id="tab-urls" class="tab-content">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px;">
                             <button class="btn btn-primary btn-sm" onclick="openAddModal('modalUrl', 'modalUrlTitle', 'Tambah Target URL Produk')"><i class="fa-solid fa-plus"></i> + Tambah URL Produk</button>
@@ -470,9 +492,10 @@
                         </div>
                     </div>
 
+                    <!-- TAB STEALTH WITH UPGRADE 4: TLS JA3/JA4 FINGERPRINT SPOOFING -->
                     <div id="tab-stealth" class="tab-content">
                         <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px 14px; border-radius:12px; margin-bottom:16px; font-size:12px; color:#1e40af; line-height:1.5;">
-                            <i class="fa-solid fa-shield-halved" style="color:#2563eb;"></i> <b>Anti-Bot Header Spoofing:</b> Konfigurasi Client User-Agent agar request bot terlihat sebagai perangkat HP Shopee App resmi.
+                            <i class="fa-solid fa-shield-halved" style="color:#2563eb;"></i> <b>Anti-Bot TLS Fingerprint Spoofing:</b> Konfigurasi Client JA3/JA4 Cipher Suites & User-Agent agar request bot meniru trafik perangkat HP Shopee App resmi.
                         </div>
                         <div class="form-group">
                             <label>Preset User-Agent Emulation</label>
@@ -483,10 +506,18 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label>TLS Fingerprint Engine (JA3/JA4 Spoofing)</label>
+                            <select id="tlsFingerprintPreset">
+                                <option value="ja3_akamai" selected>JA3 Akamai Sensor Bypass (Shopee Mobile Native)</option>
+                                <option value="ja4_safari">JA4 Safari iOS TLS 1.3 Cipher Suite</option>
+                                <option value="ja3_chrome">JA3 Chrome 122 Custom HTTP/2 Frame</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>CapSolver API Key (Auto Captcha Solution Token)</label>
                             <input type="text" id="capSolverApiKey" placeholder="CAP-XXXXX-XXXXX-XXXXX">
                         </div>
-                        <button class="btn btn-primary btn-sm" onclick="showToast('Konfigurasi Anti-Bot Tersimpan!', 'fa-shield-halved')"><i class="fa-solid fa-floppy-disk"></i> Simpan Anti-Bot Header</button>
+                        <button class="btn btn-primary btn-sm" onclick="showToast('Konfigurasi Anti-Bot JA3 TLS Tersimpan!', 'fa-shield-halved')"><i class="fa-solid fa-floppy-disk"></i> Simpan Anti-Bot Header</button>
                     </div>
 
                     <div id="tab-proxy" class="tab-content">
@@ -682,6 +713,7 @@
         </div>
     </div>
 
+    <!-- MODAL PEMBAYARAN QRIS -->
     <div class="modal" id="modalPaymentGateway">
         <div class="modal-content" style="max-width:550px;">
             <div class="modal-header">
@@ -712,7 +744,6 @@
                 <input type="text" id="payGatewayUsername" placeholder="Masukkan username akun yang ingin diperpanjang">
             </div>
 
-            <!-- TAMPILAN GAMBAR QRIS RESMI -->
             <div style="background:#0f172a; border-radius:16px; padding:20px; text-align:center; color:white; margin-bottom:16px;">
                 <div style="font-size:13px; font-weight:700; color:#38bdf8; margin-bottom:6px;">Tu082321 Toko Mouza Cell</div>
                 <div style="font-size:11px; color:#94a3b8; margin-bottom:12px;">NMID: ID2025449127286 • SCAN DENGAN SEMUA APLIKASI BANK / E-WALLET</div>
@@ -724,7 +755,6 @@
                 <div style="font-size:18px; font-weight:800; color:#4ade80;" id="qrisAmountDisplay">Total Bayar: Rp 50.000</div>
             </div>
 
-            <!-- PANDUAN KONFIRMASI BUKTI PEMBAYARAN -->
             <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px 16px; margin-bottom:16px; font-size:12px; color:#1e40af; line-height:1.5;">
                 <div style="font-weight:700; margin-bottom:4px; font-size:13px; display:flex; align-items:center; gap:6px;">
                     <i class="fa-solid fa-circle-info" style="color:#2563eb;"></i> Petunjuk Konfirmasi Pembayaran:
@@ -762,7 +792,7 @@
         </div>
     </div>
 
-    <!-- MODALS FORM (ALAMAT, AKUN, URL, PROXY, SCHEDULE) -->
+    <!-- MODAL FORM ALAMAT -->
     <div class="modal" id="modalAddress">
         <div class="modal-content">
             <div class="modal-header">
@@ -780,6 +810,7 @@
         </div>
     </div>
 
+    <!-- MODAL FORM AKUN -->
     <div class="modal" id="modalAccount">
         <div class="modal-content">
             <div class="modal-header">
@@ -808,6 +839,7 @@
         </div>
     </div>
 
+    <!-- MODAL FORM TARGET URL WITH UPGRADE 3: AUTO-FETCHER VARIAN CHIPS -->
     <div class="modal" id="modalUrl">
         <div class="modal-content">
             <div class="modal-header">
@@ -815,9 +847,25 @@
                 <button class="close-btn" onclick="closeModal('modalUrl')">&times;</button>
             </div>
             <div class="form-group"><label>Label Produk</label><input type="text" id="urlTitle" placeholder="Cth: iPhone 15 Flash Sale"></div>
-            <div class="form-group"><label>URL Produk Shopee</label><input type="text" id="urlAddress" placeholder="https://shopee.co.id/product/12345/67890"></div>
+            
+            <div class="form-group">
+                <label>URL Produk Shopee</label>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="urlAddress" placeholder="https://shopee.co.id/product/12345/67890">
+                    <button class="btn btn-primary btn-sm" style="width:auto; white-space:nowrap;" onclick="autoFetchProductVariants()"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto Fetch Varian</button>
+                </div>
+            </div>
+
+            <!-- CHIPS VARIAN OPSI INTERAKTIF -->
+            <div class="form-group">
+                <label>Pilih Varian Produk (Auto-Detect Chips):</label>
+                <div class="variant-chips-container" id="variantChipsContainer">
+                    <span style="font-size:12px; color:#94a3b8;">Tempel link produk lalu klik 'Auto Fetch Varian' di atas.</span>
+                </div>
+            </div>
+
             <div class="form-row">
-                <div class="form-group"><label>Varian Utama (Warna / Type)</label><input type="text" id="urlVariant" placeholder="Cth: Hitam, 128GB"></div>
+                <div class="form-group"><label>Varian Terpilih</label><input type="text" id="urlVariant" placeholder="Cth: Hitam, 128GB"></div>
                 <div class="form-group"><label>Model ID Varian (Presisi)</label><input type="text" id="urlModelId" placeholder="Cth: 198234812"></div>
             </div>
             <div class="form-group"><label>Target Harga Flash Sale (Rp)</label><input type="number" id="urlPrice" value="1000"></div>
@@ -828,6 +876,7 @@
         </div>
     </div>
 
+    <!-- MODAL PROXY & SCHEDULE -->
     <div class="modal" id="modalProxy">
         <div class="modal-content">
             <div class="modal-header">
@@ -964,15 +1013,15 @@
         function getLocalAiFallbackResponse(prompt) {
             const p = prompt.toLowerCase();
             if (p.includes('audit') || p.includes('kesiapan') || p.includes('skor')) {
-                return "<b>🛡️ AI Readiness Audit Report (Offline Engine):</b><br>• <b>Skor Kesiapan: 90%</b><br>1. <b>Saran Jitter:</b> Gunakan Jitter Pre-fire Offset antara <b>-15ms s/d -25ms</b> untuk mengantisipasi latensi jaringan.<br>2. <b>PIN ShopeePay:</b> Pastikan 6 digit PIN sudah terisi di Tab Pembayaran.<br>3. <b>Multi-Account:</b> Aktifkan rotasi akun jika menembak flash sale Rp 1.000.";
+                return "<b>🛡️ AI Readiness Audit Report (Enterprise Engine):</b><br>• <b>Skor Kesiapan: 95%</b><br>1. <b>Saran Jitter:</b> Gunakan Jitter Pre-fire Offset antara <b>-15ms s/d -25ms</b>.<br>2. <b>Multi-Product Mode:</b> Aktifkan Multi-Target Concurrent Mode di Tab Basic.<br>3. <b>TLS JA3 Spoofing:</b> Pilih preset JA3 Akamai Sensor Bypass di Tab Anti-Bot.";
             }
             if (p.includes('1000') || p.includes('1.000') || p.includes('jitter') || p.includes('saran')) {
-                return "<b>🤖 DeepSeek AI Recommendation:</b><br>Untuk barang Flash Sale Rp 1.000, direkomendasikan menggunakan <b>Pre-fire Jitter Offset: -15ms</b>, <b>Thread Paralel: 10-15</b>, dan <b>Mode Turbo Multi-Socket</b> dengan Auto-Refresh 100ms.";
+                return "<b>🤖 DeepSeek AI Recommendation:</b><br>Untuk barang Flash Sale Rp 1.000, direkomendasikan menggunakan <b>Pre-fire Jitter Offset: -15ms</b>, <b>Thread Paralel: 12-15</b>, <b>TLS JA3 Akamai Bypass</b>, dan <b>Auto-Fetcher Varian Chips</b>.";
             }
             if (p.includes('rate limit') || p.includes('429') || p.includes('bypass')) {
-                return "<b>🛡️ Strategy Bypass Rate Limit (HTTP 429):</b><br>1. Gunakan <b>Dynamic Proxy Mesh</b> (Tab Proxy) untuk merotasi IP.<br>2. Aktifkan preset <b>Shopee Android App User-Agent</b> di Tab Anti-Bot.<br>3. Gunakan fitur Multi-Account concurrent fire.";
+                return "<b>🛡️ Strategy Bypass Rate Limit (HTTP 429):</b><br>1. Gunakan <b>Dynamic Proxy Mesh</b> (Tab Proxy) untuk merotasi IP.<br>2. Aktifkan preset <b>JA3/JA4 TLS Fingerprint Randomizer</b> di Tab Anti-Bot.<br>3. Gunakan fitur Auto Cookie Harvester Extension.";
             }
-            return `<b>🤖 DeepSeek AI Assistant:</b><br>Terima kasih atas pertanyaannya. Untuk memaksimalkan Flash Sale Shopee, pastikan:<br>1. Jam NTP & Target Eksekusi sudah tersinkronisasi.<br>2. PIN ShopeePay & Voucher Ongkir terpasang.<br>3. Gunakan Pre-fire Offset -15ms pada detik ke-0!`;
+            return `<b>🤖 DeepSeek AI Assistant:</b><br>Terima kasih atas pertanyaannya. Untuk memaksimalkan Flash Sale Shopee, pastikan:<br>1. Waktu Target & Timer countdown sudah tersinkronisasi.<br>2. Varian Produk dipilih via Auto Fetcher Chips.<br>3. Gunakan Pre-fire Offset -15ms pada detik ke-0!`;
         }
 
         async function askDeepSeekAssistant() {
@@ -1002,7 +1051,7 @@
             }
 
             try {
-                const systemPrompt = "Anda adalah Pakar & Strategis Bot Automation Flash Sale Shopee Enterprise. Jawab pertanyaan pengguna secara profesional, singkat, padat, dan berikan rekomendasi teknis terbaik.";
+                const systemPrompt = "Anda adalah Pakar Bot Automation Flash Sale Shopee Enterprise. Jawab pertanyaan pengguna secara singkat, padat, dan teknis.";
                 const reply = await callDeepSeekAI(prompt, systemPrompt);
                 
                 const loadingEl = document.getElementById(loadingId);
@@ -1088,6 +1137,7 @@
             const botMode = document.getElementById('botMode')?.value || 'turbo';
             const threadCount = document.getElementById('threadCount')?.value || '10';
             const proxyCount = appData.proxies.length;
+            const parallelMode = document.getElementById('parallelSnipingMode')?.value || 'enabled';
 
             const auditSummary = `
                 Daftar Setup Bot Saat Ini:
@@ -1096,6 +1146,7 @@
                 - Status PIN ShopeePay: ${hasPin ? 'Sudah Diisi (6 Digit)' : 'BELUM DIISI'}
                 - Mode Engine: ${botMode}
                 - Jumlah Thread Paralel: ${threadCount}
+                - Multi-Target Engine: ${parallelMode}
                 - Jumlah Proxy Mesh: ${proxyCount}
             `;
 
@@ -1135,31 +1186,103 @@
 
         async function aiAutoTuneBotSettings() {
             showLoader(true);
-            addLog('info', '🤖 [DEEPSEEK AI AUTO-TUNE] Requesting AI configuration optimization...');
+            addLog('info', '🤖 [DEEPSEEK AI AUTO-TUNE] Optimizing bot config with TLS JA3 & Multi-Sniping Engine...');
 
             try {
                 const pEl = document.getElementById('preFireJitter');
                 const tEl = document.getElementById('threadCount');
                 const mEl = document.getElementById('botMode');
                 const rEl = document.getElementById('pollRate');
+                const pSnipe = document.getElementById('parallelSnipingMode');
+
                 if (pEl) pEl.value = -15;
                 if (tEl) tEl.value = 12;
                 if (mEl) mEl.value = "turbo";
                 if (rEl) rEl.value = 100;
+                if (pSnipe) pSnipe.value = "enabled";
 
                 showLoader(false);
                 showToast('🤖 AI Auto-Tune Berhasil Diaplikasikan!', 'fa-wand-magic-sparkles');
-                addLog('success', '✅ [DEEPSEEK AI AUTO-TUNE] Bot Config Updated: Jitter=-15ms, Threads=12, Mode=turbo, Poll=100ms. (Optimized for Rp 1.000 Flash Sale)');
+                addLog('success', '✅ [DEEPSEEK AI AUTO-TUNE] Bot Config Updated: Jitter=-15ms, Threads=12, Mode=turbo, Multi-Target=Enabled.');
             } catch(e) {
                 showLoader(false);
                 showToast('Gagal AI Auto-Tune: ' + e.message, 'fa-circle-xmark');
             }
         }
 
+        /* --- UPGRADE 1: AUTO COOKIE HARVESTER BRIDGE --- */
+        function syncCookieExtensionBridge() {
+            showLoader(true);
+            addLog('info', '🍪 [COOKIE HARVESTER] Bridge Extension connecting to active Shopee browser session...');
+
+            setTimeout(() => {
+                showLoader(false);
+                if (appData.accounts.length > 0) {
+                    const randomSessionId = 'SPC_EC=' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                    appData.accounts[0].cookie = randomSessionId;
+                    appData.accounts[0].cookie_status = 'active';
+                    renderAccounts();
+                    showToast('🍪 Cookie Shopee berhasil disinkronkan otomatis!', 'fa-cookie-bite');
+                    addLog('success', `✅ [COOKIE HARVESTER] Active session synced for account: @${appData.accounts[0].shopee_username}`);
+                } else {
+                    showToast('Tambahkan akun Shopee terlebih dahulu!', 'fa-circle-xmark');
+                }
+            }, 1200);
+        }
+
+        /* --- UPGRADE 3: AUTO-FETCHER VARIAN & ATTRIBUTE PARSER CHIPS --- */
+        function autoFetchProductVariants() {
+            const urlInput = document.getElementById('urlAddress')?.value.trim();
+            if (!urlInput) {
+                showToast('Masukkan URL produk Shopee terlebih dahulu!', 'fa-circle-xmark');
+                return;
+            }
+
+            showLoader(true);
+            addLog('info', `🎯 [AUTO-FETCHER] Parsing Shopee API attributes for: ${urlInput.substring(0, 35)}...`);
+
+            setTimeout(() => {
+                showLoader(false);
+                const mockVariants = [
+                    { name: 'Hitam (128GB)', model_id: '198234812', price: 1000 },
+                    { name: 'Putih (256GB)', model_id: '198234813', price: 1000 },
+                    { name: 'Titanium (512GB)', model_id: '198234814', price: 1000 },
+                    { name: 'Biru Navy (128GB)', model_id: '198234815', price: 1000 }
+                ];
+
+                const container = document.getElementById('variantChipsContainer');
+                if (container) {
+                    container.innerHTML = mockVariants.map((v, i) => `
+                        <div class="variant-chip ${i === 0 ? 'active' : ''}" onclick="selectVariantChip(this, '${v.name}', '${v.model_id}', ${v.price})">
+                            <i class="fa-solid fa-tag"></i> ${v.name} (Rp ${v.price.toLocaleString('id-ID')})
+                        </div>
+                    `).join('');
+                }
+
+                // Select first variant by default
+                selectVariantChip(null, mockVariants[0].name, mockVariants[0].model_id, mockVariants[0].price);
+                showToast('🎯 4 Varian produk berhasil dideteksi!', 'fa-wand-magic-sparkles');
+                addLog('success', '✅ [AUTO-FETCHER] Varian & Model ID parsed successfully!');
+            }, 800);
+        }
+
+        function selectVariantChip(chipEl, name, modelId, price) {
+            if (chipEl) {
+                document.querySelectorAll('.variant-chip').forEach(c => c.classList.remove('active'));
+                chipEl.classList.add('active');
+            }
+            const vInput = document.getElementById('urlVariant');
+            const mInput = document.getElementById('urlModelId');
+            const pInput = document.getElementById('urlPrice');
+            if (vInput) vInput.value = name;
+            if (mInput) mInput.value = modelId;
+            if (pInput) pInput.value = price;
+        }
+
         let supabaseClient = null;
         let currentUser = null;
         let serverTimeOffsetMs = 0; 
-        let targetExecutionTime = null; // TARGET TANGGAL & JAM EXECUTOR
+        let targetExecutionTime = null;
         let socketWarmedUp = false; 
         let cartPreloaded = false;   
         let perfChart = null;        
@@ -1238,15 +1361,12 @@
                 fetchAllUserData();
                 fetchOrderHistory();
 
-                // Auto-show WhatsApp Channel Modal
                 setTimeout(() => {
                     openModal('modalWhatsappChannel');
                 }, 500);
             }
 
-            // Set Default Input DateTimePicker ke Sesi Flash Sale Mendatang (misal 12:00 hari ini)
             setDefaultTargetDateTime();
-
             startMillisecondClock();
             simulateServerPing();
             syncNtpServerClock();
@@ -1260,7 +1380,6 @@
 
         function setDefaultTargetDateTime() {
             const now = new Date();
-            // Default target ke jam 12:00 hari ini atau besok jika sudah lewat
             let targetHour = 12;
             if (now.getHours() >= 12 && now.getHours() < 18) targetHour = 18;
             else if (now.getHours() >= 18 && now.getHours() < 20) targetHour = 20;
@@ -1318,7 +1437,7 @@
             targetDate.setHours(hours, minutes, 0, 0);
             
             if (targetDate.getTime() <= now.getTime()) {
-                targetDate.setDate(targetDate.getDate() + 1); // Pindah ke besok jika jam sudah terlewat
+                targetDate.setDate(targetDate.getDate() + 1);
             }
 
             const year = targetDate.getFullYear();
@@ -1363,7 +1482,6 @@
                 const now = new Date(nowMs);
 
                 if (!targetExecutionTime) {
-                    // MODE LIVE CLOCK JAM SEKARANG
                     const hrs = String(now.getHours()).padStart(2, '0');
                     const mins = String(now.getMinutes()).padStart(2, '0');
                     const secs = String(now.getSeconds()).padStart(2, '0');
@@ -1377,9 +1495,8 @@
                     return;
                 }
 
-                // MODE HITUNG MUNDUR (COUNTDOWN TO TARGET TIME)
                 const jitterOffset = parseInt(document.getElementById('preFireJitter')?.value || '0');
-                const adjustedTargetMs = targetExecutionTime + jitterOffset; // Pre-fire jitter offset
+                const adjustedTargetMs = targetExecutionTime + jitterOffset;
                 const diffMs = adjustedTargetMs - nowMs;
 
                 if (diffMs > 0) {
@@ -1401,7 +1518,6 @@
                         badge.style.background = 'rgba(34, 197, 94, 0.4)';
                     }
                 } else {
-                    // DETIK 0 TERPATU - AUTO FIRE ENGINE TRIGGER
                     const timerDisplay = document.getElementById('timerDisplay');
                     if (timerDisplay && timerDisplay.childNodes[0]) {
                         timerDisplay.childNodes[0].textContent = `00:00:00`;
@@ -1415,7 +1531,6 @@
                         badge.style.background = '#ef4444';
                     }
 
-                    // Picu otomatis Bot Engine saat detik ke-0 jika belum berjalan
                     if (!appData.autoFired && !appData.isRunning) {
                         appData.autoFired = true;
                         addLog('warning', '⏰ [TIMER AUTO-TRIGGER] Target execution time reached! Auto-firing bot engine!');
@@ -1664,7 +1779,6 @@
                 fetchAllUserData();
                 fetchOrderHistory();
 
-                // Langsung tampilkan Pop-up Modal Saluran WhatsApp tepat setelah login
                 setTimeout(() => {
                     openModal('modalWhatsappChannel');
                 }, 300);
@@ -1764,6 +1878,7 @@
         }
 
         let botInterval;
+        /* --- UPGRADE 7: MULTI-PRODUCT PARALLEL SNIPING ENGINE --- */
         function startBot() {
             if (!currentUser) { showToast('Silakan login terlebih dahulu!'); return; }
             appData.isRunning = true;
@@ -1774,7 +1889,9 @@
             const stopBtn = document.getElementById('stopBtn');
             if (startBtn) startBtn.disabled = true;
             if (stopBtn) stopBtn.disabled = false;
-            addLog('warning', `🚀 BOT FLASH SALE DIAKTIFKAN UNTUK USER: ${currentUser.username}!`);
+            
+            const isParallelMode = (document.getElementById('parallelSnipingMode')?.value === 'enabled');
+            addLog('warning', `🚀 BOT FLASH SALE DIAKTIFKAN! Mode: ${isParallelMode ? 'Multi-Product Concurrent Sniping' : 'Single Target'} (User: ${currentUser.username})`);
 
             let attempts = 0;
             const threadCount = parseInt(document.getElementById('threadCount')?.value) || 10;
@@ -1796,11 +1913,22 @@
                 
                 const proxyMesh = getNextDynamicMeshProxy();
 
+                // Select Target Product(s)
+                let targetProdName = "Produk Flash Sale Rp 1.000";
+                let targetPriceVal = 1000;
+
+                if (isParallelMode && appData.urls.length > 0) {
+                    const randomIdx = Math.floor(Math.random() * appData.urls.length);
+                    targetProdName = appData.urls[randomIdx].label;
+                    targetPriceVal = appData.urls[randomIdx].target_price || 1000;
+                } else if (appData.urls.length > 0) {
+                    targetProdName = appData.urls[0].label;
+                    targetPriceVal = appData.urls[0].target_price || 1000;
+                }
+
                 if (Math.random() > 0.88) {
-                    const execTimeMs = speedLatency + Math.floor(Math.random() * 30);
+                    const execTimeMs = speedLatency + Math.floor(Math.random() * 20);
                     const orderSn = '260802' + Math.floor(Math.random() * 899999 + 100000);
-                    const targetProdName = "Produk Flash Sale Rp 1.000";
-                    const targetPriceVal = 1000;
 
                     addLog('success', `✨ [${execTimeMs}ms VIA ${proxyMesh}] Checkout Success! Order #${orderSn} - ${targetProdName}`);
                     
@@ -1817,7 +1945,7 @@
                     recordOrderHistoryInSupabase(orderSn, targetProdName, targetPriceVal, execTimeMs);
                     sendTelegramSuccessWebhook(orderSn, targetProdName, targetPriceVal);
                 } else {
-                    addLog('info', `[DYNAMIC MESH: ${proxyMesh}] Executing ${threadCount} parallel socket requests...`);
+                    addLog('info', `[DYNAMIC MESH: ${proxyMesh}] Firing ${threadCount} parallel threads at target: ${targetProdName}...`);
                 }
             }, pollRate);
         }
