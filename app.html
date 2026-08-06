@@ -775,17 +775,17 @@
             <div style="margin-bottom:16px;">
                 <label style="margin-bottom:8px; font-weight:600;">1. Pilih Paket Langganan SaaS</label>
                 <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px;">
-                    <div class="plan-card selected" onclick="selectPlan(this, 1, 50000)">
+                    <div class="plan-card selected" onclick="selectPlan(this, 1, 150000)">
                         <div class="plan-title">1 Bulan</div>
-                        <div class="plan-price">Rp 50K</div>
+                        <div class="plan-price">Rp 150rb</div>
                     </div>
-                    <div class="plan-card" onclick="selectPlan(this, 3, 125000)">
-                        <div class="plan-title">3 Bulan</div>
-                        <div class="plan-price">Rp 125K</div>
+                    <div class="plan-card" onclick="selectPlan(this, 2, 250000)">
+                        <div class="plan-title">2 Bulan</div>
+                        <div class="plan-price">Rp 250rb</div>
                     </div>
-                    <div class="plan-card" onclick="selectPlan(this, 12, 400000)">
+                    <div class="plan-card" onclick="selectPlan(this, 12, 1000000)">
                         <div class="plan-title">1 Tahun</div>
-                        <div class="plan-price">Rp 400K</div>
+                        <div class="plan-price">Rp 1.000.000</div>
                     </div>
                 </div>
             </div>
@@ -803,7 +803,7 @@
                     <img id="qrisImageDisplay" src="qriss.jpg" alt="QRIS Tu082321 Toko Mouza Cell" style="width:100%; height:auto; border-radius:8px; display:block;" onerror="this.onerror=null; this.src='https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020101021226680016COM.SHOPEE.WWW011893600911002201880802152608021982348125204581253033605802ID5912ENTERPRISE_PRO6007JAKARTA6304C102';">
                 </div>
                 
-                <div style="font-size:18px; font-weight:800; color:#4ade80;" id="qrisAmountDisplay">Total Bayar: Rp 50.000</div>
+                <div style="font-size:18px; font-weight:800; color:#4ade80;" id="qrisAmountDisplay">Total Bayar: Rp 150.000</div>
             </div>
 
             <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px 16px; margin-bottom:16px; font-size:12px; color:#1e40af; line-height:1.5;">
@@ -1341,7 +1341,7 @@
         let sliderInterval = null;
 
         let selectedPlanMonths = 1;
-        let selectedPlanAmount = 50000;
+        let selectedPlanAmount = 150000;
 
         try {
             const rawUser = localStorage.getItem('SECURE_SUPABASE_USER');
@@ -2232,7 +2232,7 @@
             selectedPlanMonths = months;
             selectedPlanAmount = amount;
             const amountEl = document.getElementById('qrisAmountDisplay');
-            if (amountEl) amountEl.innerText = `Total: Rp ${amount.toLocaleString('id-ID')}`;
+            if (amountEl) amountEl.innerText = `Total Bayar: Rp ${amount.toLocaleString('id-ID')}`;
         }
 
         async function saveAddress() {
