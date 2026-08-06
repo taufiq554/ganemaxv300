@@ -309,7 +309,7 @@
                         Bagaimana alur setelah saya melakukan pembayaran QRIS?
                     </h3>
                     <p class="text-slate-600 text-sm leading-relaxed pl-7">
-                        Setelah menycan QRIS sebesar <strong>Rp 250.000</strong> dan transfer sukses, tekan tombol <strong>"Saya Sudah Transfer"</strong> di modal. Anda akan langsung diproses dan diarahkan ke aplikasi bot `app.html`.
+                        Setelah menycan QRIS sebesar <strong>Rp 250.000</strong> dan transfer sukses, tekan tombol <strong>"Saya Sudah Transfer"</strong> di modal. Anda akan langsung diproses dan diarahkan ke aplikasi bot secara instan.
                     </p>
                 </div>
             </div>
@@ -383,7 +383,7 @@
             <p class="text-slate-600 text-xs mb-2">Terima kasih telah menyewa GaneMaX.Ai.</p>
             <p class="text-brand-blue font-bold text-xs mb-6">Mengalihkan Anda ke website bot flash sale...</p>
             
-            <a href="app.html" id="directRedirectBtn" class="w-full py-3.5 rounded-xl bg-brand-blue hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2">
+            <a href="/app" id="directRedirectBtn" class="w-full py-3.5 rounded-xl bg-brand-blue hover:bg-blue-700 text-white font-extrabold text-sm shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2">
                 Masuk ke Application Dashboard <i class="fa-solid fa-arrow-right"></i>
             </a>
         </div>
@@ -403,9 +403,9 @@
         </div>
     </footer>
 
-    <!-- JAVASCRIPT LOGIC REDIRECT KE APP.HTML -->
+    <!-- JAVASCRIPT LOGIC REDIRECT KE /APP -->
     <script>
-        const BOT_APP_URL = 'app.html';
+        const BOT_APP_URL = '/app';
 
         function openQrisModal() {
             const modal = document.getElementById('qrisModal');
