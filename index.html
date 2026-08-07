@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2563eb">
 
     <!-- Google Site Verification Tag -->
     <meta name="google-site-verification" content="_WSvH-mTdcsnhXyH0OLtAryGAbSppwrXnql5L-uKf60" />
@@ -15,6 +16,12 @@
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
     <meta name="author" content="GaneMaX.Ai Team">
     <link rel="canonical" href="https://ganemax.my.id/">
+
+    <!-- Resource Hints untuk Performa Muat Maksimal -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
 
     <!-- Link Sitemap & Robots -->
     <link rel="sitemap" type="application/xml" title="Sitemap" href="https://ganemax.my.id/sitemap.xml" />
@@ -122,7 +129,7 @@
     <header class="sticky top-0 z-40 backdrop-blur-md bg-white/90 border-b border-slate-200 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             <a href="https://ganemax.my.id" class="flex items-center gap-3" aria-label="GaneMaX.Ai Beranda">
-                <img src="image.jpg" alt="Logo GaneMaX.Ai" class="h-11 w-auto max-w-[160px] object-contain rounded-lg" onerror="this.style.display='none'; document.getElementById('logoFallback').classList.remove('hidden');">
+                <img src="image.jpg" alt="Logo Resmi GaneMaX.Ai - Bot Flash Sale Shopee" width="160" height="44" decoding="async" class="h-11 w-auto max-w-[160px] object-contain rounded-lg" onerror="this.style.display='none'; document.getElementById('logoFallback').classList.remove('hidden');">
                 <div id="logoFallback" class="hidden flex items-center gap-2">
                     <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-md">
                         <i class="fa-solid fa-bolt"></i>
@@ -409,7 +416,7 @@
 
             <div class="space-y-4">
                 <div class="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
-                    <button onclick="toggleFaq(this)" class="w-full p-6 text-left font-bold text-slate-900 flex justify-between items-center text-base cursor-pointer">
+                    <button onclick="toggleFaq(this)" aria-expanded="false" class="w-full p-6 text-left font-bold text-slate-900 flex justify-between items-center text-base cursor-pointer">
                         <span><i class="fa-solid fa-circle-question text-brand-blue mr-2"></i> Berapa biaya sewa bot flash sale Shopee GaneMaX.Ai?</span>
                         <i class="fa-solid fa-chevron-down text-slate-400 transition-transform"></i>
                     </button>
@@ -419,7 +426,7 @@
                 </div>
 
                 <div class="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
-                    <button onclick="toggleFaq(this)" class="w-full p-6 text-left font-bold text-slate-900 flex justify-between items-center text-base cursor-pointer">
+                    <button onclick="toggleFaq(this)" aria-expanded="false" class="w-full p-6 text-left font-bold text-slate-900 flex justify-between items-center text-base cursor-pointer">
                         <span><i class="fa-solid fa-circle-question text-brand-blue mr-2"></i> Bagaimana alur setelah saya melakukan pembayaran QRIS?</span>
                         <i class="fa-solid fa-chevron-down text-slate-400 transition-transform"></i>
                     </button>
@@ -429,7 +436,7 @@
                 </div>
 
                 <div class="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
-                    <button onclick="toggleFaq(this)" class="w-full p-6 text-left font-bold text-slate-900 flex justify-between items-center text-base cursor-pointer">
+                    <button onclick="toggleFaq(this)" aria-expanded="false" class="w-full p-6 text-left font-bold text-slate-900 flex justify-between items-center text-base cursor-pointer">
                         <span><i class="fa-solid fa-circle-question text-brand-blue mr-2"></i> Apakah bot ini bisa digunakan di Smartphone / HP?</span>
                         <i class="fa-solid fa-chevron-down text-slate-400 transition-transform"></i>
                     </button>
@@ -456,13 +463,13 @@
     <div id="qrisModal" class="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 transition-all">
         <div class="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-4 sm:p-6 relative shadow-2xl text-center transform scale-95 opacity-0 transition-all duration-300 max-h-[92vh] overflow-y-auto" id="qrisModalContent">
             
-            <button onclick="closeQrisModal()" aria-label="Tutup Modal" class="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors">
+            <button onclick="closeQrisModal()" aria-label="Tutup Modal Pembayaran" class="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors">
                 <i class="fa-solid fa-xmark text-base"></i>
             </button>
 
             <!-- Modal Header Logo image.jpg -->
             <div class="flex items-center justify-center gap-2 mb-2">
-                <img src="image.jpg" alt="Logo GaneMaX.Ai" class="h-7 w-auto object-contain" onerror="this.style.display='none';">
+                <img src="image.jpg" alt="Logo GaneMaX.Ai Pembayaran" width="100" height="28" decoding="async" class="h-7 w-auto object-contain" onerror="this.style.display='none';">
                 <span class="text-[11px] font-bold text-brand-blue uppercase tracking-wider bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
                     <i class="fa-solid fa-shield-halved"></i> PEMBAYARAN RESMI QRIS
                 </span>
@@ -496,7 +503,7 @@
 
             <!-- CONTAINER GAMBAR QRIS PRESISI -->
             <div class="bg-white p-2.5 sm:p-3 rounded-2xl inline-block shadow-md border-2 border-blue-600 relative mb-3 max-w-[210px] sm:max-w-[240px] w-full mx-auto">
-                <img id="qrisImage" src="qriss.jpg" alt="[QRIS Pembayaran GaneMaX.Ai]" class="w-full h-auto aspect-square object-contain mx-auto rounded-xl" onerror="handleQrisImageError(this)">
+                <img id="qrisImage" src="qriss.jpg" alt="Kode QRIS Pembayaran Sewa Bot Flash Sale GaneMaX.Ai" width="240" height="240" decoding="async" class="w-full h-auto aspect-square object-contain mx-auto rounded-xl" onerror="handleQrisImageError(this)">
                 <div class="mt-1.5 flex items-center justify-center gap-1.5 text-[9px] text-slate-500 font-bold tracking-widest uppercase">
                     <span>GOPAY</span> • <span>BCA</span> • <span>DANA</span> • <span>SHOPEEPAY</span>
                 </div>
@@ -542,7 +549,7 @@
     <footer class="bg-white border-t border-slate-200 py-10 text-slate-500 text-xs mb-12 md:mb-0">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-                <img src="image.jpg" alt="Logo GaneMaX.Ai" class="h-7 w-auto object-contain" onerror="this.style.display='none';">
+                <img src="image.jpg" alt="Logo Footer GaneMaX.Ai" width="28" height="28" decoding="async" class="h-7 w-auto object-contain" onerror="this.style.display='none';">
                 <div>
                     <span class="text-base font-bold text-slate-900">GaneMaX<span class="text-brand-blue">.Ai</span></span>
                     <p class="mt-0.5">Sistem Bot & Script Auto Checkout Flash Sale Shopee Terpercaya.</p>
@@ -709,12 +716,15 @@
         function toggleFaq(btn) {
             const content = btn.nextElementSibling;
             const icon = btn.querySelector('.fa-chevron-down');
-            if (content.classList.contains('hidden')) {
+            const isHidden = content.classList.contains('hidden');
+            if (isHidden) {
                 content.classList.remove('hidden');
                 icon.style.transform = 'rotate(180deg)';
+                btn.setAttribute('aria-expanded', 'true');
             } else {
                 content.classList.add('hidden');
                 icon.style.transform = 'rotate(0deg)';
+                btn.setAttribute('aria-expanded', 'false');
             }
         }
     </script>
