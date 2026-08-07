@@ -16,6 +16,9 @@
     <meta name="author" content="GaneMaX.Ai Team">
     <link rel="canonical" href="https://ganemax.my.id/">
 
+    <!-- Link Sitemap & Robots -->
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://ganemax.my.id/sitemap.xml" />
+
     <!-- Open Graph / WhatsApp / FB -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://ganemax.my.id/">
@@ -118,7 +121,7 @@
     <!-- HEADER NAVIGATION -->
     <header class="sticky top-0 z-40 backdrop-blur-md bg-white/90 border-b border-slate-200 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-            <a href="https://ganemax.my.id" class="flex items-center gap-3">
+            <a href="https://ganemax.my.id" class="flex items-center gap-3" aria-label="GaneMaX.Ai Beranda">
                 <img src="image.jpg" alt="Logo GaneMaX.Ai" class="h-11 w-auto max-w-[160px] object-contain rounded-lg" onerror="this.style.display='none'; document.getElementById('logoFallback').classList.remove('hidden');">
                 <div id="logoFallback" class="hidden flex items-center gap-2">
                     <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-md">
@@ -131,7 +134,7 @@
                 </div>
             </a>
 
-            <nav class="hidden md:flex items-center gap-8 font-semibold text-sm text-slate-600">
+            <nav class="hidden md:flex items-center gap-8 font-semibold text-sm text-slate-600" aria-label="Navigasi Utama">
                 <a href="#fitur" class="hover:text-brand-blue transition-colors">Fitur Unggulan</a>
                 <a href="#tes-kecepatan" class="hover:text-brand-blue transition-colors">Tes Kecepatan</a>
                 <a href="#harga" class="hover:text-brand-blue transition-colors">Paket Harga</a>
@@ -449,11 +452,11 @@
         </button>
     </div>
 
-    <!-- MODAL PEMBAYARAN QRIS (UKURAN RAPI & PAS LAYAR MOBILE) -->
+    <!-- MODAL PEMBAYARAN QRIS -->
     <div id="qrisModal" class="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 transition-all">
         <div class="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-4 sm:p-6 relative shadow-2xl text-center transform scale-95 opacity-0 transition-all duration-300 max-h-[92vh] overflow-y-auto" id="qrisModalContent">
             
-            <button onclick="closeQrisModal()" class="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors">
+            <button onclick="closeQrisModal()" aria-label="Tutup Modal" class="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition-colors">
                 <i class="fa-solid fa-xmark text-base"></i>
             </button>
 
