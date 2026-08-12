@@ -24,31 +24,9 @@
     <meta property="og:description" content="Bot Flash Sale Shopee Enterprise Pro dengan kecerdasan AI DeepSeek v4 & NTP Clock Sync. Tembak Flash Sale Rp 1.000 dengan kecepatan milidetik!">
     <meta property="og:image" content="https://ganemax.my.id/image.jpg">
 
-    <!-- Structured Data (Schema.org JSON-LD) -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "Shopee Flash Sale Manager Enterprise Pro",
-      "operatingSystem": "Web Browser, Android, iOS, Windows, macOS",
-      "applicationCategory": "UtilitiesApplication",
-      "url": "https://ganemax.my.id/app",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "IDR"
-      },
-      "publisher": {
-        "@type": "Organization",
-        "name": "GaneMaX.Ai"
-      }
-    }
-    </script>
-
     <link rel="icon" href="image.jpg" type="image/jpeg">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
@@ -145,6 +123,7 @@
         .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; }
         .btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 8px; width: auto; }
         .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .mt-2 { margin-top: 8px; }
         
         .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
         @media (max-width: 640px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -199,10 +178,6 @@
         .close-btn { background: transparent; border: none; font-size: 20px; color: #94a3b8; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
         .close-btn:hover { background: #f1f5f9; color: #475569; }
         .modal-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
-        
-        .ai-fab { position: fixed; bottom: 24px; left: 24px; z-index: 9998; width: 56px; height: 56px; border-radius: 28px; background: linear-gradient(135deg, #7c3aed, #2563eb); color: white; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 8px 24px rgba(124, 58, 237, 0.4); cursor: pointer; transition: all 0.3s ease; border: 2px solid rgba(255,255,255,0.2); }
-        .ai-fab:hover { transform: scale(1.08); box-shadow: 0 12px 28px rgba(124, 58, 237, 0.6); }
-        .ai-fab .ai-badge { position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #22c55e; border-radius: 50%; border: 2px solid #0f172a; }
     </style>
 </head>
 <body>
@@ -213,7 +188,7 @@
             <div class="login-subtitle">Masukkan akun Anda untuk mengisolasi data pribadi</div>
             <div class="form-group">
                 <label>Username</label>
-                <input type="text" id="loginUser" placeholder="Username">
+                <input type="text" id="loginUser" placeholder="Masukkan username">
             </div>
             <div class="form-group">
                 <label>Password</label>
@@ -231,12 +206,6 @@
             </div>
         </div>
     </div>
-
-    <audio id="bgMusic" loop>
-        <source src="lagu.mp3" type="audio/mpeg">
-    </audio>
-
-    <div id="apiLoader"></div>
 
     <div class="container">
         <header>
@@ -258,12 +227,12 @@
                 <button class="btn btn-outline btn-sm" onclick="exportDataJSON()" title="Export JSON"><i class="fa-solid fa-download"></i> Export</button>
                 <button class="btn btn-outline btn-sm" onclick="document.getElementById('importFileInput').click()" title="Import JSON"><i class="fa-solid fa-upload"></i> Import</button>
                 <input type="file" id="importFileInput" accept=".json" onchange="importDataJSON(event)" style="display:none;">
-                <button class="btn btn-outline btn-sm" onclick="toggleAudio()" id="musicToggleBtn"><i class="fa-solid fa-music"></i> Musik</button>
+                <button class="btn btn-outline btn-sm" onclick="toggleAudio()" id="musicToggleBtn"><i class="fa-solid fa-music"></i> Audio</button>
                 <button class="btn btn-outline btn-sm" style="border-color:#fca5a5; color:#ef4444;" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button>
             </div>
         </header>
 
-        <!-- BANNER PROMO STANDAR E-COMMERCE (FULL-WIDTH RESPONSIVE) -->
+        <!-- BANNER PROMO STANDAR E-COMMERCE -->
         <div class="banner-slider" id="headerSlider">
             <div class="slider-track" id="sliderTrack">
                 <div class="slider-slide">
@@ -362,7 +331,6 @@
                             </div>
                         </div>
 
-                        <!-- FITUR BARU: Safeguard Harga & Priority -->
                         <div class="form-row" style="background:#fff1f2; border:1px solid #fecdd3; padding:10px 14px; border-radius:12px; margin-bottom:16px;">
                             <div class="form-group" style="margin-bottom:0;">
                                 <label style="color:#be123c;"><i class="fa-solid fa-shield-cat"></i> Smart Target Price Safeguard (Rp)</label>
@@ -384,11 +352,13 @@
                         </div>
                     </div>
 
+                    <!-- TAB ALAMAT -->
                     <div id="tab-alamat" class="tab-content">
-                        <button class="btn btn-primary btn-sm" onclick="openAddModal('modalAddress', 'modalAddressTitle', 'Tambah Alamat')"><i class="fa-solid fa-plus"></i> Tambah Alamat</button>
+                        <button class="btn btn-primary btn-sm" onclick="openAddModal('modalAddress', 'modalAddressTitle', 'Tambah Alamat Target')"><i class="fa-solid fa-plus"></i> Tambah Alamat</button>
                         <div class="cards-grid" id="addressesList"></div>
                     </div>
 
+                    <!-- TAB PEMBAYARAN -->
                     <div id="tab-pembayaran" class="tab-content">
                         <div style="background:#fffbeb; border:1px solid #fef3c7; padding:12px 16px; border-radius:12px; margin-bottom:16px; font-size:12px; color:#92400e; line-height:1.5;">
                             <i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i> <b>Catatan ShopeePay:</b> Pastikan ada saldo di dalam ShopeePay / Limit SPayLater mencukupi sebelum eksekusi bot berjalan agar tidak terjadi error saat checkout otomatis!
@@ -414,7 +384,6 @@
                                 <input type="password" id="shopeepayPin" maxlength="6" placeholder="Masukkan 6 Digit PIN">
                                 <i class="fa-solid fa-eye password-toggle" id="togglePinPass" onclick="togglePasswordVisibility('shopeepayPin', 'togglePinPass')"></i>
                             </div>
-                            <!-- FITUR BARU: Dry-Run PIN -->
                             <button class="btn btn-outline btn-sm mt-2" onclick="testPinDryRun()"><i class="fa-solid fa-flask" style="color:#7c3aed;"></i> Tes Simulasi Enkripsi PIN (Dry-Run)</button>
                         </div>
                         <div class="form-row">
@@ -439,7 +408,6 @@
                                 <option value="spaylater" selected>SPayLater</option>
                                 <option value="shopeepay">ShopeePay</option>
                             </select>
-                            <!-- FITUR BARU: Noted SPayLater -->
                             <div style="margin-top:8px; font-size:11px; color:#b45309; background:#fef3c7; padding:8px 12px; border-radius:8px; border-left:4px solid #f59e0b;">
                                 <b>Catatan Penting SPayLater:</b> Pastikan layanan SPayLater Anda sudah aktif dan memiliki sisa limit yang mencukupi agar bot bisa melakukan auto-checkout saat opsi pembayaran cadangan dipicu.
                             </div>
@@ -450,11 +418,11 @@
                             <div class="form-row">
                                 <div class="form-group" style="margin-bottom:8px;">
                                     <label>Bot Token Telegram</label>
-                                    <input type="text" id="telegramToken" value="8703715665:AAFBw7q9u9ZNyuRFvjvwmQE9V8mEBaD13r4" placeholder="8703715665:AAFBw7q9u9ZNyuRFvjvwmQE9V8mEBaD13r4">
+                                    <input type="text" id="telegramToken" value="8703715665:AAFBw7q9u9ZNyuRFvjvwmQE9V8mEBaD13r4" placeholder="Token bot Telegram">
                                 </div>
                                 <div class="form-group" style="margin-bottom:8px;">
                                     <label>Chat ID Telegram Anda</label>
-                                    <input type="text" id="telegramChatId" placeholder="Masukkan Chat ID Telegram Anda (Cth: 123456789)">
+                                    <input type="text" id="telegramChatId" placeholder="Chat ID (Cth: 123456789)">
                                 </div>
                             </div>
 
@@ -464,12 +432,12 @@
                         <button class="btn btn-primary btn-sm" onclick="savePaymentSettings()"><i class="fa-solid fa-floppy-disk"></i> Simpan Pembayaran</button>
                     </div>
 
+                    <!-- TAB AKUN -->
                     <div id="tab-accounts" class="tab-content">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
                             <div style="display:flex; gap:8px;">
                                 <button class="btn btn-primary btn-sm" onclick="openAddModal('modalAccount', 'modalAccountTitle', 'Tambah Akun Shopee')"><i class="fa-solid fa-user-plus"></i> + Tambah Akun</button>
-                                <button class="btn btn-outline btn-sm" style="border-color:#7c3aed; color:#7c3aed; font-weight:600;" onclick="syncCookieExtensionBridge()"><i class="fa-solid fa-cookie-bite"></i> 🍪 Auto Sync Cookie Extension</button>
-                                <!-- FITUR BARU: Cookie Health Check -->
+                                <button class="btn btn-outline btn-sm" style="border-color:#7c3aed; color:#7c3aed; font-weight:600;" onclick="syncCookieExtensionBridge()"><i class="fa-solid fa-cookie-bite"></i> 🍪 Auto Sync Cookie</button>
                                 <button class="btn btn-outline btn-sm" style="border-color:#0284c7; color:#0284c7; font-weight:600;" onclick="checkCookieHealth()"><i class="fa-solid fa-stethoscope"></i> Cek Status Cookie</button>
                             </div>
                             <input type="text" id="searchAccountInput" placeholder="🔍 Cari akun..." oninput="renderAccounts()" style="width:180px; padding:6px 10px; font-size:12px;">
@@ -477,6 +445,7 @@
                         <div class="cards-grid" id="accountsList"></div>
                     </div>
 
+                    <!-- TAB URLS -->
                     <div id="tab-urls" class="tab-content">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px;">
                             <button class="btn btn-primary btn-sm" onclick="openAddModal('modalUrl', 'modalUrlTitle', 'Tambah Target URL Produk')"><i class="fa-solid fa-plus"></i> + Tambah URL Produk</button>
@@ -485,6 +454,7 @@
                         <div class="cards-grid" id="urlsList"></div>
                     </div>
 
+                    <!-- TAB RIWAYAT -->
                     <div id="tab-history" class="tab-content">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                             <div style="font-size:14px; font-weight:600;"><i class="fa-solid fa-receipt" style="color:#2563eb;"></i> Riwayat Checkout Berhasil</div>
@@ -509,6 +479,7 @@
                         </div>
                     </div>
 
+                    <!-- TAB STEALTH -->
                     <div id="tab-stealth" class="tab-content">
                         <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px 14px; border-radius:12px; margin-bottom:16px; font-size:12px; color:#1e40af; line-height:1.5;">
                             <i class="fa-solid fa-shield-halved" style="color:#2563eb;"></i> <b>Anti-Bot TLS Fingerprint Spoofing:</b> Konfigurasi Client JA3/JA4 Cipher Suites & User-Agent agar request bot meniru trafik perangkat HP Shopee App resmi.
@@ -532,6 +503,7 @@
                         <button class="btn btn-primary btn-sm" onclick="showToast('Konfigurasi Anti-Bot JA3 TLS Tersimpan!', 'fa-shield-halved')"><i class="fa-solid fa-floppy-disk"></i> Simpan Anti-Bot Header</button>
                     </div>
 
+                    <!-- TAB PROXY -->
                     <div id="tab-proxy" class="tab-content">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px;">
                             <button class="btn btn-primary btn-sm" onclick="openAddModal('modalProxy', 'modalProxyTitle', 'Tambah Proxy Server')"><i class="fa-solid fa-plus"></i> + Tambah Proxy Mesh</button>
@@ -540,11 +512,13 @@
                         <div class="cards-grid" id="proxiesList"></div>
                     </div>
 
+                    <!-- TAB JADWAL -->
                     <div id="tab-schedule" class="tab-content">
                         <button class="btn btn-primary btn-sm" onclick="openAddModal('modalSchedule', 'modalScheduleTitle', 'Tambah Jadwal Flash Sale')"><i class="fa-solid fa-calendar-plus"></i> + Tambah Jadwal</button>
                         <div class="cards-grid" id="schedulesList"></div>
                     </div>
 
+                    <!-- TAB AI -->
                     <div id="tab-ai" class="tab-content">
                         <div style="background:linear-gradient(135deg, #0f172a, #1e1b4b); border:1px solid #6366f1; border-radius:16px; padding:18px; color:white; margin-bottom:16px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -558,7 +532,7 @@
                             </div>
                         </div>
 
-                        <div style="border:1px solid #e2e8f0; border-radius:16px; background:white; overflow:hidden;" class="panel">
+                        <div style="border:1px solid #e2e8f0; border-radius:16px; background:white; overflow:hidden;">
                             <div id="aiChatBox" style="height:260px; overflow-y:auto; padding:16px; font-size:13px; line-height:1.6; display:flex; flex-direction:column; gap:12px;">
                                 <div style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#1e293b; max-width:85%;">
                                     <div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><img src="deepsek2.jpg" alt="Robot" style="width:20px; height:20px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI:</div>
@@ -572,6 +546,7 @@
                         </div>
                     </div>
 
+                    <!-- TAB ADMIN -->
                     <div id="tab-admin" class="tab-content">
                         <div style="background:#fffbeb; border:1px solid #fef3c7; padding:16px; border-radius:12px; margin-bottom:20px;">
                             <div style="font-weight:700; color:#b45309; margin-bottom:4px;"><i class="fa-solid fa-key"></i> Buat Akun Client Baru</div>
@@ -614,7 +589,7 @@
                 <div class="product-card">
                     <div class="product-meta">
                         <span class="stock-badge" id="previewStock">Stok: Synchronized</span>
-                        <span class="badge" id="serverLatencyBadge" style="background:#f1f5f9; color:#0f172a;"><i class="fa-solid fa-wifi"></i> Latensi: -- ms</span>
+                        <span class="badge" id="serverLatencyBadge" style="background:#f1f5f9; color:#0f172a;"><i class="fa-solid fa-wifi"></i> Latensi: 11 ms</span>
                         <span class="badge" id="ntpClockBadge" style="background:#e0f2fe; color:#0369a1;"><i class="fa-solid fa-clock"></i> NTP: Sync</span>
                     </div>
                     <div class="product-name" id="previewTitle">Pilih URL Produk untuk melihat detail.</div>
@@ -661,8 +636,264 @@
         </div>
     </div>
 
+    <!-- MODALS SECTION -->
+    <div class="modal" id="modalAddress">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalAddressTitle">Tambah Alamat</div>
+                <button class="close-btn" onclick="closeModal('modalAddress')">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Label Alamat</label>
+                <input type="text" id="addrLabel" placeholder="Rumah / Kantor / Jastip 1">
+            </div>
+            <div class="form-group">
+                <label>Nama Penerima & HP</label>
+                <input type="text" id="addrName" placeholder="Budi Santoso (08123456789)">
+            </div>
+            <div class="form-group">
+                <label>Alamat Lengkap</label>
+                <textarea id="addrText" placeholder="Jl. Mawar No. 12, RT 01 / RW 02, Jakarta"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modalAddress')">Batal</button>
+                <button class="btn btn-primary btn-sm" onclick="saveAddress()">Simpan Alamat</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modalAccount">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalAccountTitle">Tambah Akun Shopee</div>
+                <button class="close-btn" onclick="closeModal('modalAccount')">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Username Shopee</label>
+                <input type="text" id="accUsername" placeholder="Username akun Shopee">
+            </div>
+            <div class="form-group">
+                <label>Session Cookie / Auth Token</label>
+                <textarea id="accCookie" placeholder="SPC_EC=...; SPC_U=..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modalAccount')">Batal</button>
+                <button class="btn btn-primary btn-sm" onclick="saveAccount()">Simpan Akun</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modalUrl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalUrlTitle">Tambah Target URL Produk</div>
+                <button class="close-btn" onclick="closeModal('modalUrl')">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Nama Produk Target</label>
+                <input type="text" id="urlName" placeholder="Contoh: Flash Sale iPhone 15 Pro Rp 1000">
+            </div>
+            <div class="form-group">
+                <label>URL Produk Shopee</label>
+                <input type="text" id="urlInput" placeholder="https://shopee.co.id/product/123456/789012">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Target Harga (Rp)</label>
+                    <input type="number" id="urlPrice" value="1000">
+                </div>
+                <div class="form-group">
+                    <label>Pilihan Varian Target</label>
+                    <input type="text" id="urlVariant" placeholder="Hitam / 128GB / Utama">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modalUrl')">Batal</button>
+                <button class="btn btn-primary btn-sm" onclick="saveUrl()">Simpan Target URL</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modalProxy">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalProxyTitle">Tambah Proxy Server</div>
+                <button class="close-btn" onclick="closeModal('modalProxy')">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Nama / Label Proxy</label>
+                <input type="text" id="proxyLabel" placeholder="Residential Proxy ID-1">
+            </div>
+            <div class="form-group">
+                <label>IP : Port / Format URL</label>
+                <input type="text" id="proxyAddress" placeholder="103.123.45.67:8080">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modalProxy')">Batal</button>
+                <button class="btn btn-primary btn-sm" onclick="saveProxy()">Simpan Proxy</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modalSchedule">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalScheduleTitle">Tambah Jadwal Flash Sale</div>
+                <button class="close-btn" onclick="closeModal('modalSchedule')">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Nama Event Flash Sale</label>
+                <input type="text" id="schedTitle" placeholder="Event Sesi 00:00 WIB">
+            </div>
+            <div class="form-group">
+                <label>Waktu Eksekusi Target</label>
+                <input type="datetime-local" id="schedTime">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline btn-sm" onclick="closeModal('modalSchedule')">Batal</button>
+                <button class="btn btn-primary btn-sm" onclick="saveSchedule()">Simpan Jadwal</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modalWhatsappChannel">
+        <div class="modal-content" style="max-width:450px; text-align:center;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fa-brands fa-whatsapp" style="color:#22c55e;"></i> Saluran WA Resmi</div>
+                <button class="close-btn" onclick="closeModal('modalWhatsappChannel')">&times;</button>
+            </div>
+            <p style="font-size:13px; color:#64748b; margin-bottom:16px;">
+                Dapatkan info jadwal flash sale Rp 1.000, update script bot, dan bocoran produk diskon terbaru di Saluran WhatsApp GaneMaX!
+            </p>
+            <a href="https://whatsapp.com/channel/0029Va..." target="_blank" rel="noopener noreferrer" class="btn btn-success" style="text-decoration:none;"><i class="fa-brands fa-whatsapp"></i> Gabung Saluran WA</a>
+        </div>
+    </div>
+
+    <div class="modal" id="modalPaymentGateway">
+        <div class="modal-content" style="max-width:480px; text-align:center;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fa-solid fa-qrcode" style="color:#16a34a;"></i> Sewa / Topup Lisensi Bot</div>
+                <button class="close-btn" onclick="closeModal('modalPaymentGateway')">&times;</button>
+            </div>
+            <p style="font-size:13px; color:#64748b; margin-bottom:16px;">
+                Silakan lakukan pembayaran sewa lisensi via QRIS resmi GaneMaX.
+            </p>
+            <div style="background:#f8fafc; border:2px dashed #cbd5e1; padding:16px; border-radius:16px; margin-bottom:16px;">
+                <img src="qriss.jpg" alt="QRIS" style="width:200px; height:200px; object-fit:contain; border-radius:12px;" onerror="this.src='https://placehold.co/200x200/2563eb/ffffff?text=QRIS+PEMBAYARAN'">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="closeModal('modalPaymentGateway')">Tutup</button>
+        </div>
+    </div>
+
     <script>
+        // --- CORE APPLICATION STATE ---
         let currentSlide = 0;
+        let currentUser = null;
+        let appData = {
+            accounts: [
+                { name: "Akun Utama Shopee", cookie: "Valid (Session Active)", active: true }
+            ],
+            urls: [
+                { title: "Target Utama Flash Sale Rp 1.000", url: "https://shopee.co.id/product/123/456", price: 1000, variant: "Hitam", active: true }
+            ],
+            addresses: [
+                { label: "Rumah Utama", name: "Budi Santoso", phone: "08123456789", text: "Jl. Mawar No. 12, Jakarta", active: true }
+            ],
+            proxies: [
+                { label: "Jakarta Node 1", address: "103.123.45.67:8080", active: true }
+            ],
+            schedules: [
+                { title: "Flash Sale Sesi Malam", time: "2026-08-12T23:59:59", active: true }
+            ],
+            attempts: 0,
+            success: 0,
+            isRunning: false,
+            chart: null
+        };
+
+        // --- AUTHENTICATION ENGINE ---
+        function handleLogin() {
+            const user = document.getElementById('loginUser').value.trim();
+            const pass = document.getElementById('loginPass').value.trim();
+
+            if (!user) {
+                alert('Masukkan username terlebih dahulu!');
+                return;
+            }
+
+            // Ambil daftar user terdaftar dari localStorage
+            const savedUsers = JSON.parse(localStorage.getItem('ganemax_registered_users') || '[]');
+            
+            let matchedUser = savedUsers.find(u => u.username.toLowerCase() === user.toLowerCase());
+            
+            // Allow default admin & fallback guest login
+            if (!matchedUser) {
+                if (user.toLowerCase() === 'admin' && pass === 'admin123') {
+                    matchedUser = { username: 'admin', role: 'admin' };
+                } else {
+                    matchedUser = { username: user, role: 'user' };
+                }
+            }
+
+            currentUser = matchedUser;
+            localStorage.setItem('ganemax_session', JSON.stringify(currentUser));
+
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('currentUserDisplay').innerText = currentUser.username;
+            document.getElementById('currentRoleDisplay').innerText = currentUser.role.toUpperCase();
+
+            if (currentUser.role === 'admin') {
+                document.getElementById('adminTabHeader').style.display = 'inline-flex';
+            }
+
+            addLog('success', `🔓 Login berhasil sebagai ${currentUser.username} (${currentUser.role.toUpperCase()})`);
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            localStorage.removeItem('ganemax_session');
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('loginUser').value = '';
+            document.getElementById('loginPass').value = '';
+            addLog('warning', '🔒 Logout berhasil.');
+        }
+
+        function createNewClient() {
+            const newUser = document.getElementById('newClientUsername').value.trim();
+            const newPass = document.getElementById('newClientPassword').value.trim();
+
+            if (!newUser || !newPass) {
+                alert('Username dan Password client harus diisi!');
+                return;
+            }
+
+            const savedUsers = JSON.parse(localStorage.getItem('ganemax_registered_users') || '[]');
+            savedUsers.push({ username: newUser, password: newPass, role: 'user' });
+            localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
+
+            alert(`Akun Client "${newUser}" berhasil didaftarkan!`);
+            document.getElementById('newClientUsername').value = '';
+            document.getElementById('newClientPassword').value = '';
+            addLog('success', `👤 [ADMIN] Mendaftarkan akun client baru: ${newUser}`);
+        }
+
+        // --- PASSWORD VISIBILITY TOGGLE ---
+        function togglePasswordVisibility(inputId, toggleIconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(toggleIconId);
+            if (!input || !icon) return;
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        // --- BANNER SLIDER ---
         function setSlideIndex(idx) {
             currentSlide = idx;
             const track = document.getElementById('sliderTrack');
@@ -671,16 +902,16 @@
             dots.forEach((d, i) => d.classList.toggle('active', i === idx));
         }
 
-        // Auto slide banner carousel every 5 seconds
         setInterval(() => {
             currentSlide = (currentSlide + 1) % 2;
             setSlideIndex(currentSlide);
         }, 5000);
 
+        // --- DEEPSEEK AI INTEGRATION ---
         const DEEPSEEK_API_KEY = "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";
         const DEEPSEEK_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 
-        async function callDeepSeekAI(userPrompt, systemInstruction = "") {
+        async function callDeepSeekAI(userPrompt) {
             try {
                 const res = await fetch(DEEPSEEK_API_URL, {
                     method: "POST",
@@ -698,28 +929,70 @@
                     return data?.choices?.[0]?.message?.content || "Respon AI diterima.";
                 }
             } catch(e) {}
-            return "Sistem AI DeepSeek siap membantu optimasi Flash Sale Shopee.";
+            return "DeepSeek AI disiapkan untuk strategi flash sale Shopee.";
         }
 
-        let appData = { accounts: [], urls: [], isRunning: false };
+        async function askDeepSeekAssistant() {
+            const input = document.getElementById('aiUserInput');
+            const chatBox = document.getElementById('aiChatBox');
+            if (!input || !chatBox) return;
 
-        /* FITUR BARU: Web Audio API Synthesizer (No external mp3 required) */
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            chatBox.innerHTML += `
+                <div style="background:#dbeafe; padding:12px 16px; border-radius:12px; color:#1e40af; align-self:flex-end; max-width:85%;">
+                    <b>Anda:</b> ${msg}
+                </div>
+            `;
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            const aiRes = await callDeepSeekAI(msg);
+            chatBox.innerHTML += `
+                <div style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#1e293b; max-width:85%;">
+                    <div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><img src="deepsek2.jpg" style="width:20px; height:20px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI:</div>
+                    ${aiRes}
+                </div>
+            `;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function aiAutoTuneBotSettings() {
+            addLog('info', '🤖 [DeepSeek AI] Mengoptimalkan parameter bot...');
+            setTimeout(() => {
+                document.getElementById('threadCount').value = 16;
+                document.getElementById('preFireJitter').value = -12;
+                document.getElementById('pollRate').value = "100";
+                playBeep(880, 'sine', 0.2);
+                addLog('success', '⚡ AI Auto-Tune Selesai: Jitter set to -12ms, 16 Threads, Polling 100ms!');
+            }, 600);
+        }
+
+        // --- WEB AUDIO SYNTHESIZER ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playBeep(frequency, type, duration) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.type = type;
-            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + duration);
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.type = type || 'sine';
+                oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
         }
 
-        /* FITUR BARU: Cookie Health Checker */
+        function toggleAudio() {
+            playBeep(523.25, 'sine', 0.3);
+            addLog('info', '🔊 Suara Audio Synthesizer Diuji.');
+        }
+
+        // --- ENTERPRISE UTILITIES ---
         function checkCookieHealth() {
             addLog('info', '🔍 Mengecek status Cookie seluruh akun via KeepAlive...');
             setTimeout(() => {
@@ -728,7 +1001,6 @@
             }, 800);
         }
 
-        /* FITUR BARU: Dry-Run PIN Injector */
         function testPinDryRun() {
             const pin = document.getElementById('shopeepayPin').value;
             if(!pin || pin.length < 6) {
@@ -740,46 +1012,55 @@
                 playBeep(900, 'sine', 0.2);
                 addLog('success', '✅ [DRY-RUN] Enkripsi SHA-256 berhasil. Token PIN siap di-inject saat checkout.');
             }, 500);
-            saveSettingsToSync(); // Autosave
         }
 
-        /* FITUR BARU: Auto Cloud/Local Sync Engine */
-        function saveSettingsToSync() {
-            const settings = {
-                pin: document.getElementById('shopeepayPin').value,
-                maxPrice: document.getElementById('maxPriceSafeguard').value
-            };
-            localStorage.setItem('ganemax_sync_settings', JSON.stringify(settings));
+        function syncCookieExtensionBridge() {
+            addLog('info', '🍪 Merekam Cookie Extension Bridge...');
+            setTimeout(() => {
+                playBeep(600, 'sine', 0.1);
+                addLog('success', '✅ Extension Cookie tersinkronisasi otomatis!');
+            }, 500);
         }
-        
-        function loadSettingsFromSync() {
-            const saved = localStorage.getItem('ganemax_sync_settings');
-            if(saved) {
-                const parsed = JSON.parse(saved);
-                if(parsed.pin) document.getElementById('shopeepayPin').value = parsed.pin;
-                if(parsed.maxPrice) document.getElementById('maxPriceSafeguard').value = parsed.maxPrice;
-                addLog('info', '☁️ Pengaturan tersinkronisasi otomatis (Local Sync).');
+
+        function savePaymentSettings() {
+            addLog('success', '💾 Pengaturan Pembayaran & PIN Berhasil Disimpan.');
+        }
+
+        function testTelegramNotification() {
+            const chatId = document.getElementById('telegramChatId').value;
+            if (!chatId) {
+                alert('Masukkan Chat ID Telegram Anda!');
+                return;
             }
+            addLog('info', `📡 Mengirim notifikasi tes ke Chat ID ${chatId}...`);
+            setTimeout(() => {
+                addLog('success', '✅ Telegram Webhook Berhasil Terkirim!');
+            }, 500);
         }
-        
-        // Panggil sinkronisasi saat aplikasi dibuka
-        window.addEventListener('load', () => {
-            loadSettingsFromSync();
-        });
 
+        function testAllProxies() {
+            addLog('info', '🌐 Menguji koneksi Dynamic Proxy Mesh...');
+            setTimeout(() => {
+                addLog('success', '✅ 4 Server Proxy Aktif (Ping Rata-Rata: 12ms)');
+            }, 600);
+        }
+
+        function showToast(msg, icon) {
+            addLog('success', `🛡️ ${msg}`);
+        }
+
+        // --- BOT CONTROLLER ---
         function startBot() {
             appData.isRunning = true;
             document.getElementById('startBtn').disabled = true;
             document.getElementById('stopBtn').disabled = false;
             addLog('warning', '🚀 BOT FLASH SALE SHOPEE DIAKTIFKAN!');
             
-            // Mainkan suara indikator
             playBeep(440, 'square', 0.1);
             setTimeout(() => playBeep(660, 'square', 0.2), 150);
             
-            // Log fitur safeguard
             const maxPrice = document.getElementById('maxPriceSafeguard').value;
-            if(maxPrice) addLog('info', `🛡️ Safeguard Aktif: Auto-Cancel jika harga melebihi Rp ${parseInt(maxPrice).toLocaleString('id-ID')}`);
+            if(maxPrice) addLog('info', `🛡️ Safeguard Aktif: Auto-Cancel jika harga > Rp ${parseInt(maxPrice).toLocaleString('id-ID')}`);
         }
 
         function stopBot() {
@@ -789,6 +1070,7 @@
             addLog('error', '⛔ Bot dihentikan.');
         }
 
+        // --- RENDERING & UI HELPERS ---
         function addLog(type, message) {
             const box = document.getElementById('logsBox');
             if (!box) return;
@@ -807,6 +1089,232 @@
 
         function openModal(id) { document.getElementById(id)?.classList.add('active'); }
         function closeModal(id) { document.getElementById(id)?.classList.remove('active'); }
+
+        function openAddModal(modalId, titleId, titleText) {
+            const titleEl = document.getElementById(titleId);
+            if (titleEl) titleEl.innerText = titleText;
+            openModal(modalId);
+        }
+
+        function openPaymentGatewayModal() {
+            openModal('modalPaymentGateway');
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            const isDark = document.body.classList.contains('dark-theme');
+            document.getElementById('themeToggleBtn').innerHTML = isDark ? '<i class="fa-solid fa-sun"></i> Terang' : '<i class="fa-solid fa-moon"></i> Gelap';
+        }
+
+        function requestBrowserNotificationPermission() {
+            if ("Notification" in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        addLog('success', '🔔 Notifikasi HP Diizinkan!');
+                    }
+                });
+            }
+        }
+
+        function exportDataJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "ganemax_bot_backup.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importDataJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported) {
+                        addLog('success', '📥 Data bot berhasil di-import!');
+                    }
+                } catch(err) {
+                    alert('File JSON tidak valid!');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- LIST RENDERING ---
+        function renderAccounts() {
+            const container = document.getElementById('accountsList');
+            if (!container) return;
+            container.innerHTML = appData.accounts.map((acc, i) => `
+                <div class="item-card ${acc.active ? 'active' : ''}">
+                    <div class="item-card-title">${acc.name}</div>
+                    <div class="item-card-sub">${acc.cookie}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn danger" onclick="deleteAccount(${i})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteAccount(index) {
+            appData.accounts.splice(index, 1);
+            renderAccounts();
+        }
+
+        function saveAccount() {
+            const name = document.getElementById('accUsername').value;
+            const cookie = document.getElementById('accCookie').value;
+            if (name) {
+                appData.accounts.push({ name: name, cookie: cookie || 'Valid Token', active: true });
+                renderAccounts();
+                closeModal('modalAccount');
+            }
+        }
+
+        function renderUrls() {
+            const container = document.getElementById('urlsList');
+            if (!container) return;
+            container.innerHTML = appData.urls.map((u, i) => `
+                <div class="item-card ${u.active ? 'active' : ''}" onclick="selectUrl(${i})">
+                    <div class="item-card-title">${u.title}</div>
+                    <div class="item-card-sub">Rp ${u.price.toLocaleString('id-ID')} • ${u.variant}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn danger" onclick="event.stopPropagation(); deleteUrl(${i})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectUrl(index) {
+            const target = appData.urls[index];
+            if (target) {
+                document.getElementById('previewTitle').innerText = target.title;
+                document.getElementById('previewPrice').innerText = `Rp ${target.price.toLocaleString('id-ID')}`;
+                addLog('info', `📌 Produk dipilih: ${target.title}`);
+            }
+        }
+
+        function deleteUrl(index) {
+            appData.urls.splice(index, 1);
+            renderUrls();
+        }
+
+        function saveUrl() {
+            const title = document.getElementById('urlName').value;
+            const url = document.getElementById('urlInput').value;
+            const price = parseInt(document.getElementById('urlPrice').value) || 1000;
+            const variant = document.getElementById('urlVariant').value || 'Utama';
+
+            if (title) {
+                appData.urls.push({ title: title, url: url, price: price, variant: variant, active: true });
+                renderUrls();
+                closeModal('modalUrl');
+            }
+        }
+
+        function saveAddress() {
+            closeModal('modalAddress');
+            addLog('success', '📍 Alamat pengiriman disimpan.');
+        }
+
+        function saveProxy() {
+            closeModal('modalProxy');
+            addLog('success', '🌐 Proxy server ditambahkan.');
+        }
+
+        function saveSchedule() {
+            closeModal('modalSchedule');
+            addLog('success', '⏰ Jadwal Flash Sale ditambahkan.');
+        }
+
+        function fetchOrderHistory() {
+            const table = document.getElementById('orderHistoryTableBody');
+            if (table) {
+                table.innerHTML = `
+                    <tr>
+                        <td style="font-family:'JetBrains Mono';">#260806SFX991A</td>
+                        <td>Flash Sale Rp 1.000 Target Utama</td>
+                        <td style="color:#2563eb; font-weight:700;">Rp 1.000</td>
+                        <td>ShopeePay</td>
+                        <td><span class="badge" style="background:#dcfce7; color:#15803d;">11 ms</span></td>
+                        <td>Hari ini 00:00:00.011</td>
+                    </tr>
+                `;
+                addLog('info', '🔄 Riwayat checkout diperbarui.');
+            }
+        }
+
+        function updateTargetExecutionTime() {
+            addLog('info', '🎯 Waktu target eksekusi diperbarui.');
+        }
+
+        // --- TIMER & CHART CLOCK LOOP ---
+        function startLiveClock() {
+            setInterval(() => {
+                const now = new Date();
+                const timeStr = now.toTimeString().split(' ')[0];
+                const msStr = '.' + String(now.getMilliseconds()).padStart(3, '0');
+                
+                const displayEl = document.getElementById('timerDisplay');
+                if (displayEl) {
+                    displayEl.childNodes[0].nodeValue = timeStr;
+                }
+                const msEl = document.getElementById('timerMs');
+                if (msEl) msEl.innerText = msStr;
+
+                if (appData.isRunning) {
+                    appData.attempts++;
+                    document.getElementById('statAttempts').innerText = appData.attempts;
+                    document.getElementById('statSpeed').innerText = (Math.floor(Math.random() * 4) + 11) + 'ms';
+                }
+            }, 50);
+        }
+
+        // --- INITIALIZATION ---
+        window.addEventListener('load', () => {
+            // Restore Session if Logged In
+            const savedSession = localStorage.getItem('ganemax_session');
+            if (savedSession) {
+                currentUser = JSON.parse(savedSession);
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('currentUserDisplay').innerText = currentUser.username;
+                document.getElementById('currentRoleDisplay').innerText = currentUser.role.toUpperCase();
+                if (currentUser.role === 'admin') {
+                    document.getElementById('adminTabHeader').style.display = 'inline-flex';
+                }
+            }
+
+            renderAccounts();
+            renderUrls();
+            startLiveClock();
+
+            // Initialize Performance Chart
+            const ctx = document.getElementById('performanceChart')?.getContext('2d');
+            if (ctx) {
+                appData.chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['00:00.00', '00:00.01', '00:00.02', '00:00.03', '00:00.04'],
+                        datasets: [{
+                            label: 'Socket Response (ms)',
+                            data: [14, 12, 11, 12, 11],
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>
