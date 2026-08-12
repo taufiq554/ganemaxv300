@@ -1332,10 +1332,8 @@ Tugas Anda:
 
         async function callDeepSeekAI(userPrompt) {
             try {
-                // Simpan pesan user ke dalam riwayat obrolan
                 aiChatHistory.push({ role: "user", content: userPrompt });
 
-                // Batasi riwayat obrolan agar tidak melebih batas token (maksimal 10 pesan terakhir)
                 if (aiChatHistory.length > 11) {
                     aiChatHistory = [aiChatHistory[0], ...aiChatHistory.slice(-10)];
                 }
@@ -1379,6 +1377,10 @@ Tugas Anda:
             return "Maaf, tidak ada respon dari AI.";
         }
 
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
         async function askDeepSeekAssistant() {
             const input = document.getElementById('aiUserInput');
             const chatBox = document.getElementById('aiChatBox');
@@ -1387,7 +1389,6 @@ Tugas Anda:
             const msg = input.value.trim();
             if (!msg) return;
 
-            // Tampilkan pesan pengguna di layar chat
             chatBox.innerHTML += `
                 <div style="background:#dbeafe; padding:12px 16px; border-radius:12px; color:#1e40af; align-self:flex-end; max-width:85%;">
                     <b>Anda:</b> ${escapeHtml(msg)}
@@ -1396,7 +1397,6 @@ Tugas Anda:
             input.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
 
-            // Indicator loading
             const loadingId = 'aiLoading_' + Date.now();
             chatBox.innerHTML += `
                 <div id="${loadingId}" style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#64748b; max-width:85%;">
@@ -1407,50 +1407,15 @@ Tugas Anda:
 
             const aiRes = await callDeepSeekAI(msg);
             
-            // Hapus indicator loading
             const loadingEl = document.getElementById(loadingId);
             if (loadingEl) loadingEl.remove();
 
-            // Format jawaban dengan line break
             const formattedReply = aiRes.replace(/\n/g, '<br>');
 
             chatBox.innerHTML += `
                 <div style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#1e293b; max-width:85%;">
                     <div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><img src="deepsek2.jpg" style="width:20px; height:20px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI:</div>
                     ${formattedReply}
-                </div>
-            `;
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-        function escapeHtml(text) {
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
-            } catch(e) {}
-            return "DeepSeek AI disiapkan untuk strategi flash sale Shopee.";
-        }
-
-        async function askDeepSeekAssistant() {
-            const input = document.getElementById('aiUserInput');
-            const chatBox = document.getElementById('aiChatBox');
-            if (!input || !chatBox) return;
-
-            const msg = input.value.trim();
-            if (!msg) return;
-
-            chatBox.innerHTML += `
-                <div style="background:#dbeafe; padding:12px 16px; border-radius:12px; color:#1e40af; align-self:flex-end; max-width:85%;">
-                    <b>Anda:</b> ${msg}
-                </div>
-            `;
-            input.value = '';
-            chatBox.scrollTop = chatBox.scrollHeight;
-
-            const aiRes = await callDeepSeekAI(msg);
-            chatBox.innerHTML += `
-                <div style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#1e293b; max-width:85%;">
-                    <div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><img src="deepsek2.jpg" style="width:20px; height:20px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI:</div>
-                    ${aiRes}
                 </div>
             `;
             chatBox.scrollTop = chatBox.scrollHeight;
