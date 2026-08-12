@@ -1315,9 +1315,9 @@
             setSlideIndex(currentSlide);
         }, 5000);
 
-        // --- DEEPSEEK AI INTEGRATION ---
-        const DEEPSEEK_API_KEY = "sk-7d3daf92d6124cf5b5084abaff91ea06";
-        const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
+        // --- OPENROUTER / DEEPSEEK AI INTEGRATION ---
+        const OPENROUTER_API_KEY = "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";
+        const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
         let aiChatHistory = [
             { 
@@ -1338,14 +1338,16 @@ Tugas Anda:
                     aiChatHistory = [aiChatHistory[0], ...aiChatHistory.slice(-10)];
                 }
 
-                const res = await fetch(DEEPSEEK_API_URL, {
+                const res = await fetch(OPENROUTER_API_URL, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "Authorization": `Bearer ${DEEPSEEK_API_KEY}`
+                        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                        "HTTP-Referer": "https://ganemax.my.id",
+                        "X-Title": "GaneMaX Flash Sale Manager"
                     },
                     body: JSON.stringify({
-                        model: "deepseek-chat",
+                        model: "deepseek/deepseek-chat",
                         messages: aiChatHistory,
                         temperature: 0.7,
                         max_tokens: 800
@@ -1361,18 +1363,18 @@ Tugas Anda:
                     }
                 } else {
                     const errData = await res.json().catch(() => ({}));
-                    console.error("DeepSeek API Error:", res.status, errData);
+                    console.error("OpenRouter API Error:", res.status, errData);
                     if (res.status === 402) {
-                        return "⚠️ **Saldo/Kuota API Key DeepSeek Anda telah habis (Error 402 Payment Required)**. Silakan isi ulang kredit di dashboard DeepSeek.";
+                        return "⚠️ **Saldo/Kuota OpenRouter Anda belum terisi atau habis (Error 402)**. Silakan isi saldo di dashboard OpenRouter.";
                     } else if (res.status === 401) {
-                        return "⚠️ **API Key DeepSeek tidak valid (Error 401)**. Periksa kembali API Key Anda.";
+                        return "⚠️ **API Key OpenRouter tidak valid (Error 401)**. Periksa kembali API Key Anda.";
                     } else {
-                        return `⚠️ Server DeepSeek merespon error (${res.status}): ${errData?.error?.message || 'Gagal memproses AI.'}`;
+                        return `⚠️ OpenRouter merespon error (${res.status}): ${errData?.error?.message || 'Gagal memproses AI.'}`;
                     }
                 }
             } catch(e) {
                 console.error("Fetch Error:", e);
-                return "⚠️ **Gagal terhubung ke DeepSeek API**. Kemungkinan diblokir oleh kebijakan CORS Browser saat diakses lokal. Pastikan koneksi internet stabil.";
+                return "⚠️ **Gagal terhubung ke OpenRouter API**. Kemungkinan koneksi terputus atau diblokir CORS browser.";
             }
             return "Maaf, tidak ada respon dari AI.";
         }
