@@ -1319,8 +1319,27 @@
         const DEEPSEEK_API_KEY = "sk-7d3daf92d6124cf5b5084abaff91ea06";
         const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
+        let aiChatHistory = [
+            { 
+                role: "system", 
+                content: `Anda adalah pakar AI strategi Flash Sale Shopee & konsultan teknis otomatisasi bot GaneMaX.Ai.
+Tugas Anda:
+1. Memberikan jawaban yang bervariasi, spesifik, realistis, dan kontekstual Bahasa Indonesia.
+2. Memberikan saran konkret terkait: Jitter offset (misal -10ms s/d -20ms), jumlah thread (10-25 threads), rotasi proxy, tips klaim voucher ongkir/diskon, dan keamanan saldo ShopeePay.
+3. Analisis pertanyaan pengguna secara mendalam dan berikan solusi langkah demi langkah.` 
+            }
+        ];
+
         async function callDeepSeekAI(userPrompt) {
             try {
+                // Simpan pesan user ke dalam riwayat obrolan
+                aiChatHistory.push({ role: "user", content: userPrompt });
+
+                // Batasi riwayat obrolan agar tidak melebih batas token (maksimal 10 pesan terakhir)
+                if (aiChatHistory.length > 11) {
+                    aiChatHistory = [aiChatHistory[0], ...aiChatHistory.slice(-10)];
+                }
+
                 const res = await fetch(DEEPSEEK_API_URL, {
                     method: "POST",
                     headers: {
@@ -1329,16 +1348,84 @@
                     },
                     body: JSON.stringify({
                         model: "deepseek-chat",
-                        messages: [
-                            { role: "system", content: "Anda adalah asisten AI strategi Flash Sale Shopee untuk aplikasi GaneMaX.Ai. Jawab dengan ringkas, tajam, profesional, dan membantu dalam Bahasa Indonesia." },
-                            { role: "user", content: userPrompt }
-                        ]
+                        messages: aiChatHistory,
+                        temperature: 0.7,
+                        max_tokens: 800
                     })
                 });
+
                 if (res.ok) {
                     const data = await res.json();
-                    return data?.choices?.[0]?.message?.content || "Respon AI diterima.";
+                    const aiReply = data?.choices?.[0]?.message?.content;
+                    if (aiReply) {
+                        aiChatHistory.push({ role: "assistant", content: aiReply });
+                        return aiReply;
+                    }
+                } else {
+                    const errData = await res.json().catch(() => ({}));
+                    console.error("DeepSeek API Error:", res.status, errData);
+                    if (res.status === 402) {
+                        return "⚠️ **Saldo/Kuota API Key DeepSeek Anda telah habis (Error 402 Payment Required)**. Silakan isi ulang kredit di dashboard DeepSeek.";
+                    } else if (res.status === 401) {
+                        return "⚠️ **API Key DeepSeek tidak valid (Error 401)**. Periksa kembali API Key Anda.";
+                    } else {
+                        return `⚠️ Server DeepSeek merespon error (${res.status}): ${errData?.error?.message || 'Gagal memproses AI.'}`;
+                    }
                 }
+            } catch(e) {
+                console.error("Fetch Error:", e);
+                return "⚠️ **Gagal terhubung ke DeepSeek API**. Kemungkinan diblokir oleh kebijakan CORS Browser saat diakses lokal. Pastikan koneksi internet stabil.";
+            }
+            return "Maaf, tidak ada respon dari AI.";
+        }
+
+        async function askDeepSeekAssistant() {
+            const input = document.getElementById('aiUserInput');
+            const chatBox = document.getElementById('aiChatBox');
+            if (!input || !chatBox) return;
+
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            // Tampilkan pesan pengguna di layar chat
+            chatBox.innerHTML += `
+                <div style="background:#dbeafe; padding:12px 16px; border-radius:12px; color:#1e40af; align-self:flex-end; max-width:85%;">
+                    <b>Anda:</b> ${escapeHtml(msg)}
+                </div>
+            `;
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Indicator loading
+            const loadingId = 'aiLoading_' + Date.now();
+            chatBox.innerHTML += `
+                <div id="${loadingId}" style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#64748b; max-width:85%;">
+                    <div style="display:flex; align-items:center; gap:6px; font-weight:700;"><i class="fa-solid fa-spinner fa-spin"></i> DeepSeek AI sedang menganalisis strategi...</div>
+                </div>
+            `;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            const aiRes = await callDeepSeekAI(msg);
+            
+            // Hapus indicator loading
+            const loadingEl = document.getElementById(loadingId);
+            if (loadingEl) loadingEl.remove();
+
+            // Format jawaban dengan line break
+            const formattedReply = aiRes.replace(/\n/g, '<br>');
+
+            chatBox.innerHTML += `
+                <div style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#1e293b; max-width:85%;">
+                    <div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><img src="deepsek2.jpg" style="width:20px; height:20px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI:</div>
+                    ${formattedReply}
+                </div>
+            `;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
             } catch(e) {}
             return "DeepSeek AI disiapkan untuk strategi flash sale Shopee.";
         }
