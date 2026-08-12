@@ -535,9 +535,9 @@
                         <div style="background:linear-gradient(135deg, #0f172a, #1e1b4b); border:1px solid #6366f1; border-radius:16px; padding:18px; color:white; margin-bottom:16px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                                 <div style="font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px;">
-                                    <img src="deepsek.jpg" alt="DeepSeek Logo" style="width:24px; height:24px; border-radius:6px; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI v4 Pro Strategy Advisor
+                                    <img src="deepsek.jpg" alt="DeepSeek Logo" style="width:24px; height:24px; border-radius:6px; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI Strategy Advisor
                                 </div>
-                                <span class="badge" style="background:#4c1d95; color:#c084fc; font-size:10px; border:1px solid #7e22ce;">NVIDIA API Online</span>
+                                <span class="badge" style="background:#4c1d95; color:#c084fc; font-size:10px; border:1px solid #7e22ce;">DeepSeek API Online</span>
                             </div>
                             <div style="font-size:12px; color:#cbd5e1; line-height:1.5; margin-bottom:14px;">
                                 Konsultasikan strategi flash sale, pengaturan jitter offset, cara klaim voucher, hingga optimasi kecepatan bot dengan AI DeepSeek.
@@ -1316,8 +1316,8 @@
         }, 5000);
 
         // --- DEEPSEEK AI INTEGRATION ---
-        const DEEPSEEK_API_KEY = "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";
-        const DEEPSEEK_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
+        const DEEPSEEK_API_KEY = "sk-7d3daf92d6124cf5b5084abaff91ea06";
+        const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
         async function callDeepSeekAI(userPrompt) {
             try {
@@ -1328,8 +1328,11 @@
                         "Authorization": `Bearer ${DEEPSEEK_API_KEY}`
                     },
                     body: JSON.stringify({
-                        model: "deepseek-ai/deepseek-v4-pro",
-                        messages: [{ role: "user", content: userPrompt }]
+                        model: "deepseek-chat",
+                        messages: [
+                            { role: "system", content: "Anda adalah asisten AI strategi Flash Sale Shopee untuk aplikasi GaneMaX.Ai. Jawab dengan ringkas, tajam, profesional, dan membantu dalam Bahasa Indonesia." },
+                            { role: "user", content: userPrompt }
+                        ]
                     })
                 });
                 if (res.ok) {
