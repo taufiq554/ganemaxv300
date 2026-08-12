@@ -241,8 +241,8 @@
             </div>
         </header>
 
-        <!-- Pemutar Audio Latar lagu.jpg -->
-        <audio id="bgAudioPlayer" src="lagu.jpg" loop preload="auto"></audio>
+        <!-- Pemutar Audio Latar lagu.mp3 -->
+        <audio id="bgAudioPlayer" src="lagu.mp3" loop preload="auto"></audio>
 
         <!-- BANNER PROMO STANDAR E-COMMERCE -->
         <div class="banner-slider" id="headerSlider">
@@ -560,24 +560,88 @@
 
                     <!-- TAB ADMIN -->
                     <div id="tab-admin" class="tab-content">
-                        <div style="background:#fffbeb; border:1px solid #fef3c7; padding:16px; border-radius:12px; margin-bottom:20px;">
-                            <div style="font-weight:700; color:#b45309; margin-bottom:4px;"><i class="fa-solid fa-key"></i> Buat Akun Client Baru</div>
-                            <div style="font-size:12px; color:#92400e; margin-bottom:12px;">Akun baru akan langsung terdaftar dan dapat langsung digunakan untuk login.</div>
+                        <!-- Admin Quick Stats -->
+                        <div class="stats-grid" style="margin-top:0; margin-bottom:16px;">
+                            <div class="stat-card">
+                                <div class="stat-label">Total Client</div>
+                                <div class="stat-value" id="adminStatTotalUsers">0</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Client Aktif</div>
+                                <div class="stat-value" style="color:#16a34a;" id="adminStatActiveUsers">0</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Kadaluarsa</div>
+                                <div class="stat-value" style="color:#ef4444;" id="adminStatExpiredUsers">0</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">Role System</div>
+                                <div class="stat-value" style="color:#7c3aed; font-size:15px;">SUPER ADMIN</div>
+                            </div>
+                        </div>
+
+                        <!-- Form Register & Setting Masa Kadaluarsa Client -->
+                        <div style="background:#fffbeb; border:1px solid #fef3c7; padding:18px; border-radius:16px; margin-bottom:20px;">
+                            <div style="font-weight:700; color:#b45309; margin-bottom:4px; font-size:15px;"><i class="fa-solid fa-user-plus"></i> Buat & Atur Masa Kadaluarsa Client Baru</div>
+                            <div style="font-size:12px; color:#92400e; margin-bottom:14px;">Registrasi akun client baru dengan masa aktif otomatis.</div>
                             
                             <div class="form-row">
                                 <div class="form-group" style="margin-bottom:10px;">
-                                    <label>Username Client</label>
-                                    <input type="text" id="newClientUsername" placeholder="Username baru">
+                                    <label>Username Client *</label>
+                                    <input type="text" id="newClientUsername" placeholder="Contoh: user_vip_01">
                                 </div>
                                 <div class="form-group" style="margin-bottom:10px;">
-                                    <label>Password Client</label>
+                                    <label>Password Client *</label>
                                     <div class="password-wrapper">
-                                        <input type="password" id="newClientPassword" placeholder="Password baru">
+                                        <input type="password" id="newClientPassword" placeholder="Password client">
                                         <i class="fa-solid fa-eye password-toggle" id="toggleNewClientPass" onclick="togglePasswordVisibility('newClientPassword', 'toggleNewClientPass')"></i>
                                     </div>
                                 </div>
                             </div>
-                            <button class="btn btn-success btn-sm" onclick="createNewClient()"><i class="fa-solid fa-user-check"></i> Register Akun Client</button>
+
+                            <div class="form-row">
+                                <div class="form-group" style="margin-bottom:10px;">
+                                    <label>Durasi Masa Aktif Lisensi</label>
+                                    <select id="newClientDuration" onchange="handleDurationSelectChange(this.value)">
+                                        <option value="30">1 Bulan Pass (30 Hari)</option>
+                                        <option value="60" selected>2 Bulan Pro Pass (60 Hari)</option>
+                                        <option value="365">1 Tahun VIP Pass (365 Hari)</option>
+                                        <option value="custom">Custom Tanggal Kadaluarsa</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom:10px; display:none;" id="customExpiryGroup">
+                                    <label>Tanggal Kadaluarsa Spesifik</label>
+                                    <input type="date" id="newClientCustomDate">
+                                </div>
+                            </div>
+
+                            <button class="btn btn-success btn-sm" onclick="createNewClient()"><i class="fa-solid fa-user-check"></i> Register Akun Client Baru</button>
+                        </div>
+
+                        <!-- Tabel Manajemen Username, Password & Status Kadaluarsa -->
+                        <div style="background:white; border:1px solid #e2e8f0; padding:18px; border-radius:16px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                                <div style="font-weight:700; font-size:15px; color:#0f172a;"><i class="fa-solid fa-users-gear" style="color:#2563eb;"></i> Manajemen Username, Password & Kadaluarsa Client</div>
+                                <input type="text" id="searchAdminClientInput" placeholder="🔍 Cari username client..." oninput="renderAdminClientTable()" style="width:200px; padding:6px 12px; font-size:12px;">
+                            </div>
+
+                            <div style="overflow-x:auto;">
+                                <table class="user-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Username</th>
+                                            <th>Password</th>
+                                            <th>Masa Kadaluarsa</th>
+                                            <th>Sisa Waktu</th>
+                                            <th>Status</th>
+                                            <th>Aksi Admin</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="adminClientTableBody">
+                                        <tr><td colspan="6" style="text-align:center; color:#64748b;">Memuat data client terdaftar...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
@@ -929,7 +993,37 @@
             chart: null
         };
 
-        // --- AUTHENTICATION ENGINE ---
+        // --- HELPER FUNCTIONS UNTUK TANGGAL & REGISTERED USERS ---
+        function getFutureDateStr(days) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            return d.toISOString().split('T')[0];
+        }
+
+        function getRegisteredUsers() {
+            const data = localStorage.getItem('ganemax_registered_users');
+            if (!data) {
+                const defaultUsers = [
+                    { username: 'admin', password: 'admin123', role: 'admin', expiryDate: '2099-12-31', status: 'active' },
+                    { username: 'client_demo', password: 'user1234', role: 'user', expiryDate: getFutureDateStr(60), status: 'active' }
+                ];
+                localStorage.setItem('ganemax_registered_users', JSON.stringify(defaultUsers));
+                return defaultUsers;
+            }
+            return JSON.parse(data);
+        }
+
+        function calculateDaysRemaining(expiryDateStr) {
+            if (!expiryDateStr || expiryDateStr.startsWith('2099')) return '<span style="color:#7c3aed; font-weight:700;">Selamanya (VIP/Admin)</span>';
+            const exp = new Date(expiryDateStr + 'T23:59:59');
+            const now = new Date();
+            const diffTime = exp - now;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays < 0) return '<span style="color:#ef4444; font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> Kadaluarsa</span>';
+            return `<span style="color:#16a34a; font-weight:700;">${diffDays} Hari Lagi</span>`;
+        }
+
+        // --- INSTANT AUTHENTICATION ENGINE (INSTANT & DELAY-FREE) ---
         function handleLogin() {
             const user = document.getElementById('loginUser').value.trim();
             const pass = document.getElementById('loginPass').value.trim();
@@ -939,29 +1033,59 @@
                 return;
             }
 
-            const savedUsers = JSON.parse(localStorage.getItem('ganemax_registered_users') || '[]');
+            const savedUsers = getRegisteredUsers();
             let matchedUser = savedUsers.find(u => u.username.toLowerCase() === user.toLowerCase());
             
             if (!matchedUser) {
                 if (user.toLowerCase() === 'admin' && pass === 'admin123') {
-                    matchedUser = { username: 'admin', role: 'admin' };
+                    matchedUser = { username: 'admin', password: 'admin123', role: 'admin', expiryDate: '2099-12-31', status: 'active' };
                 } else {
-                    matchedUser = { username: user, role: 'user' };
+                    alert('Username tidak ditemukan! Silakan daftar via Admin atau hubungi Telegram @mrpangeranz.');
+                    return;
+                }
+            } else {
+                if (matchedUser.password && matchedUser.password !== pass) {
+                    alert('Password salah! Periksa kembali password Anda.');
+                    return;
+                }
+            }
+
+            // Check if status is blocked
+            if (matchedUser.status === 'blocked') {
+                alert('Akun Anda dinonaktifkan oleh Admin. Silakan hubungi Telegram @mrpangeranz.');
+                return;
+            }
+
+            // Check Expiry Date (except admin)
+            if (matchedUser.role !== 'admin' && matchedUser.expiryDate) {
+                const expDate = new Date(matchedUser.expiryDate + 'T23:59:59');
+                if (expDate < new Date()) {
+                    alert(`Masa aktif lisensi akun "${matchedUser.username}" telah KADALUARSA (${matchedUser.expiryDate}). Silakan lakukan perpanjangan / topup lisensi via QRIS.`);
+                    openPaymentGatewayModal();
+                    return;
                 }
             }
 
             currentUser = matchedUser;
             localStorage.setItem('ganemax_session', JSON.stringify(currentUser));
 
-            document.getElementById('loginScreen').style.display = 'none';
+            // Direct instant switch to dashboard
+            const loginScr = document.getElementById('loginScreen');
+            if (loginScr) loginScr.style.display = 'none';
+
             document.getElementById('currentUserDisplay').innerText = currentUser.username;
-            document.getElementById('currentRoleDisplay').innerText = currentUser.role.toUpperCase();
+            document.getElementById('currentRoleDisplay').innerText = (currentUser.role || 'user').toUpperCase();
 
             if (currentUser.role === 'admin') {
-                document.getElementById('adminTabHeader').style.display = 'inline-flex';
+                const adminTab = document.getElementById('adminTabHeader');
+                if (adminTab) adminTab.style.display = 'inline-flex';
+                renderAdminClientTable();
+            } else {
+                const adminTab = document.getElementById('adminTabHeader');
+                if (adminTab) adminTab.style.display = 'none';
             }
 
-            addLog('success', `🔓 Login berhasil sebagai ${currentUser.username} (${currentUser.role.toUpperCase()})`);
+            addLog('success', `🔓 Login instant berhasil sebagai ${currentUser.username} (${(currentUser.role || 'user').toUpperCase()})`);
         }
 
         function handleLogout() {
@@ -973,23 +1097,192 @@
             addLog('warning', '🔒 Logout berhasil.');
         }
 
+        // --- ADMIN CLIENT MANAGEMENT LOGIC ---
         function createNewClient() {
             const newUser = document.getElementById('newClientUsername').value.trim();
             const newPass = document.getElementById('newClientPassword').value.trim();
+            const durationType = document.getElementById('newClientDuration').value;
+            const customDate = document.getElementById('newClientCustomDate').value;
 
             if (!newUser || !newPass) {
                 alert('Username dan Password client harus diisi!');
                 return;
             }
 
-            const savedUsers = JSON.parse(localStorage.getItem('ganemax_registered_users') || '[]');
-            savedUsers.push({ username: newUser, password: newPass, role: 'user' });
+            let expiryStr = '';
+            if (durationType === 'custom') {
+                if (!customDate) {
+                    alert('Pilih tanggal kadaluarsa custom terlebih dahulu!');
+                    return;
+                }
+                expiryStr = customDate;
+            } else {
+                const days = parseInt(durationType) || 30;
+                expiryStr = getFutureDateStr(days);
+            }
+
+            const savedUsers = getRegisteredUsers();
+            if (savedUsers.some(u => u.username.toLowerCase() === newUser.toLowerCase())) {
+                alert(`Username "${newUser}" sudah terdaftar! Gunakan username lain.`);
+                return;
+            }
+
+            const newAccountObj = {
+                username: newUser,
+                password: newPass,
+                role: 'user',
+                expiryDate: expiryStr,
+                status: 'active',
+                createdAt: new Date().toISOString().split('T')[0]
+            };
+
+            savedUsers.push(newAccountObj);
             localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
 
-            alert(`Akun Client "${newUser}" berhasil didaftarkan!`);
+            alert(`Akun Client "${newUser}" berhasil didaftarkan dengan masa aktif hingga ${expiryStr}!`);
             document.getElementById('newClientUsername').value = '';
             document.getElementById('newClientPassword').value = '';
-            addLog('success', `👤 [ADMIN] Mendaftarkan akun client baru: ${newUser}`);
+
+            renderAdminClientTable();
+            addLog('success', `👤 [ADMIN] Mendaftarkan client baru: ${newUser} (Expired: ${expiryStr})`);
+        }
+
+        function renderAdminClientTable() {
+            const tbody = document.getElementById('adminClientTableBody');
+            if (!tbody) return;
+
+            const savedUsers = getRegisteredUsers();
+            const searchVal = (document.getElementById('searchAdminClientInput')?.value || '').toLowerCase();
+
+            const filtered = savedUsers.filter(u => 
+                u.username.toLowerCase().includes(searchVal) ||
+                (u.role && u.role.toLowerCase().includes(searchVal))
+            );
+
+            let totalCount = savedUsers.length;
+            let activeCount = 0;
+            let expiredCount = 0;
+
+            const now = new Date();
+
+            savedUsers.forEach(u => {
+                if (u.role === 'admin') {
+                    activeCount++;
+                } else {
+                    const exp = new Date((u.expiryDate || '2000-01-01') + 'T23:59:59');
+                    if (exp >= now && u.status !== 'blocked') {
+                        activeCount++;
+                    } else {
+                        expiredCount++;
+                    }
+                }
+            });
+
+            if (document.getElementById('adminStatTotalUsers')) document.getElementById('adminStatTotalUsers').innerText = totalCount;
+            if (document.getElementById('adminStatActiveUsers')) document.getElementById('adminStatActiveUsers').innerText = activeCount;
+            if (document.getElementById('adminStatExpiredUsers')) document.getElementById('adminStatExpiredUsers').innerText = expiredCount;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#64748b;">Tidak ada akun client yang cocok.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filtered.map((u, i) => {
+                const isExp = u.role !== 'admin' && new Date((u.expiryDate || '2000-01-01') + 'T23:59:59') < now;
+                const statusBadge = u.status === 'blocked' 
+                    ? '<span class="badge" style="background:#fef2f2; color:#dc2626;">DIBLOKIR</span>'
+                    : isExp 
+                        ? '<span class="badge" style="background:#fef2f2; color:#dc2626;">KADALUARSA</span>'
+                        : '<span class="badge" style="background:#dcfce7; color:#15803d;">AKTIF</span>';
+
+                const daysRem = calculateDaysRemaining(u.expiryDate);
+
+                return `
+                    <tr>
+                        <td style="font-weight:700; color:#0f172a;">${u.username} ${u.role === 'admin' ? '<span class="badge badge-role" style="font-size:9px;">ADMIN</span>' : ''}</td>
+                        <td>
+                            <div class="password-wrapper" style="max-width:140px;">
+                                <input type="password" value="${u.password || ''}" readonly id="adminPassView_${i}" style="padding:4px 8px; font-size:12px; font-family:'JetBrains Mono'; border-radius:6px;">
+                                <i class="fa-solid fa-eye password-toggle" id="toggleAdminPassIcon_${i}" onclick="togglePasswordVisibility('adminPassView_${i}', 'toggleAdminPassIcon_${i}')" style="right:8px; font-size:12px;"></i>
+                            </div>
+                        </td>
+                        <td style="font-family:'JetBrains Mono'; font-size:12px;">${u.expiryDate || 'Selamanya'}</td>
+                        <td>${daysRem}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                                ${u.role !== 'admin' ? `
+                                    <button class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 8px; color:#2563eb; border-color:#bfdbfe;" onclick="extendClientExpiry('${u.username}', 30)" title="Tambah +30 Hari">+30 Hari</button>
+                                    <button class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 8px; color:#7c3aed; border-color:#ddd6fe;" onclick="changeClientExpiryPrompt('${u.username}')" title="Edit Tanggal Expired"><i class="fa-solid fa-pen"></i> Atur Date</button>
+                                    <button class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 8px; color:${u.status === 'blocked' ? '#16a34a' : '#d97706'}; border-color:#e2e8f0;" onclick="toggleClientStatus('${u.username}')">${u.status === 'blocked' ? 'Unblock' : 'Block'}</button>
+                                    <button class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 8px; color:#ef4444; border-color:#fca5a5;" onclick="deleteClientAccount('${u.username}')" title="Hapus Client"><i class="fa-solid fa-trash"></i></button>
+                                ` : '<span style="font-size:11px; color:#64748b;">Super Admin</span>'}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function extendClientExpiry(username, extraDays) {
+            const savedUsers = getRegisteredUsers();
+            const target = savedUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
+            if (!target) return;
+
+            let baseDate = new Date();
+            if (target.expiryDate && new Date(target.expiryDate + 'T23:59:59') > baseDate) {
+                baseDate = new Date(target.expiryDate + 'T23:59:59');
+            }
+
+            baseDate.setDate(baseDate.getDate() + extraDays);
+            target.expiryDate = baseDate.toISOString().split('T')[0];
+
+            localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
+            renderAdminClientTable();
+            addLog('success', `⚡ [ADMIN] Perpanjang +${extraDays} hari untuk client "${username}" (Expired Baru: ${target.expiryDate})`);
+        }
+
+        function changeClientExpiryPrompt(username) {
+            const savedUsers = getRegisteredUsers();
+            const target = savedUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
+            if (!target) return;
+
+            const newDate = prompt(`Masukkan tanggal kadaluarsa baru untuk "${username}" (Format: YYYY-MM-DD):`, target.expiryDate || getFutureDateStr(30));
+            if (newDate && /^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+                target.expiryDate = newDate;
+                localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
+                renderAdminClientTable();
+                addLog('success', `📅 [ADMIN] Tanggal kadaluarsa "${username}" diubah menjadi ${newDate}`);
+            } else if (newDate) {
+                alert('Format tanggal salah! Gunakan format YYYY-MM-DD (Contoh: 2026-12-31).');
+            }
+        }
+
+        function toggleClientStatus(username) {
+            const savedUsers = getRegisteredUsers();
+            const target = savedUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
+            if (!target) return;
+
+            target.status = target.status === 'blocked' ? 'active' : 'blocked';
+            localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
+            renderAdminClientTable();
+            addLog('warning', `🛡️ [ADMIN] Status client "${username}" diubah menjadi: ${(target.status || 'active').toUpperCase()}`);
+        }
+
+        function deleteClientAccount(username) {
+            if (!confirm(`Apakah Anda yakin ingin menghapus akun client "${username}"?`)) return;
+            let savedUsers = getRegisteredUsers();
+            savedUsers = savedUsers.filter(u => u.username.toLowerCase() !== username.toLowerCase());
+            localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
+            renderAdminClientTable();
+            addLog('error', `🗑️ [ADMIN] Akun client "${username}" telah dihapus.`);
+        }
+
+        function handleDurationSelectChange(val) {
+            const customGrp = document.getElementById('customExpiryGroup');
+            if (customGrp) {
+                customGrp.style.display = val === 'custom' ? 'block' : 'none';
+            }
         }
 
         // --- PASSWORD VISIBILITY TOGGLE ---
@@ -1084,7 +1377,7 @@
             }, 600);
         }
 
-        // --- WEB AUDIO SYNTHESIZER ---
+        // --- WEB AUDIO SYNTHESIZER & PEMYUTAR AUDIO lagu.mp3 ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let isMusicPlaying = false;
 
@@ -1111,18 +1404,22 @@
             if (!player) return;
 
             if (!isMusicPlaying) {
+                player.src = 'lagu.mp3'; // Target file audio lagu.mp3
                 player.play().then(() => {
                     isMusicPlaying = true;
-                    if (btn) btn.innerHTML = '<i class="fa-solid fa-volume-high" style="color:#22c55e;"></i> lagu.jpg';
-                    addLog('info', '🎵 Memutar berkas audio lagu.jpg...');
+                    if (btn) btn.innerHTML = '<i class="fa-solid fa-volume-high" style="color:#22c55e;"></i> lagu.mp3';
+                    addLog('info', '🎵 Memutar berkas audio lagu.mp3...');
                 }).catch(err => {
-                    addLog('error', '⚠️ Berkas audio "lagu.jpg" siap diputar.');
+                    isMusicPlaying = false;
+                    if (btn) btn.innerHTML = '<i class="fa-solid fa-music"></i> Audio';
+                    addLog('error', '⚠️ Memutar nada audio cadangan. (Pastikan berkas lagu.mp3 ada di folder aplikasi).');
+                    playBeep(523.25, 'sine', 0.3);
                 });
             } else {
                 player.pause();
                 isMusicPlaying = false;
                 if (btn) btn.innerHTML = '<i class="fa-solid fa-music"></i> Audio';
-                addLog('info', '🔇 lagu.jpg dihentikan.');
+                addLog('info', '🔇 lagu.mp3 dihentikan.');
             }
         }
 
@@ -1269,7 +1566,6 @@
             renderAccounts();
             closeModal('modalAccount');
 
-            // Reset inputs
             document.getElementById('accUsername').value = '';
             document.getElementById('accPhone').value = '';
             document.getElementById('accEmail').value = '';
@@ -1502,15 +1798,16 @@
 
         // --- INITIALIZATION ---
         window.addEventListener('load', () => {
-            // Restore Session if Logged In
             const savedSession = localStorage.getItem('ganemax_session');
             if (savedSession) {
                 currentUser = JSON.parse(savedSession);
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('currentUserDisplay').innerText = currentUser.username;
-                document.getElementById('currentRoleDisplay').innerText = currentUser.role.toUpperCase();
+                document.getElementById('currentRoleDisplay').innerText = (currentUser.role || 'user').toUpperCase();
                 if (currentUser.role === 'admin') {
-                    document.getElementById('adminTabHeader').style.display = 'inline-flex';
+                    const adminTab = document.getElementById('adminTabHeader');
+                    if (adminTab) adminTab.style.display = 'inline-flex';
+                    renderAdminClientTable();
                 }
             }
 
