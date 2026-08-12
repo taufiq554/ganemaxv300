@@ -232,6 +232,9 @@
             </div>
         </header>
 
+        <!-- Pemutar Audio Latar lagu.jpg -->
+        <audio id="bgAudioPlayer" src="lagu.jpg" loop preload="auto"></audio>
+
         <!-- BANNER PROMO STANDAR E-COMMERCE -->
         <div class="banner-slider" id="headerSlider">
             <div class="slider-track" id="sliderTrack">
@@ -971,6 +974,8 @@
 
         // --- WEB AUDIO SYNTHESIZER ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let isMusicPlaying = false;
+
         function playBeep(frequency, type, duration) {
             try {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -988,8 +993,25 @@
         }
 
         function toggleAudio() {
-            playBeep(523.25, 'sine', 0.3);
-            addLog('info', '🔊 Suara Audio Synthesizer Diuji.');
+            const player = document.getElementById('bgAudioPlayer');
+            const btn = document.getElementById('musicToggleBtn');
+
+            if (!player) return;
+
+            if (!isMusicPlaying) {
+                player.play().then(() => {
+                    isMusicPlaying = true;
+                    if (btn) btn.innerHTML = '<i class="fa-solid fa-volume-high" style="color:#22c55e;"></i> lagu.jpg';
+                    addLog('info', '🎵 Memutar berkas lagu.jpg...');
+                }).catch(err => {
+                    addLog('error', '⚠️ Gagal memutar lagu.jpg. Pastikan file "lagu.jpg" diunggah di lokasi yang sama dengan app.html.');
+                });
+            } else {
+                player.pause();
+                isMusicPlaying = false;
+                if (btn) btn.innerHTML = '<i class="fa-solid fa-music"></i> Audio';
+                addLog('info', '🔇 lagu.jpg dihentikan.');
+            }
         }
 
         // --- ENTERPRISE UTILITIES ---
