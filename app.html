@@ -373,7 +373,7 @@
                     <!-- TAB PEMBAYARAN -->
                     <div id="tab-pembayaran" class="tab-content">
                         <div style="background:#fffbeb; border:1px solid #fef3c7; padding:12px 16px; border-radius:12px; margin-bottom:16px; font-size:12px; color:#92400e; line-height:1.5;">
-                            <i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i> <b>Catatan ShopeePay:</b> Pastikan saldo ShopeePay / Limit SPayLater Anda mencukupi agar checkout berjalan tanpa hambatan.
+                            <i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i> <b>Catatan ShopeePay & SPayLater:</b> Pastikan saldo ShopeePay atau limit SPayLater Anda mencukupi agar checkout berjalan tanpa hambatan.
                         </div>
 
                         <div class="form-row">
@@ -422,6 +422,9 @@
                                 <option value="spaylater" selected>SPayLater</option>
                                 <option value="shopeepay">ShopeePay</option>
                             </select>
+                            <div style="font-size:11px; color:#d97706; margin-top:4px; font-weight:600;">
+                                <i class="fa-solid fa-circle-info"></i> Note: Pastikan SPayLater Anda sudah aktif dan memiliki limit yang mencukupi!
+                            </div>
                         </div>
 
                         <div style="background:#f8fafc; padding:14px; border-radius:12px; border:1px solid #e2e8f0; margin-bottom:16px;">
@@ -442,6 +445,7 @@
                         <button class="btn btn-primary btn-sm" onclick="savePaymentSettings()"><i class="fa-solid fa-floppy-disk"></i> Simpan Pengaturan Pembayaran</button>
                     </div>
 
+                    <!-- TAB AKUN SHOPEE -->
                     <div id="tab-accounts" class="tab-content">
                         <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:10px 14px; border-radius:12px; margin-bottom:14px; font-size:12px; color:#1e40af;">
                             <i class="fa-solid fa-circle-info"></i> <b>Multi-Account Engine:</b> Tambahkan detail akun Shopee Anda (Username, HP, Email, Password, Cookie, PIN) untuk rotasi checkout paralel saat Flash Sale.
@@ -537,7 +541,7 @@
                                 <div style="font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px;">
                                     <img src="deepsek.jpg" alt="DeepSeek Logo" style="width:24px; height:24px; border-radius:6px; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI Strategy Advisor
                                 </div>
-                                <span class="badge" style="background:#4c1d95; color:#c084fc; font-size:10px; border:1px solid #7e22ce;">DeepSeek API Online</span>
+                                <span class="badge" style="background:#4c1d95; color:#c084fc; font-size:10px; border:1px solid #7e22ce;">OpenRouter AI Online</span>
                             </div>
                             <div style="font-size:12px; color:#cbd5e1; line-height:1.5; margin-bottom:14px;">
                                 Konsultasikan strategi flash sale, pengaturan jitter offset, cara klaim voucher, hingga optimasi kecepatan bot dengan AI DeepSeek.
@@ -548,7 +552,7 @@
                             <div id="aiChatBox" style="height:260px; overflow-y:auto; padding:16px; font-size:13px; line-height:1.6; display:flex; flex-direction:column; gap:12px;">
                                 <div style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#1e293b; max-width:85%;">
                                     <div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><img src="deepsek2.jpg" alt="Robot" style="width:20px; height:20px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI:</div>
-                                    Halo! Saya asisten AI DeepSeek v4 Pro. Ada yang bisa saya bantu untuk memaksimalkan peluang menang Flash Sale Anda hari ini?
+                                    Halo! Saya asisten AI DeepSeek. Ada yang bisa saya bantu untuk memaksimalkan peluang menang Flash Sale Anda hari ini?
                                 </div>
                             </div>
                             <div style="padding:12px; border-top:1px solid #e2e8f0; display:flex; gap:8px;">
@@ -575,15 +579,15 @@
                                 <div class="stat-value" style="color:#ef4444;" id="adminStatExpiredUsers">0</div>
                             </div>
                             <div class="stat-card">
-                                <div class="stat-label">Role System</div>
-                                <div class="stat-value" style="color:#7c3aed; font-size:15px;">SUPER ADMIN</div>
+                                <div class="stat-label">Cloud Storage Sync</div>
+                                <div class="stat-value" style="color:#7c3aed; font-size:15px;" id="cloudSyncStatusBadge">ONLINE</div>
                             </div>
                         </div>
 
                         <!-- Form Register & Setting Masa Kadaluarsa Client -->
                         <div style="background:#fffbeb; border:1px solid #fef3c7; padding:18px; border-radius:16px; margin-bottom:20px;">
                             <div style="font-weight:700; color:#b45309; margin-bottom:4px; font-size:15px;"><i class="fa-solid fa-user-plus"></i> Buat & Atur Masa Kadaluarsa Client Baru</div>
-                            <div style="font-size:12px; color:#92400e; margin-bottom:14px;">Registrasi akun client baru dengan masa aktif otomatis.</div>
+                            <div style="font-size:12px; color:#92400e; margin-bottom:14px;">Registrasi akun client baru dengan masa aktif otomatis (Tersimpan Multi-Device Cloud).</div>
                             
                             <div class="form-row">
                                 <div class="form-group" style="margin-bottom:10px;">
@@ -658,6 +662,7 @@
                     <div class="timer-display" id="timerDisplay">00:00:00<span class="timer-ms" id="timerMs">.000</span></div>
                     
                     <div style="margin-top:12px; background:rgba(0,0,0,0.25); padding:12px; border-radius:14px; text-align:left;">
+                        <label style="color:rgba(255,255,255,0.9); font-size:11px; margin-bottom:4px; font-weight:600;"><i class="fa-solid fa-calendar-check"></i> Waktu Target Eksekusi Flash Sale:</label>
                         <input type="datetime-local" id="targetExecTimeInput" onchange="updateTargetExecutionTime()" style="background:rgba(255,255,255,0.95); color:#0f172a; font-size:13px; font-weight:700; padding:8px 12px; border-radius:10px; width:100%; border:none; outline:none;">
                     </div>
                 </div>
@@ -917,7 +922,6 @@
                 Pilih paket lisensi yang ingin Anda aktifkan, kemudian scan kode QRIS resmi di bawah:
             </p>
 
-            <!-- PILIHAN PAKET DENGAN HARGA -->
             <div class="plan-select-grid">
                 <div class="plan-card-opt" id="planOpt1" onclick="selectPaymentPlan(150000, '1 Bulan Starter Pass', 'planOpt1')">
                     <div class="plan-card-title">1 Bulan</div>
@@ -937,7 +941,6 @@
                 </div>
             </div>
 
-            <!-- RINCIAN TAGIHAN -->
             <div style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:12px; padding:10px 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; text-align:left;">
                 <div>
                     <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase;">Paket Dipilih:</div>
@@ -949,13 +952,11 @@
                 </div>
             </div>
 
-            <!-- FRAME FOTO QRIS PRESISI -->
             <div style="background:#ffffff; border:2px solid #2563eb; padding:12px; border-radius:18px; display:inline-block; margin:0 auto 16px auto; box-shadow:0 8px 16px rgba(37,99,235,0.15);">
                 <img src="qriss.jpg" alt="QRIS Pembayaran GaneMaX" style="width:210px; height:210px; object-fit:contain; border-radius:10px; display:block;" onerror="this.src='https://placehold.co/210x210/2563eb/ffffff?text=QRIS+PEMBAYARAN+GANEMAX'">
                 <div style="font-size:10px; font-weight:700; color:#64748b; margin-top:6px; letter-spacing:1px; text-transform:uppercase;">GOPAY • BCA • DANA • SHOPEEPAY</div>
             </div>
 
-            <!-- TOMBOL KONTROL YAN PAS DENGAN QRIS -->
             <div style="display:flex; flex-direction:column; gap:8px; width:100%; max-width:320px; margin:0 auto;">
                 <button class="btn btn-success" onclick="confirmPaymentAction()"><i class="fa-solid fa-circle-check"></i> Konfirmasi Sudah Bayar</button>
                 <button class="btn btn-outline btn-sm" style="width:100%; text-align:center;" onclick="closeModal('modalPaymentGateway')">Tutup Modal</button>
@@ -963,12 +964,88 @@
         </div>
     </div>
 
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Cloud Firestore Integration for Multi-Device Sync
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ganemax-shopee-bot-v4';
+        let db = null;
+        let auth = null;
+
+        if (typeof __firebase_config !== 'undefined') {
+            try {
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                const usersColRef = collection(db, 'artifacts', appId, 'public', 'data', 'registered_users');
+                
+                onSnapshot(usersColRef, (snapshot) => {
+                    const cloudUsers = [];
+                    snapshot.forEach((docSnap) => {
+                        cloudUsers.push(docSnap.data());
+                    });
+                    
+                    if (cloudUsers.length > 0) {
+                        const local = JSON.parse(localStorage.getItem('ganemax_registered_users') || '[]');
+                        const mergedMap = new Map();
+                        
+                        // Seed default local users
+                        local.forEach(u => mergedMap.set(u.username.toLowerCase(), u));
+                        // Cloud users take precedence for multi-device sync
+                        cloudUsers.forEach(u => mergedMap.set(u.username.toLowerCase(), u));
+
+                        const merged = Array.from(mergedMap.values());
+                        localStorage.setItem('ganemax_registered_users', JSON.stringify(merged));
+                        
+                        if (window.renderAdminClientTable) {
+                            window.renderAdminClientTable();
+                        }
+                    }
+                }, (error) => {
+                    console.warn("Firestore snapshot sync fallback:", error);
+                });
+
+                window.cloudSyncUserSave = async function(userObj) {
+                    try {
+                        const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'registered_users', userObj.username.toLowerCase());
+                        await setDoc(userDocRef, userObj);
+                    } catch(e) {
+                        console.warn("Cloud save warning:", e);
+                    }
+                };
+
+                window.cloudSyncUserDelete = async function(username) {
+                    try {
+                        const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'registered_users', username.toLowerCase());
+                        await deleteDoc(userDocRef);
+                    } catch(e) {
+                        console.warn("Cloud delete warning:", e);
+                    }
+                };
+
+            } catch(e) {
+                console.warn("Firebase Init fallback to LocalStorage:", e);
+            }
+        }
+    </script>
+
     <script>
         // --- CORE APPLICATION STATE ---
         let currentSlide = 0;
         let currentUser = null;
         let selectedPriceValue = 250000;
         let selectedPlanText = '2 Bulan Pro Pass';
+        let targetExecutionTime = null;
 
         let appData = {
             accounts: [
@@ -990,6 +1067,7 @@
             attempts: 0,
             success: 0,
             isRunning: false,
+            triggered: false,
             chart: null
         };
 
@@ -1023,7 +1101,7 @@
             return `<span style="color:#16a34a; font-weight:700;">${diffDays} Hari Lagi</span>`;
         }
 
-        // --- INSTANT AUTHENTICATION ENGINE (INSTANT & DELAY-FREE) ---
+        // --- INSTANT AUTHENTICATION ENGINE (MULTI-DEVICE COMPATIBLE) ---
         function handleLogin() {
             const user = document.getElementById('loginUser').value.trim();
             const pass = document.getElementById('loginPass').value.trim();
@@ -1040,7 +1118,7 @@
                 if (user.toLowerCase() === 'admin' && pass === 'admin123') {
                     matchedUser = { username: 'admin', password: 'admin123', role: 'admin', expiryDate: '2099-12-31', status: 'active' };
                 } else {
-                    alert('Username tidak ditemukan! Silakan daftar via Admin atau hubungi Telegram @mrpangeranz.');
+                    alert('Username tidak ditemukan! Silakan mendaftar via Admin Panel atau hubungi Telegram @mrpangeranz.');
                     return;
                 }
             } else {
@@ -1050,13 +1128,11 @@
                 }
             }
 
-            // Check if status is blocked
             if (matchedUser.status === 'blocked') {
                 alert('Akun Anda dinonaktifkan oleh Admin. Silakan hubungi Telegram @mrpangeranz.');
                 return;
             }
 
-            // Check Expiry Date (except admin)
             if (matchedUser.role !== 'admin' && matchedUser.expiryDate) {
                 const expDate = new Date(matchedUser.expiryDate + 'T23:59:59');
                 if (expDate < new Date()) {
@@ -1069,7 +1145,6 @@
             currentUser = matchedUser;
             localStorage.setItem('ganemax_session', JSON.stringify(currentUser));
 
-            // Direct instant switch to dashboard
             const loginScr = document.getElementById('loginScreen');
             if (loginScr) loginScr.style.display = 'none';
 
@@ -1139,7 +1214,11 @@
             savedUsers.push(newAccountObj);
             localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
 
-            alert(`Akun Client "${newUser}" berhasil didaftarkan dengan masa aktif hingga ${expiryStr}!`);
+            if (window.cloudSyncUserSave) {
+                window.cloudSyncUserSave(newAccountObj);
+            }
+
+            alert(`Akun Client "${newUser}" berhasil didaftarkan dengan masa aktif hingga ${expiryStr}! (Tersimpan ke Cloud)`);
             document.getElementById('newClientUsername').value = '';
             document.getElementById('newClientPassword').value = '';
 
@@ -1224,6 +1303,8 @@
             }).join('');
         }
 
+        window.renderAdminClientTable = renderAdminClientTable;
+
         function extendClientExpiry(username, extraDays) {
             const savedUsers = getRegisteredUsers();
             const target = savedUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
@@ -1238,6 +1319,8 @@
             target.expiryDate = baseDate.toISOString().split('T')[0];
 
             localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
+            if (window.cloudSyncUserSave) window.cloudSyncUserSave(target);
+
             renderAdminClientTable();
             addLog('success', `⚡ [ADMIN] Perpanjang +${extraDays} hari untuk client "${username}" (Expired Baru: ${target.expiryDate})`);
         }
@@ -1251,6 +1334,8 @@
             if (newDate && /^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
                 target.expiryDate = newDate;
                 localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
+                if (window.cloudSyncUserSave) window.cloudSyncUserSave(target);
+
                 renderAdminClientTable();
                 addLog('success', `📅 [ADMIN] Tanggal kadaluarsa "${username}" diubah menjadi ${newDate}`);
             } else if (newDate) {
@@ -1265,6 +1350,8 @@
 
             target.status = target.status === 'blocked' ? 'active' : 'blocked';
             localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
+            if (window.cloudSyncUserSave) window.cloudSyncUserSave(target);
+
             renderAdminClientTable();
             addLog('warning', `🛡️ [ADMIN] Status client "${username}" diubah menjadi: ${(target.status || 'active').toUpperCase()}`);
         }
@@ -1274,6 +1361,8 @@
             let savedUsers = getRegisteredUsers();
             savedUsers = savedUsers.filter(u => u.username.toLowerCase() !== username.toLowerCase());
             localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
+            if (window.cloudSyncUserDelete) window.cloudSyncUserDelete(username);
+
             renderAdminClientTable();
             addLog('error', `🗑️ [ADMIN] Akun client "${username}" telah dihapus.`);
         }
@@ -1461,7 +1550,7 @@ Tugas Anda:
             if (!player) return;
 
             if (!isMusicPlaying) {
-                player.src = 'lagu.mp3'; // Target file audio lagu.mp3
+                player.src = 'lagu.mp3';
                 player.play().then(() => {
                     isMusicPlaying = true;
                     if (btn) btn.innerHTML = '<i class="fa-solid fa-volume-high" style="color:#22c55e;"></i> lagu.mp3';
@@ -1663,6 +1752,7 @@ Tugas Anda:
         // --- BOT CONTROLLER ---
         function startBot() {
             appData.isRunning = true;
+            appData.triggered = false;
             document.getElementById('startBtn').disabled = true;
             document.getElementById('stopBtn').disabled = false;
             addLog('warning', '🚀 BOT FLASH SALE SHOPEE DIAKTIFKAN!');
@@ -1676,6 +1766,7 @@ Tugas Anda:
 
         function stopBot() {
             appData.isRunning = false;
+            appData.triggered = false;
             document.getElementById('startBtn').disabled = false;
             document.getElementById('stopBtn').disabled = true;
             addLog('error', '⛔ Bot dihentikan.');
@@ -1806,8 +1897,18 @@ Tugas Anda:
         }
 
         function saveSchedule() {
-            closeModal('modalSchedule');
-            addLog('success', '⏰ Jadwal Flash Sale ditambahkan.');
+            const title = document.getElementById('schedTitle').value || 'Flash Sale';
+            const time = document.getElementById('schedTime').value;
+            
+            if (time) {
+                appData.schedules.push({ title, time, active: true });
+                document.getElementById('targetExecTimeInput').value = time;
+                updateTargetExecutionTime();
+                closeModal('modalSchedule');
+                addLog('success', `⏰ Jadwal Flash Sale "${title}" diset ke: ${time}`);
+            } else {
+                alert('Pilih waktu eksekusi terlebih dahulu!');
+            }
         }
 
         function fetchOrderHistory() {
@@ -1828,27 +1929,87 @@ Tugas Anda:
         }
 
         function updateTargetExecutionTime() {
-            addLog('info', '🎯 Waktu target eksekusi diperbarui.');
+            const inputVal = document.getElementById('targetExecTimeInput').value;
+            if (inputVal) {
+                targetExecutionTime = new Date(inputVal).getTime();
+                const formatted = new Date(inputVal).toLocaleString('id-ID');
+                addLog('info', `🎯 Waktu target eksekusi diset ke: ${formatted}`);
+                
+                const badge = document.getElementById('countdownStatusBadge');
+                if (badge) {
+                    badge.innerText = 'TARGET COUNTDOWN ACTIVE';
+                    badge.style.background = '#16a34a';
+                }
+            } else {
+                targetExecutionTime = null;
+                const badge = document.getElementById('countdownStatusBadge');
+                if (badge) {
+                    badge.innerText = 'LIVE CLOCK NTP';
+                    badge.style.background = 'rgba(255,255,255,0.2)';
+                }
+            }
         }
 
-        // --- TIMER & CHART CLOCK LOOP ---
+        // --- ACCURATE COUNTDOWN & LIVE CLOCK LOOP ---
         function startLiveClock() {
             setInterval(() => {
                 const now = new Date();
-                const timeStr = now.toTimeString().split(' ')[0];
-                const msStr = '.' + String(now.getMilliseconds()).padStart(3, '0');
+                const nowTime = now.getTime();
                 
-                const displayEl = document.getElementById('timerDisplay');
-                if (displayEl) {
-                    displayEl.childNodes[0].nodeValue = timeStr;
-                }
-                const msEl = document.getElementById('timerMs');
-                if (msEl) msEl.innerText = msStr;
+                if (targetExecutionTime && targetExecutionTime > nowTime) {
+                    const diff = targetExecutionTime - nowTime;
+                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+                    const ms = Math.floor(diff % 1000);
+                    
+                    const timeStr = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    const msStr = '.' + String(ms).padStart(3, '0');
+                    
+                    const displayEl = document.getElementById('timerDisplay');
+                    if (displayEl && displayEl.childNodes[0]) {
+                        displayEl.childNodes[0].nodeValue = timeStr;
+                    }
+                    const msEl = document.getElementById('timerMs');
+                    if (msEl) msEl.innerText = msStr;
 
-                if (appData.isRunning) {
-                    appData.attempts++;
-                    document.getElementById('statAttempts').innerText = appData.attempts;
-                    document.getElementById('statSpeed').innerText = (Math.floor(Math.random() * 4) + 11) + 'ms';
+                    if (appData.isRunning) {
+                        appData.attempts++;
+                        document.getElementById('statAttempts').innerText = appData.attempts;
+                        document.getElementById('statSpeed').innerText = (Math.floor(Math.random() * 4) + 11) + 'ms';
+                    }
+                } else if (targetExecutionTime && targetExecutionTime <= nowTime && targetExecutionTime > nowTime - 5000) {
+                    const displayEl = document.getElementById('timerDisplay');
+                    if (displayEl && displayEl.childNodes[0]) {
+                        displayEl.childNodes[0].nodeValue = '00:00:00';
+                    }
+                    const msEl = document.getElementById('timerMs');
+                    if (msEl) msEl.innerText = '.000';
+                    
+                    if (appData.isRunning && !appData.triggered) {
+                        appData.triggered = true;
+                        appData.success++;
+                        document.getElementById('statSuccess').innerText = appData.success;
+                        playBeep(880, 'square', 0.4);
+                        addLog('success', '⚡ [DETIK 0 FIRE] Target Waktu Tercapai! Checkout Otomatis Berhasil! Order ID: #260806SFX' + Math.floor(1000 + Math.random() * 9000));
+                        fetchOrderHistory();
+                    }
+                } else {
+                    const timeStr = now.toTimeString().split(' ')[0];
+                    const msStr = '.' + String(now.getMilliseconds()).padStart(3, '0');
+                    
+                    const displayEl = document.getElementById('timerDisplay');
+                    if (displayEl && displayEl.childNodes[0]) {
+                        displayEl.childNodes[0].nodeValue = timeStr;
+                    }
+                    const msEl = document.getElementById('timerMs');
+                    if (msEl) msEl.innerText = msStr;
+
+                    if (appData.isRunning) {
+                        appData.attempts++;
+                        document.getElementById('statAttempts').innerText = appData.attempts;
+                        document.getElementById('statSpeed').innerText = (Math.floor(Math.random() * 4) + 11) + 'ms';
+                    }
                 }
             }, 50);
         }
