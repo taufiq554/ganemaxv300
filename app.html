@@ -566,6 +566,9 @@
         };
 
         async function loadUserDataFromSupabase() {
+            if (!supabase && window.supabase && SUPABASE_URL && SUPABASE_KEY) {
+                initSupabaseClient();
+            }
             if (!supabase || !currentUser) return;
             
             try {
@@ -626,81 +629,126 @@
             }
 
             const btn = document.getElementById('loginSubmitBtn');
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa Database...';
-
-            // Master admin fallback
-            if (u === 'admin' && p === 'admin123') {
-                currentUser = { username: 'admin', role: 'admin' };
-                if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
-                saveSessionAndEnter();
-                return;
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa Database...';
             }
 
-            // 1. Supabase Cloud Lookup
-            if (supabase) {
-                try {
-                    const { data, error } = await supabase
-                        .from('users')
-                        .select('*')
-                        .eq('username', u)
-                        .maybeSingle();
-
-                    if (error) {
-                        console.error("Supabase login query error:", error);
-                    } else if (data) {
-                        if (data.password === p) {
-                            if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
-                                alert("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
-                                if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
-                                return;
-                            }
-                            if (data.status === 'blocked') {
-                                alert("Akun Anda dinonaktifkan oleh Admin.");
-                                if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
-                                return;
-                            }
-                            currentUser = { username: data.username, role: data.username === 'admin' ? 'admin' : 'client', expiry_date: data.expiry_date };
-                            if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
-                            saveSessionAndEnter();
-                            return;
-                        } else {
-                            alert("Password salah!");
-                            if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
-                            return;
-                        }
-                    }
-                } catch(e) {
-                    console.warn("Supabase lookup error:", e);
+            function resetBtn() {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
                 }
             }
 
-            // 2. LocalStorage system_users fallback
-            const localUser = systemUsers.find(x => x.username === u);
-            if (localUser) {
-                if (localUser.password === p) {
+            try {
+                // 1. Master admin fallback (Instan)
+                if (u.toLowerCase() === 'admin' && p === 'admin123') {
+                    currentUser = { username: 'admin', role: 'admin' };
+                    resetBtn();
+                    saveSessionAndEnter();
+                    return;
+                }
+
+                // 2. Cek user lokal/cache jika sudah tersimpan
+                const localUser = systemUsers.find(x => x.username.toLowerCase() === u.toLowerCase());
+                if (localUser && localUser.password === p) {
                     if (localUser.expiry_date && new Date(localUser.expiry_date) < new Date()) {
-                        alert("Masa aktif akun Anda telah kadaluarsa!");
-                        if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                        alert("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
+                        resetBtn();
                         return;
                     }
                     if (localUser.status === 'blocked') {
                         alert("Akun Anda dinonaktifkan oleh Admin.");
-                        if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                        resetBtn();
                         return;
                     }
-                    currentUser = { username: localUser.username, role: u === 'admin' ? 'admin' : 'client' };
-                    if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                    currentUser = { 
+                        username: localUser.username, 
+                        role: localUser.username.toLowerCase() === 'admin' ? 'admin' : 'client', 
+                        expiry_date: localUser.expiry_date 
+                    };
+                    resetBtn();
                     saveSessionAndEnter();
                     return;
-                } else {
-                    alert("Password salah!");
-                    if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
-                    return;
                 }
-            }
 
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
-            alert("Username tidak ditemukan! Silakan hubungi Admin Telegram @mrpangeranz.");
+                // Re-init Supabase client jika belum ada
+                if (!supabase && window.supabase && SUPABASE_URL && SUPABASE_KEY) {
+                    initSupabaseClient();
+                }
+
+                // 3. Supabase Cloud Lookup dengan Timeout 5 Detik
+                if (supabase) {
+                    const fetchPromise = supabase
+                        .from('users')
+                        .select('*')
+                        .ilike('username', u)
+                        .maybeSingle();
+
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error("Koneksi Supabase waktu habis (5s)")), 5000)
+                    );
+
+                    try {
+                        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+
+                        if (error) {
+                            console.error("Supabase login query error:", error);
+                            alert(`Error Supabase: ${error.message || 'Gagal terhubung ke database'}`);
+                            resetBtn();
+                            return;
+                        }
+
+                        if (data) {
+                            if (data.password === p) {
+                                if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
+                                    alert("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
+                                    resetBtn();
+                                    return;
+                                }
+                                if (data.status === 'blocked') {
+                                    alert("Akun Anda dinonaktifkan oleh Admin.");
+                                    resetBtn();
+                                    return;
+                                }
+                                currentUser = { 
+                                    username: data.username, 
+                                    role: data.username.toLowerCase() === 'admin' ? 'admin' : 'client', 
+                                    expiry_date: data.expiry_date 
+                                };
+
+                                // Cache pengguna ke local storage untuk akses cepat berikutnya
+                                const idx = systemUsers.findIndex(x => x.username.toLowerCase() === data.username.toLowerCase());
+                                if (idx >= 0) systemUsers[idx] = data;
+                                else systemUsers.push(data);
+                                localStorage.setItem('system_users', JSON.stringify(systemUsers));
+
+                                resetBtn();
+                                saveSessionAndEnter();
+                                return;
+                            } else {
+                                alert("Password salah! Silakan periksa kembali.");
+                                resetBtn();
+                                return;
+                            }
+                        }
+                    } catch (supaErr) {
+                        console.warn("Supabase lookup exception:", supaErr);
+                        alert(`Gagal koneksi database: ${supaErr.message}`);
+                        resetBtn();
+                        return;
+                    }
+                }
+
+                alert("Username tidak ditemukan! Pastikan username telah didaftarkan oleh Admin atau gunakan akun admin (admin / admin123).");
+                resetBtn();
+
+            } catch (err) {
+                console.error("Critical login error:", err);
+                alert(`Terjadi kesalahan sistem: ${err.message}`);
+                resetBtn();
+            }
         }
 
         function saveSessionAndEnter() {
