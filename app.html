@@ -168,6 +168,7 @@
         <div class="login-card">
             <div class="login-title">⚡ Enterprise Control Login</div>
             <div class="login-subtitle">Masukkan akun Anda untuk terhubung ke Supabase Cloud DB</div>
+            <div id="loginErrorMsg" style="display:none; background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; padding:10px 14px; border-radius:12px; font-size:12px; margin-bottom:16px; text-align:left; font-weight:500;"></div>
             <div class="form-group">
                 <label>Username</label>
                 <input type="text" id="loginUser" placeholder="Masukkan username">
@@ -638,11 +639,25 @@
         }
 
         async function handleLogin() {
-            const u = document.getElementById('loginUser').value.trim();
-            const p = document.getElementById('loginPass').value.trim();
+            const errBox = document.getElementById('loginErrorMsg');
+            if (errBox) { errBox.style.display = 'none'; errBox.innerText = ''; }
+
+            const uInput = document.getElementById('loginUser');
+            const pInput = document.getElementById('loginPass');
+            const u = uInput ? uInput.value.trim() : '';
+            const p = pInput ? pInput.value.trim() : '';
+
+            function showError(msg) {
+                if (errBox) {
+                    errBox.innerText = msg;
+                    errBox.style.display = 'block';
+                } else {
+                    alert(msg);
+                }
+            }
 
             if (!u || !p) {
-                alert('Username dan Password harus diisi!');
+                showError('Username dan Password wajib diisi!');
                 return;
             }
 
@@ -660,7 +675,7 @@
             }
 
             try {
-                // 1. Master Admin Fallback
+                // 1. Master Admin Hardcoded Check
                 if (u.toLowerCase() === 'admin' && p === 'admin123') {
                     currentUser = { username: 'admin', role: 'admin' };
                     resetBtn();
@@ -668,16 +683,97 @@
                     return;
                 }
 
-                // 2. Local systemUsers cache check
+                // 2. Query Supabase JS Client
+                let cloudUser = null;
+
+                if (supabase) {
+                    try {
+                        const { data, error } = await supabase
+                            .from('users')
+                            .select('*')
+                            .ilike('username', u)
+                            .maybeSingle();
+                        if (!error && data) {
+                            cloudUser = data;
+                        }
+                    } catch(e) {
+                        console.warn("Supabase SDK query note:", e);
+                    }
+                }
+
+                // REST Query Fallback
+                if (!cloudUser && SUPABASE_URL && SUPABASE_KEY) {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 3500);
+                        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?username=ilike.${encodeURIComponent(u)}`, {
+                            headers: {
+                                'apikey': SUPABASE_KEY,
+                                'Authorization': `Bearer ${SUPABASE_KEY}`
+                            },
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
+                        if (res.ok) {
+                            const arr = await res.json();
+                            if (Array.isArray(arr) && arr.length > 0) {
+                                cloudUser = arr[0];
+                            }
+                        }
+                    } catch(e) {
+                        console.warn("REST query note:", e);
+                    }
+                }
+
+                // Evaluate Cloud User if found
+                if (cloudUser) {
+                    if (cloudUser.password !== p) {
+                        showError("Password salah! Silakan periksa kembali password Anda.");
+                        resetBtn();
+                        return;
+                    }
+                    if (cloudUser.expiry_date && new Date(cloudUser.expiry_date) < new Date()) {
+                        showError("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
+                        resetBtn();
+                        return;
+                    }
+                    if (cloudUser.status === 'blocked') {
+                        showError("Akun Anda dinonaktifkan oleh Admin.");
+                        resetBtn();
+                        return;
+                    }
+
+                    currentUser = { 
+                        username: cloudUser.username, 
+                        role: cloudUser.username.toLowerCase() === 'admin' ? 'admin' : 'client', 
+                        expiry_date: cloudUser.expiry_date 
+                    };
+
+                    const idx = systemUsers.findIndex(x => x.username.toLowerCase() === cloudUser.username.toLowerCase());
+                    if (idx >= 0) systemUsers[idx] = cloudUser;
+                    else systemUsers.push(cloudUser);
+                    localStorage.setItem('system_users', JSON.stringify(systemUsers));
+
+                    resetBtn();
+                    saveSessionAndEnter();
+                    return;
+                }
+
+                // 3. Fallback to Local Cache
                 const localUser = systemUsers.find(x => x.username.toLowerCase() === u.toLowerCase());
-                if (localUser && localUser.password === p) {
+                if (localUser) {
+                    if (localUser.password !== p) {
+                        showError("Password salah! Silakan periksa kembali password Anda.");
+                        resetBtn();
+                        return;
+                    }
                     if (localUser.expiry_date && new Date(localUser.expiry_date) < new Date()) {
-                        alert("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
+                        showError("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
                         resetBtn();
                         return;
                     }
                     if (localUser.status === 'blocked') {
-                        alert("Akun Anda dinonaktifkan oleh Admin.");
+                        showError("Akun Anda dinonaktifkan oleh Admin.");
                         resetBtn();
                         return;
                     }
@@ -691,73 +787,12 @@
                     return;
                 }
 
-                // 3. Direct REST Fetch to Supabase
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/users?username=eq.${encodeURIComponent(u)}`, {
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`
-                    },
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-
-                if (res.ok) {
-                    const dataArr = await res.json();
-                    if (Array.isArray(dataArr) && dataArr.length > 0) {
-                        const data = dataArr[0];
-                        if (data.password === p) {
-                            if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
-                                alert("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
-                                resetBtn();
-                                return;
-                            }
-                            if (data.status === 'blocked') {
-                                alert("Akun Anda dinonaktifkan oleh Admin.");
-                                resetBtn();
-                                return;
-                            }
-                            currentUser = { 
-                                username: data.username, 
-                                role: data.username.toLowerCase() === 'admin' ? 'admin' : 'client', 
-                                expiry_date: data.expiry_date 
-                            };
-
-                            const idx = systemUsers.findIndex(x => x.username.toLowerCase() === data.username.toLowerCase());
-                            if (idx >= 0) systemUsers[idx] = data;
-                            else systemUsers.push(data);
-                            localStorage.setItem('system_users', JSON.stringify(systemUsers));
-
-                            resetBtn();
-                            saveSessionAndEnter();
-                            return;
-                        } else {
-                            alert("Password salah! Silakan periksa kembali.");
-                            resetBtn();
-                            return;
-                        }
-                    }
-                }
-
-                alert("Username tidak ditemukan! Pastikan username telah didaftarkan oleh Admin atau gunakan akun admin (admin / admin123).");
+                showError(`Username '${u}' tidak ditemukan! Pastikan username telah didaftarkan oleh Admin.`);
                 resetBtn();
 
             } catch (err) {
-                console.warn("Login fetch exception:", err);
-                const fallbackUser = systemUsers.find(x => x.username.toLowerCase() === u.toLowerCase());
-                if (fallbackUser && fallbackUser.password === p) {
-                    currentUser = { 
-                        username: fallbackUser.username, 
-                        role: fallbackUser.username.toLowerCase() === 'admin' ? 'admin' : 'client', 
-                        expiry_date: fallbackUser.expiry_date 
-                    };
-                    resetBtn();
-                    saveSessionAndEnter();
-                    return;
-                }
-                alert("Gagal terhubung ke database cloud. Pastikan koneksi internet Anda aktif dan username/password benar.");
+                console.error("Login exception:", err);
+                showError("Gagal terhubung ke database cloud: " + (err.message || err));
                 resetBtn();
             }
         }
@@ -829,20 +864,55 @@
 
             const newUserObj = { username: u, password: p, expiry_date: expStr, status: 'active' };
 
-            try {
-                const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'resolution=merge-duplicates'
-                    },
-                    body: JSON.stringify(newUserObj)
-                });
-                if (res.ok) {
-                    addLog(`[SUPABASE] User ${u} tersimpan ke Cloud Supabase!`, 'success');
+            let cloudSaved = false;
+            if (supabase) {
+                try {
+                    const { data, error } = await supabase.from('users').upsert([newUserObj], { onConflict: 'username' }).select();
+                    if (!error) {
+                        cloudSaved = true;
+                        addLog(`[SUPABASE] User ${u} tersimpan ke Cloud Supabase!`, 'success');
+                    } else {
+                        console.error("Supabase upsert error:", error);
+                    }
+                } catch(e) {
+                    console.error("Supabase SDK insert error:", e);
                 }
+            }
+
+            if (!cloudSaved && SUPABASE_URL && SUPABASE_KEY) {
+                try {
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/users?on_conflict=username`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'resolution=merge-duplicates'
+                        },
+                        body: JSON.stringify(newUserObj)
+                    });
+                    if (res.ok) {
+                        cloudSaved = true;
+                        addLog(`[SUPABASE REST] User ${u} tersimpan ke Cloud Supabase!`, 'success');
+                    } else {
+                        console.error("REST insert status:", res.status);
+                    }
+                } catch(e) {
+                    console.error("Supabase REST insert error:", e);
+                }
+            }
+
+            const idx = systemUsers.findIndex(x => x.username.toLowerCase() === u.toLowerCase());
+            if (idx >= 0) systemUsers[idx] = newUserObj;
+            else systemUsers.push(newUserObj);
+
+            localStorage.setItem('system_users', JSON.stringify(systemUsers));
+            renderAdminUsersTable();
+
+            document.getElementById('newClientUser').value = '';
+            document.getElementById('newClientPass').value = '';
+            alert(`Akun Client '${u}' berhasil dibuat sampai ${expStr}! ${cloudSaved ? '(Tersimpan di Cloud Database)' : '(Tersimpan Lokal)'}`);
+        }
             } catch(e) {
                 console.error("Supabase REST insert error:", e);
             }
