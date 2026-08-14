@@ -512,8 +512,8 @@
         const OPENROUTER_API_KEY = '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';
 
         // SUPABASE CLIENT INITIALIZATION WITH HARDCODED DEFAULTS
-        let SUPABASE_URL = localStorage.getItem('ganemax_supa_url') || 'https://cswmedoxexxomrnoogow.supabase.co';
-        let SUPABASE_KEY = localStorage.getItem('ganemax_supa_key') || 'sb_publishable_Re3d4-fdICJzWnTYXomCXQ_1-XQlPAQ';
+        let SUPABASE_URL = 'https://cswmedoxexxomrnoogow.supabase.co';
+        let SUPABASE_KEY = 'sb_publishable_Re3d4-fdICJzWnTYXomCXQ_1-XQlPAQ';
         let supabase = null;
 
         function initSupabaseClient() {
@@ -540,7 +540,12 @@
         let targetExecutionTime = null;
 
         window.onload = function() {
+            // Re-sync Supabase URL & KEY to default if corrupted in localStorage
+            localStorage.setItem('ganemax_supa_url', SUPABASE_URL);
+            localStorage.setItem('ganemax_supa_key', SUPABASE_KEY);
+
             initSupabaseClient();
+            fetchAllUsersFromCloud();
             
             const supaUrlEl = document.getElementById('supaUrlInput');
             const supaKeyEl = document.getElementById('supaKeyInput');
@@ -565,53 +570,73 @@
             }
         };
 
+        // PRE-FETCH USERS FROM CLOUD ON STARTUP
+        async function fetchAllUsersFromCloud() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/users?select=*`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                if (response.ok) {
+                    const cloudUsers = await response.json();
+                    if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+                        cloudUsers.forEach(cu => {
+                            const idx = systemUsers.findIndex(x => x.username.toLowerCase() === cu.username.toLowerCase());
+                            if (idx >= 0) systemUsers[idx] = cu;
+                            else systemUsers.push(cu);
+                        });
+                        localStorage.setItem('system_users', JSON.stringify(systemUsers));
+                        if (currentUser && currentUser.role === 'admin') {
+                            renderAdminUsersTable();
+                        }
+                    }
+                }
+            } catch(e) {
+                console.warn("Direct REST User Sync Note:", e);
+            }
+        }
+
         async function loadUserDataFromSupabase() {
             if (!supabase && window.supabase && SUPABASE_URL && SUPABASE_KEY) {
                 initSupabaseClient();
             }
-            if (!supabase || !currentUser) return;
+            if (!currentUser) return;
             
             try {
                 // Load Shopee Accounts
-                const { data: accData } = await supabase
-                    .from('shopee_accounts')
-                    .select('*')
-                    .eq('owner_username', currentUser.username);
-                if (accData && accData.length > 0) {
-                    accounts = accData;
-                    localStorage.setItem('shopee_accs', JSON.stringify(accounts));
-                    renderAccounts();
-                }
+                if (supabase) {
+                    const { data: accData } = await supabase
+                        .from('shopee_accounts')
+                        .select('*')
+                        .eq('owner_username', currentUser.username);
+                    if (accData && accData.length > 0) {
+                        accounts = accData;
+                        localStorage.setItem('shopee_accs', JSON.stringify(accounts));
+                        renderAccounts();
+                    }
 
-                // Load Target URLs
-                const { data: urlData } = await supabase
-                    .from('target_urls')
-                    .select('*')
-                    .eq('owner_username', currentUser.username);
-                if (urlData && urlData.length > 0) {
-                    productUrls = urlData;
-                    localStorage.setItem('shopee_urls', JSON.stringify(productUrls));
-                    renderProductUrls();
-                }
+                    // Load Target URLs
+                    const { data: urlData } = await supabase
+                        .from('target_urls')
+                        .select('*')
+                        .eq('owner_username', currentUser.username);
+                    if (urlData && urlData.length > 0) {
+                        productUrls = urlData;
+                        localStorage.setItem('shopee_urls', JSON.stringify(productUrls));
+                        renderProductUrls();
+                    }
 
-                // Load Addresses
-                const { data: addrData } = await supabase
-                    .from('addresses')
-                    .select('*')
-                    .eq('owner_username', currentUser.username);
-                if (addrData && addrData.length > 0) {
-                    addresses = addrData;
-                    localStorage.setItem('shopee_addrs', JSON.stringify(addresses));
-                    renderAddresses();
-                }
-
-                // Load system users if admin
-                if (currentUser.role === 'admin') {
-                    const { data: usersData } = await supabase.from('users').select('*');
-                    if (usersData && usersData.length > 0) {
-                        systemUsers = usersData;
-                        localStorage.setItem('system_users', JSON.stringify(systemUsers));
-                        renderAdminUsersTable();
+                    // Load Addresses
+                    const { data: addrData } = await supabase
+                        .from('addresses')
+                        .select('*')
+                        .eq('owner_username', currentUser.username);
+                    if (addrData && addrData.length > 0) {
+                        addresses = addrData;
+                        localStorage.setItem('shopee_addrs', JSON.stringify(addresses));
+                        renderAddresses();
                     }
                 }
             } catch(e) {
@@ -642,7 +667,7 @@
             }
 
             try {
-                // 1. Master admin fallback (Instan)
+                // 1. Master Admin Fallback (Instan)
                 if (u.toLowerCase() === 'admin' && p === 'admin123') {
                     currentUser = { username: 'admin', role: 'admin' };
                     resetBtn();
@@ -650,7 +675,7 @@
                     return;
                 }
 
-                // 2. Cek user lokal/cache jika sudah tersimpan
+                // 2. Cek User Lokal / Pre-fetched Cache
                 const localUser = systemUsers.find(x => x.username.toLowerCase() === u.toLowerCase());
                 if (localUser && localUser.password === p) {
                     if (localUser.expiry_date && new Date(localUser.expiry_date) < new Date()) {
@@ -673,71 +698,54 @@
                     return;
                 }
 
-                // Re-init Supabase client jika belum ada
-                if (!supabase && window.supabase && SUPABASE_URL && SUPABASE_KEY) {
-                    initSupabaseClient();
-                }
+                // 3. Direct REST Fetch ke Supabase (Fallback Real-Time dengan Timeout 3s)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-                // 3. Supabase Cloud Lookup dengan Timeout 5 Detik
-                if (supabase) {
-                    const fetchPromise = supabase
-                        .from('users')
-                        .select('*')
-                        .ilike('username', u)
-                        .maybeSingle();
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/users?username=eq.${encodeURIComponent(u)}`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    },
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
 
-                    const timeoutPromise = new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error("Koneksi Supabase waktu habis (5s)")), 5000)
-                    );
-
-                    try {
-                        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
-
-                        if (error) {
-                            console.error("Supabase login query error:", error);
-                            alert(`Error Supabase: ${error.message || 'Gagal terhubung ke database'}`);
-                            resetBtn();
-                            return;
-                        }
-
-                        if (data) {
-                            if (data.password === p) {
-                                if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
-                                    alert("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
-                                    resetBtn();
-                                    return;
-                                }
-                                if (data.status === 'blocked') {
-                                    alert("Akun Anda dinonaktifkan oleh Admin.");
-                                    resetBtn();
-                                    return;
-                                }
-                                currentUser = { 
-                                    username: data.username, 
-                                    role: data.username.toLowerCase() === 'admin' ? 'admin' : 'client', 
-                                    expiry_date: data.expiry_date 
-                                };
-
-                                // Cache pengguna ke local storage untuk akses cepat berikutnya
-                                const idx = systemUsers.findIndex(x => x.username.toLowerCase() === data.username.toLowerCase());
-                                if (idx >= 0) systemUsers[idx] = data;
-                                else systemUsers.push(data);
-                                localStorage.setItem('system_users', JSON.stringify(systemUsers));
-
-                                resetBtn();
-                                saveSessionAndEnter();
-                                return;
-                            } else {
-                                alert("Password salah! Silakan periksa kembali.");
+                if (res.ok) {
+                    const dataArr = await res.json();
+                    if (Array.isArray(dataArr) && dataArr.length > 0) {
+                        const data = dataArr[0];
+                        if (data.password === p) {
+                            if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
+                                alert("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
                                 resetBtn();
                                 return;
                             }
+                            if (data.status === 'blocked') {
+                                alert("Akun Anda dinonaktifkan oleh Admin.");
+                                resetBtn();
+                                return;
+                            }
+                            currentUser = { 
+                                username: data.username, 
+                                role: data.username.toLowerCase() === 'admin' ? 'admin' : 'client', 
+                                expiry_date: data.expiry_date 
+                            };
+
+                            // Update cache lokal
+                            const idx = systemUsers.findIndex(x => x.username.toLowerCase() === data.username.toLowerCase());
+                            if (idx >= 0) systemUsers[idx] = data;
+                            else systemUsers.push(data);
+                            localStorage.setItem('system_users', JSON.stringify(systemUsers));
+
+                            resetBtn();
+                            saveSessionAndEnter();
+                            return;
+                        } else {
+                            alert("Password salah! Silakan periksa kembali.");
+                            resetBtn();
+                            return;
                         }
-                    } catch (supaErr) {
-                        console.warn("Supabase lookup exception:", supaErr);
-                        alert(`Gagal koneksi database: ${supaErr.message}`);
-                        resetBtn();
-                        return;
                     }
                 }
 
@@ -745,8 +753,20 @@
                 resetBtn();
 
             } catch (err) {
-                console.error("Critical login error:", err);
-                alert(`Terjadi kesalahan sistem: ${err.message}`);
+                console.warn("Login fetch exception:", err);
+                // Jika jaringan error, coba lagi pencarian case-insensitive di sistem lokal
+                const fallbackUser = systemUsers.find(x => x.username.toLowerCase() === u.toLowerCase());
+                if (fallbackUser && fallbackUser.password === p) {
+                    currentUser = { 
+                        username: fallbackUser.username, 
+                        role: fallbackUser.username.toLowerCase() === 'admin' ? 'admin' : 'client', 
+                        expiry_date: fallbackUser.expiry_date 
+                    };
+                    resetBtn();
+                    saveSessionAndEnter();
+                    return;
+                }
+                alert("Gagal terhubung ke database cloud. Pastikan koneksi internet Anda aktif dan username/password benar.");
                 resetBtn();
             }
         }
@@ -797,6 +817,7 @@
             localStorage.setItem('ganemax_supa_key', SUPABASE_KEY);
 
             initSupabaseClient();
+            fetchAllUsersFromCloud();
             addLog('[SUPABASE] Konfigurasi Cloud Supabase diperbarui.', 'success');
             alert('Konfigurasi Supabase berhasil disimpan!');
         }
@@ -817,17 +838,26 @@
 
             const newUserObj = { username: u, password: p, expiry_date: expStr, status: 'active' };
 
-            if (supabase) {
-                try {
-                    const { error } = await supabase.from('users').upsert([newUserObj], { onConflict: 'username' });
-                    if (error) console.error("Supabase upsert error:", error);
-                    else addLog(`[SUPABASE] User ${u} tersimpan ke Cloud Supabase!`, 'success');
-                } catch(e) {
-                    console.error("Supabase error:", e);
+            // Direct REST Post ke Supabase
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify(newUserObj)
+                });
+                if (res.ok) {
+                    addLog(`[SUPABASE] User ${u} tersimpan ke Cloud Supabase!`, 'success');
                 }
+            } catch(e) {
+                console.error("Supabase REST insert error:", e);
             }
 
-            const idx = systemUsers.findIndex(x => x.username === u);
+            const idx = systemUsers.findIndex(x => x.username.toLowerCase() === u.toLowerCase());
             if (idx >= 0) systemUsers[idx] = newUserObj;
             else systemUsers.push(newUserObj);
 
