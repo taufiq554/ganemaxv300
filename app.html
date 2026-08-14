@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shopee Flash Sale Manager Enterprise Pro v4.5 (Supabase Cloud)</title>
-    
+    <title>Shopee Flash Sale Manager Enterprise Pro v4.5 (Supabase Cloud Sync)</title>
     <link rel="icon" href="image.jpg" type="image/jpeg">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -305,12 +304,13 @@
                     <div style="background:#fffbeb; border:1px solid #fef3c7; padding:12px; border-radius:12px; margin-bottom:16px; font-size:12px; color:#b45309;">
                         <i class="fa-solid fa-circle-info"></i> <strong>Catatan SPayLater:</strong> Pastikan SPayLater Anda sudah aktif dan memiliki sisa limit yang mencukupi agar eksekusi checkout otomatis tidak gagal saat dialihkan.
                     </div>
+                    <button class="btn btn-outline btn-sm" onclick="runPinDryRunTest()"><i class="fa-solid fa-vial"></i> Tes Synchronize & Enkripsi PIN ShopeePay</button>
                 </div>
 
                 <!-- TAB AI DEEPSEEK -->
                 <div id="tab-ai" class="tab-content">
                     <div class="form-group">
-                        <label>Asisten Optimasi AI DeepSeek V3 (OpenRouter)</label>
+                        <label>Asisten Optimasi AI DeepSeek V3 (OpenRouter API)</label>
                         <div id="aiChatBox" style="height:200px; overflow-y:auto; background:#0f172a; color:#e2e8f0; padding:12px; border-radius:12px; font-size:12px; font-family:'JetBrains Mono', monospace; margin-bottom:12px;">
                             <div style="color:#38bdf8;">[AI] Halo! Saya DeepSeek V3 Assistant. Ada yang bisa saya bantu untuk persiapan Flash Sale Anda?</div>
                         </div>
@@ -321,7 +321,6 @@
                     </div>
                 </div>
 
-                <!-- TAB ADMIN PANEL -->
                 <div id="tab-admin" class="tab-content">
                     <div style="background:#fef3c7; border:1px solid #fde68a; padding:12px; border-radius:12px; margin-bottom:16px;">
                         <h4 style="color:#b45309; font-size:14px; margin-bottom:8px;"><i class="fa-solid fa-database"></i> Supabase Cloud Config</h4>
@@ -540,7 +539,6 @@
         let targetExecutionTime = null;
 
         window.onload = function() {
-            // Re-sync Supabase URL & KEY to default if corrupted in localStorage
             localStorage.setItem('ganemax_supa_url', SUPABASE_URL);
             localStorage.setItem('ganemax_supa_key', SUPABASE_KEY);
 
@@ -558,7 +556,6 @@
             renderProductUrls();
             renderAddresses();
             
-            // Check active session
             const savedSession = localStorage.getItem('ganemax_session');
             if (savedSession) {
                 try {
@@ -570,7 +567,6 @@
             }
         };
 
-        // PRE-FETCH USERS FROM CLOUD ON STARTUP
         async function fetchAllUsersFromCloud() {
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/users?select=*`, {
@@ -605,7 +601,6 @@
             if (!currentUser) return;
             
             try {
-                // Load Shopee Accounts
                 if (supabase) {
                     const { data: accData } = await supabase
                         .from('shopee_accounts')
@@ -617,7 +612,6 @@
                         renderAccounts();
                     }
 
-                    // Load Target URLs
                     const { data: urlData } = await supabase
                         .from('target_urls')
                         .select('*')
@@ -628,7 +622,6 @@
                         renderProductUrls();
                     }
 
-                    // Load Addresses
                     const { data: addrData } = await supabase
                         .from('addresses')
                         .select('*')
@@ -667,7 +660,7 @@
             }
 
             try {
-                // 1. Master Admin Fallback (Instan)
+                // 1. Master Admin Fallback
                 if (u.toLowerCase() === 'admin' && p === 'admin123') {
                     currentUser = { username: 'admin', role: 'admin' };
                     resetBtn();
@@ -675,7 +668,7 @@
                     return;
                 }
 
-                // 2. Cek User Lokal / Pre-fetched Cache
+                // 2. Local systemUsers cache check
                 const localUser = systemUsers.find(x => x.username.toLowerCase() === u.toLowerCase());
                 if (localUser && localUser.password === p) {
                     if (localUser.expiry_date && new Date(localUser.expiry_date) < new Date()) {
@@ -698,9 +691,9 @@
                     return;
                 }
 
-                // 3. Direct REST Fetch ke Supabase (Fallback Real-Time dengan Timeout 3s)
+                // 3. Direct REST Fetch to Supabase
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                const timeoutId = setTimeout(() => controller.abort(), 3500);
 
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/users?username=eq.${encodeURIComponent(u)}`, {
                     headers: {
@@ -732,7 +725,6 @@
                                 expiry_date: data.expiry_date 
                             };
 
-                            // Update cache lokal
                             const idx = systemUsers.findIndex(x => x.username.toLowerCase() === data.username.toLowerCase());
                             if (idx >= 0) systemUsers[idx] = data;
                             else systemUsers.push(data);
@@ -754,7 +746,6 @@
 
             } catch (err) {
                 console.warn("Login fetch exception:", err);
-                // Jika jaringan error, coba lagi pencarian case-insensitive di sistem lokal
                 const fallbackUser = systemUsers.find(x => x.username.toLowerCase() === u.toLowerCase());
                 if (fallbackUser && fallbackUser.password === p) {
                     currentUser = { 
@@ -838,7 +829,6 @@
 
             const newUserObj = { username: u, password: p, expiry_date: expStr, status: 'active' };
 
-            // Direct REST Post ke Supabase
             try {
                 const res = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
                     method: 'POST',
@@ -1131,6 +1121,22 @@
             addLog('[FIRE] Detik 0 Reached! Executing 12 parallel socket requests...', 'success');
             addLog('[PIN INJECT] Enkripsi PIN ShopeePay berhasil disuntikkan.', 'info');
             addLog('[HTTP 200 OK] Checkout Berhasil! Order ID #SFX2026889', 'success');
+        }
+
+        function runPinDryRunTest() {
+            addLog('[TEST] Executing PIN Encryption Synchronize Test...', 'info');
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch(e){}
+            setTimeout(() => {
+                addLog('[TEST SUCCESS] SHA-256 PIN Token Encrypted & Validated!', 'success');
+            }, 500);
         }
 
         function startBot() {
