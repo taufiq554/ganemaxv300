@@ -171,7 +171,7 @@
             <div id="loginErrorMsg" style="display:none; background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; padding:10px 14px; border-radius:12px; font-size:12px; margin-bottom:16px; text-align:left; font-weight:500;"></div>
             <div class="form-group">
                 <label>Username</label>
-                <input type="text" id="loginUser" placeholder="Masukkan username">
+                <input type="text" id="loginUser" placeholder="Masukkan username" onkeyup="if(event.key==='Enter') handleLogin()">
             </div>
             <div class="form-group">
                 <label>Password</label>
@@ -912,21 +912,6 @@
             document.getElementById('newClientUser').value = '';
             document.getElementById('newClientPass').value = '';
             alert(`Akun Client '${u}' berhasil dibuat sampai ${expStr}! ${cloudSaved ? '(Tersimpan di Cloud Database)' : '(Tersimpan Lokal)'}`);
-        }
-            } catch(e) {
-                console.error("Supabase REST insert error:", e);
-            }
-
-            const idx = systemUsers.findIndex(x => x.username.toLowerCase() === u.toLowerCase());
-            if (idx >= 0) systemUsers[idx] = newUserObj;
-            else systemUsers.push(newUserObj);
-
-            localStorage.setItem('system_users', JSON.stringify(systemUsers));
-            renderAdminUsersTable();
-
-            document.getElementById('newClientUser').value = '';
-            document.getElementById('newClientPass').value = '';
-            alert(`Akun Client '${u}' berhasil dibuat sampai ${expStr}!`);
         }
 
         function renderAdminUsersTable() {
