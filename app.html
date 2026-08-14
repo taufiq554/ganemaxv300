@@ -509,7 +509,6 @@
     </div>
 
     <script>
-        // OPENROUTER DEEPSEEK API KEY
         const OPENROUTER_API_KEY = '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';
 
         // SUPABASE CLIENT INITIALIZATION WITH HARDCODED DEFAULTS
@@ -540,11 +539,13 @@
         let botRunning = false;
         let targetExecutionTime = null;
 
-        // INIT ON LOAD
         window.onload = function() {
             initSupabaseClient();
-            document.getElementById('supaUrlInput').value = SUPABASE_URL;
-            document.getElementById('supaKeyInput').value = SUPABASE_KEY;
+            
+            const supaUrlEl = document.getElementById('supaUrlInput');
+            const supaKeyEl = document.getElementById('supaKeyInput');
+            if (supaUrlEl) supaUrlEl.value = SUPABASE_URL;
+            if (supaKeyEl) supaKeyEl.value = SUPABASE_KEY;
 
             initChart();
             startLiveClock();
@@ -552,20 +553,23 @@
             renderProductUrls();
             renderAddresses();
             
-            // Check session
+            // Check active session
             const savedSession = localStorage.getItem('ganemax_session');
             if (savedSession) {
-                currentUser = JSON.parse(savedSession);
-                showMainApp();
+                try {
+                    currentUser = JSON.parse(savedSession);
+                    showMainApp();
+                } catch(e) {
+                    localStorage.removeItem('ganemax_session');
+                }
             }
         };
 
-        // LOAD CLOUD DATA FOR LOGGED IN USER FROM SUPABASE
         async function loadUserDataFromSupabase() {
             if (!supabase || !currentUser) return;
             
             try {
-                // Load Shopee Accounts for this user
+                // Load Shopee Accounts
                 const { data: accData } = await supabase
                     .from('shopee_accounts')
                     .select('*')
@@ -598,11 +602,9 @@
                     renderAddresses();
                 }
 
-                // If admin, load system users
+                // Load system users if admin
                 if (currentUser.role === 'admin') {
-                    const { data: usersData } = await supabase
-                        .from('users')
-                        .select('*');
+                    const { data: usersData } = await supabase.from('users').select('*');
                     if (usersData && usersData.length > 0) {
                         systemUsers = usersData;
                         localStorage.setItem('system_users', JSON.stringify(systemUsers));
@@ -610,11 +612,10 @@
                     }
                 }
             } catch(e) {
-                console.warn("Cloud data sync note:", e);
+                console.warn("Cloud sync note:", e);
             }
         }
 
-        // LOGIN HANDLER (CLOUD SUPABASE INTEGRATED)
         async function handleLogin() {
             const u = document.getElementById('loginUser').value.trim();
             const p = document.getElementById('loginPass').value.trim();
@@ -627,7 +628,7 @@
             const btn = document.getElementById('loginSubmitBtn');
             if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa Database...';
 
-            // Hardcoded master admin fallback
+            // Master admin fallback
             if (u === 'admin' && p === 'admin123') {
                 currentUser = { username: 'admin', role: 'admin' };
                 if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
@@ -635,7 +636,7 @@
                 return;
             }
 
-            // 1. Try Supabase Cloud Lookup
+            // 1. Supabase Cloud Lookup
             if (supabase) {
                 try {
                     const { data, error } = await supabase
@@ -644,7 +645,9 @@
                         .eq('username', u)
                         .maybeSingle();
 
-                    if (data && !error) {
+                    if (error) {
+                        console.error("Supabase login query error:", error);
+                    } else if (data) {
                         if (data.password === p) {
                             if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
                                 alert("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
@@ -671,12 +674,17 @@
                 }
             }
 
-            // 2. Fallback to LocalStorage system_users
+            // 2. LocalStorage system_users fallback
             const localUser = systemUsers.find(x => x.username === u);
             if (localUser) {
                 if (localUser.password === p) {
                     if (localUser.expiry_date && new Date(localUser.expiry_date) < new Date()) {
                         alert("Masa aktif akun Anda telah kadaluarsa!");
+                        if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                        return;
+                    }
+                    if (localUser.status === 'blocked') {
+                        alert("Akun Anda dinonaktifkan oleh Admin.");
                         if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
                         return;
                     }
@@ -716,7 +724,122 @@
             loadUserDataFromSupabase();
         }
 
-        // SAVE DATA HANDLERS WITH SUPABASE CLOUD SYNC
+        function handleLogout() {
+            localStorage.removeItem('ganemax_session');
+            location.reload();
+        }
+
+        function togglePasswordVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash password-toggle';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-solid fa-eye password-toggle';
+            }
+        }
+
+        function saveSupabaseConfig() {
+            SUPABASE_URL = document.getElementById('supaUrlInput').value.trim();
+            SUPABASE_KEY = document.getElementById('supaKeyInput').value.trim();
+
+            localStorage.setItem('ganemax_supa_url', SUPABASE_URL);
+            localStorage.setItem('ganemax_supa_key', SUPABASE_KEY);
+
+            initSupabaseClient();
+            addLog('[SUPABASE] Konfigurasi Cloud Supabase diperbarui.', 'success');
+            alert('Konfigurasi Supabase berhasil disimpan!');
+        }
+
+        async function handleCreateUserByAdmin() {
+            const u = document.getElementById('newClientUser').value.trim();
+            const p = document.getElementById('newClientPass').value.trim();
+            const days = parseInt(document.getElementById('newClientDuration').value) || 30;
+
+            if (!u || !p) {
+                alert('Username dan Password baru wajib diisi!');
+                return;
+            }
+
+            const expDate = new Date();
+            expDate.setDate(expDate.getDate() + days);
+            const expStr = expDate.toISOString().split('T')[0];
+
+            const newUserObj = { username: u, password: p, expiry_date: expStr, status: 'active' };
+
+            if (supabase) {
+                try {
+                    const { error } = await supabase.from('users').upsert([newUserObj], { onConflict: 'username' });
+                    if (error) console.error("Supabase upsert error:", error);
+                    else addLog(`[SUPABASE] User ${u} tersimpan ke Cloud Supabase!`, 'success');
+                } catch(e) {
+                    console.error("Supabase error:", e);
+                }
+            }
+
+            const idx = systemUsers.findIndex(x => x.username === u);
+            if (idx >= 0) systemUsers[idx] = newUserObj;
+            else systemUsers.push(newUserObj);
+
+            localStorage.setItem('system_users', JSON.stringify(systemUsers));
+            renderAdminUsersTable();
+
+            document.getElementById('newClientUser').value = '';
+            document.getElementById('newClientPass').value = '';
+            alert(`Akun Client '${u}' berhasil dibuat sampai ${expStr}!`);
+        }
+
+        function renderAdminUsersTable() {
+            const tbody = document.getElementById('userTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            systemUsers.forEach(usr => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${usr.username}</strong></td>
+                    <td><code>${usr.password}</code></td>
+                    <td>${usr.expiry_date || 'Permanen'}</td>
+                    <td><span class="badge" style="background:${usr.status==='active'?'#dcfce7':'#fee2e2'}; color:${usr.status==='active'?'#15803d':'#b91c1c'}">${usr.status||'active'}</span></td>
+                    <td>
+                        <button class="icon-btn danger" onclick="deleteUser('${usr.username}')"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function deleteUser(u) {
+            if (u === 'admin') return alert("Akun admin tidak bisa dihapus!");
+            if (!confirm(`Hapus akun '${u}'?`)) return;
+
+            systemUsers = systemUsers.filter(x => x.username !== u);
+            localStorage.setItem('system_users', JSON.stringify(systemUsers));
+
+            if (supabase) {
+                try { await supabase.from('users').delete().eq('username', u); } catch(e){}
+            }
+            renderAdminUsersTable();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('active');
+            }
+            const targetContent = document.getElementById(tabId);
+            if (targetContent) targetContent.classList.add('active');
+        }
+
+        function openAccountModal() { document.getElementById('accountModal').classList.add('active'); }
+        function openUrlModal() { document.getElementById('urlModal').classList.add('active'); }
+        function openAddressModal() { document.getElementById('addressModal').classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
         async function saveAccountDetail() {
             const u = document.getElementById('accUser').value.trim();
             if (!u) return alert('Username Shopee wajib diisi!');
@@ -749,6 +872,7 @@
 
         function renderAccounts() {
             const container = document.getElementById('accountListCards');
+            if (!container) return;
             container.innerHTML = accounts.map((a, i) => `
                 <div class="item-card active">
                     <div class="item-card-title">${a.username}</div>
@@ -803,6 +927,20 @@
             closeModal('urlModal');
         }
 
+        function renderProductUrls() {
+            const container = document.getElementById('urlListCards');
+            if (!container) return;
+            container.innerHTML = productUrls.map((p, i) => `
+                <div class="item-card active">
+                    <div class="item-card-title">${p.title}</div>
+                    <div class="item-card-sub">${p.url}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn danger" onclick="removeUrl(${i})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
         async function removeUrl(i) {
             const target = productUrls[i];
             if (supabase && target) {
@@ -845,6 +983,21 @@
             closeModal('addressModal');
         }
 
+        function renderAddresses() {
+            const container = document.getElementById('addressListCards');
+            if (!container) return;
+            container.innerHTML = addresses.map((a, i) => `
+                <div class="item-card active">
+                    <div class="item-card-title">${a.label}</div>
+                    <div class="item-card-sub">${a.receiver}</div>
+                    <div class="item-card-sub">${a.detail}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn danger" onclick="removeAddress(${i})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
         async function removeAddress(i) {
             const target = addresses[i];
             if (supabase && target) {
@@ -860,331 +1013,7 @@
             localStorage.setItem('shopee_addrs', JSON.stringify(addresses));
             renderAddresses();
         }
-            }
-        }
 
-        // STATE APP
-        let currentUser = null;
-        let accounts = JSON.parse(localStorage.getItem('shopee_accs')) || [];
-        let productUrls = JSON.parse(localStorage.getItem('shopee_urls')) || [];
-        let addresses = JSON.parse(localStorage.getItem('shopee_addrs')) || [];
-        let systemUsers = JSON.parse(localStorage.getItem('system_users')) || [
-            { username: 'admin', password: 'admin123', expiry_date: '2099-12-31', status: 'active' }
-        ];
-
-        let botRunning = false;
-        let targetExecutionTime = null;
-
-        // INIT ON LOAD
-        window.onload = function() {
-            initSupabaseClient();
-            document.getElementById('supaUrlInput').value = SUPABASE_URL;
-            document.getElementById('supaKeyInput').value = SUPABASE_KEY;
-
-            initChart();
-            startLiveClock();
-            renderAccounts();
-            renderProductUrls();
-            renderAddresses();
-            
-            // Check session
-            const savedSession = localStorage.getItem('ganemax_session');
-            if (savedSession) {
-                currentUser = JSON.parse(savedSession);
-                showMainApp();
-            }
-        };
-
-        // LOGIN HANDLER (CLOUD SUPABASE INTEGRATED)
-        async function handleLogin() {
-            const u = document.getElementById('loginUser').value.trim();
-            const p = document.getElementById('loginPass').value.trim();
-
-            if (!u || !p) {
-                alert('Username dan Password harus diisi!');
-                return;
-            }
-
-            // Hardcoded master admin
-            if (u === 'admin' && p === 'admin123') {
-                currentUser = { username: 'admin', role: 'admin' };
-                saveSessionAndEnter();
-                return;
-            }
-
-            // 1. Try Supabase Cloud Lookup
-            if (supabase) {
-                try {
-                    const { data, error } = await supabase
-                        .from('users')
-                        .select('*')
-                        .eq('username', u)
-                        .maybeSingle();
-
-                    if (data && !error) {
-                        if (data.password === p) {
-                            if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
-                                alert("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Telegram @mrpangeranz.");
-                                return;
-                            }
-                            if (data.status === 'blocked') {
-                                alert("Akun Anda dinonaktifkan oleh Admin.");
-                                return;
-                            }
-                            currentUser = { username: data.username, role: 'client', expiry_date: data.expiry_date };
-                            saveSessionAndEnter();
-                            return;
-                        } else {
-                            alert("Password salah!");
-                            return;
-                        }
-                    }
-                } catch(e) {
-                    console.warn("Supabase lookup error:", e);
-                }
-            }
-
-            // 2. Fallback to LocalStorage system_users
-            const localUser = systemUsers.find(x => x.username === u);
-            if (localUser) {
-                if (localUser.password === p) {
-                    if (localUser.expiry_date && new Date(localUser.expiry_date) < new Date()) {
-                        alert("Masa aktif akun Anda telah kadaluarsa!");
-                        return;
-                    }
-                    currentUser = { username: localUser.username, role: u === 'admin' ? 'admin' : 'client' };
-                    saveSessionAndEnter();
-                    return;
-                } else {
-                    alert("Password salah!");
-                    return;
-                }
-            }
-
-            alert("Username tidak ditemukan! Silakan hubungi Admin Telegram @mrpangeranz.");
-        }
-
-        function saveSessionAndEnter() {
-            localStorage.setItem('ganemax_session', JSON.stringify(currentUser));
-            showMainApp();
-        }
-
-        function showMainApp() {
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('appContainer').style.display = 'block';
-            document.getElementById('userDisplay').innerText = `User: ${currentUser.username}`;
-            document.getElementById('roleBadge').innerText = currentUser.role.toUpperCase();
-
-            if (currentUser.role === 'admin') {
-                document.getElementById('adminTabBtn').style.display = 'inline-flex';
-                renderAdminUsersTable();
-            } else {
-                document.getElementById('adminTabBtn').style.display = 'none';
-            }
-            addLog(`[LOGIN] User ${currentUser.username} berhasil masuk.`, 'success');
-        }
-
-        function handleLogout() {
-            localStorage.removeItem('ganemax_session');
-            location.reload();
-        }
-
-        function togglePasswordVisibility(inputId, iconId) {
-            const input = document.getElementById(inputId);
-            const icon = document.getElementById(iconId);
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.className = 'fa-solid fa-eye-slash password-toggle';
-            } else {
-                input.type = 'password';
-                icon.className = 'fa-solid fa-eye password-toggle';
-            }
-        }
-
-        // SUPABASE CONFIG SAVE
-        function saveSupabaseConfig() {
-            SUPABASE_URL = document.getElementById('supaUrlInput').value.trim();
-            SUPABASE_KEY = document.getElementById('supaKeyInput').value.trim();
-
-            localStorage.setItem('ganemax_supa_url', SUPABASE_URL);
-            localStorage.setItem('ganemax_supa_key', SUPABASE_KEY);
-
-            initSupabaseClient();
-            addLog('[SUPABASE] Konfigurasi Cloud Supabase diperbarui.', 'success');
-            alert('Konfigurasi Supabase berhasil disimpan!');
-        }
-
-        // CREATE USER BY ADMIN (CLOUD SUPABASE SYNC)
-        async function handleCreateUserByAdmin() {
-            const u = document.getElementById('newClientUser').value.trim();
-            const p = document.getElementById('newClientPass').value.trim();
-            const days = parseInt(document.getElementById('newClientDuration').value) || 30;
-
-            if (!u || !p) {
-                alert('Username dan Password baru wajib diisi!');
-                return;
-            }
-
-            const expDate = new Date();
-            expDate.setDate(expDate.getDate() + days);
-            const expStr = expDate.toISOString().split('T')[0];
-
-            const newUserObj = { username: u, password: p, expiry_date: expStr, status: 'active' };
-
-            // 1. Sync to Supabase Cloud
-            if (supabase) {
-                try {
-                    const { error } = await supabase.from('users').upsert([newUserObj], { onConflict: 'username' });
-                    if (error) console.error("Supabase upsert error:", error);
-                    else addLog(`[SUPABASE] User ${u} tersimpan ke Cloud Supabase!`, 'success');
-                } catch(e) {
-                    console.error("Supabase error:", e);
-                }
-            }
-
-            // 2. Save Local
-            const idx = systemUsers.findIndex(x => x.username === u);
-            if (idx >= 0) systemUsers[idx] = newUserObj;
-            else systemUsers.push(newUserObj);
-
-            localStorage.setItem('system_users', JSON.stringify(systemUsers));
-            renderAdminUsersTable();
-
-            document.getElementById('newClientUser').value = '';
-            document.getElementById('newClientPass').value = '';
-            alert(`Akun Client '${u}' berhasil dibuat sampai ${expStr}!`);
-        }
-
-        function renderAdminUsersTable() {
-            const tbody = document.getElementById('userTableBody');
-            tbody.innerHTML = '';
-
-            systemUsers.forEach(usr => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${usr.username}</strong></td>
-                    <td><code>${usr.password}</code></td>
-                    <td>${usr.expiry_date || 'Permanen'}</td>
-                    <td><span class="badge" style="background:${usr.status==='active'?'#dcfce7':'#fee2e2'}; color:${usr.status==='active'?'#15803d':'#b91c1c'}">${usr.status||'active'}</span></td>
-                    <td>
-                        <button class="icon-btn danger" onclick="deleteUser('${usr.username}')"><i class="fa-solid fa-trash"></i></button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        async function deleteUser(u) {
-            if (u === 'admin') return alert("Akun admin tidak bisa dihapus!");
-            if (!confirm(`Hapus akun '${u}'?`)) return;
-
-            systemUsers = systemUsers.filter(x => x.username !== u);
-            localStorage.setItem('system_users', JSON.stringify(systemUsers));
-
-            if (supabase) {
-                try { await supabase.from('users').delete().eq('username', u); } catch(e){}
-            }
-            renderAdminUsersTable();
-        }
-
-        // TABS SWITCHER
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-            event.currentTarget.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
-        }
-
-        // MODAL HELPERS
-        function openAccountModal() { document.getElementById('accountModal').classList.add('active'); }
-        function openUrlModal() { document.getElementById('urlModal').classList.add('active'); }
-        function openAddressModal() { document.getElementById('addressModal').classList.add('active'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-
-        // SAVE DATA HANDLERS
-        function saveAccountDetail() {
-            const u = document.getElementById('accUser').value.trim();
-            if (!u) return alert('Username Shopee wajib diisi!');
-
-            accounts.push({
-                username: u,
-                phone: document.getElementById('accPhone').value,
-                email: document.getElementById('accEmail').value,
-                pin: document.getElementById('accPin').value
-            });
-            localStorage.setItem('shopee_accs', JSON.stringify(accounts));
-            renderAccounts();
-            closeModal('accountModal');
-        }
-
-        function renderAccounts() {
-            const container = document.getElementById('accountListCards');
-            container.innerHTML = accounts.map((a, i) => `
-                <div class="item-card active">
-                    <div class="item-card-title">${a.username}</div>
-                    <div class="item-card-sub"><i class="fa-solid fa-phone"></i> ${a.phone||'-'}</div>
-                    <div class="item-card-sub"><i class="fa-solid fa-key"></i> PIN: ***${(a.pin||'').slice(-2)}</div>
-                    <div class="item-card-actions">
-                        <button class="icon-btn danger" onclick="removeAccount(${i})"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                </div>
-            `).join('');
-        }
-        function removeAccount(i) { accounts.splice(i,1); localStorage.setItem('shopee_accs', JSON.stringify(accounts)); renderAccounts(); }
-
-        function saveProductUrl() {
-            const t = document.getElementById('urlTitle').value.trim();
-            const u = document.getElementById('urlAddress').value.trim();
-            if(!u) return alert('URL Produk wajib diisi!');
-
-            productUrls.push({ title: t||'Target Produk', url: u });
-            localStorage.setItem('shopee_urls', JSON.stringify(productUrls));
-            renderProductUrls();
-            closeModal('urlModal');
-        }
-
-        function renderProductUrls() {
-            const container = document.getElementById('urlListCards');
-            container.innerHTML = productUrls.map((p, i) => `
-                <div class="item-card active">
-                    <div class="item-card-title">${p.title}</div>
-                    <div class="item-card-sub">${p.url}</div>
-                    <div class="item-card-actions">
-                        <button class="icon-btn danger" onclick="removeUrl(${i})"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                </div>
-            `).join('');
-        }
-        function removeUrl(i) { productUrls.splice(i,1); localStorage.setItem('shopee_urls', JSON.stringify(productUrls)); renderProductUrls(); }
-
-        function saveAddressDetail() {
-            const l = document.getElementById('addrLabel').value.trim();
-            const r = document.getElementById('addrReceiver').value.trim();
-            const d = document.getElementById('addrDetail').value.trim();
-
-            addresses.push({ label: l||'Alamat', receiver: r, detail: d });
-            localStorage.setItem('shopee_addrs', JSON.stringify(addresses));
-            renderAddresses();
-            closeModal('addressModal');
-        }
-
-        function renderAddresses() {
-            const container = document.getElementById('addressListCards');
-            container.innerHTML = addresses.map((a, i) => `
-                <div class="item-card active">
-                    <div class="item-card-title">${a.label}</div>
-                    <div class="item-card-sub">${a.receiver}</div>
-                    <div class="item-card-sub">${a.detail}</div>
-                    <div class="item-card-actions">
-                        <button class="icon-btn danger" onclick="removeAddress(${i})"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                </div>
-            `).join('');
-        }
-        function removeAddress(i) { addresses.splice(i,1); localStorage.setItem('shopee_addrs', JSON.stringify(addresses)); renderAddresses(); }
-
-        // CLOCK & TARGET TIME LOGIC
         function updateTargetExecutionTime() {
             const val = document.getElementById('targetDateTime').value;
             if (val) {
@@ -1201,16 +1030,19 @@
                 const secs = String(now.getSeconds()).padStart(2,'0');
                 const ms = String(now.getMilliseconds()).padStart(3,'0');
 
-                document.getElementById('clockDisplay').childNodes[0].nodeValue = `${hrs}:${mins}:${secs}.`;
-                document.getElementById('msDisplay').innerText = ms;
+                const clockDisplay = document.getElementById('clockDisplay');
+                const msDisplay = document.getElementById('msDisplay');
+                if (clockDisplay) clockDisplay.childNodes[0].nodeValue = `${hrs}:${mins}:${secs}.`;
+                if (msDisplay) msDisplay.innerText = ms;
 
                 if (targetExecutionTime) {
                     const diff = targetExecutionTime - now;
+                    const statusText = document.getElementById('targetStatusText');
                     if (diff > 0) {
                         const sLeft = Math.floor(diff / 1000);
-                        document.getElementById('targetStatusText').innerText = `Hitung Mundur Target: ${sLeft} detik lagi`;
+                        if (statusText) statusText.innerText = `Hitung Mundur Target: ${sLeft} detik lagi`;
                     } else if (diff <= 0 && diff > -2000 && botRunning) {
-                        document.getElementById('targetStatusText').innerText = '🔥 EXECUTING AUTO CHECKOUT!';
+                        if (statusText) statusText.innerText = '🔥 EXECUTING AUTO CHECKOUT!';
                         fireAutoCheckout();
                     }
                 }
@@ -1232,9 +1064,9 @@
             addLog('[ENGINE] Engine STOPPED.', 'error');
         }
 
-        // LOGS
         function addLog(msg, type='info') {
             const panel = document.getElementById('logsPanel');
+            if (!panel) return;
             const log = document.createElement('div');
             log.className = `log log-${type}`;
             const time = new Date().toLocaleTimeString('id-ID');
@@ -1242,12 +1074,16 @@
             panel.appendChild(log);
             panel.scrollTop = panel.scrollHeight;
         }
-        function clearLogs() { document.getElementById('logsPanel').innerHTML = ''; }
+        function clearLogs() { 
+            const panel = document.getElementById('logsPanel');
+            if (panel) panel.innerHTML = ''; 
+        }
 
-        // AUDIO PLAYER FIX (lagu.mp3)
         function toggleAudioPlayer() {
             const audio = document.getElementById('bgMusic');
             const btn = document.getElementById('audioBtn');
+            if (!audio || !btn) return;
+
             if (audio.paused) {
                 audio.play().then(() => {
                     btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Pause lagu.mp3';
@@ -1260,28 +1096,30 @@
             }
         }
 
-        // DARK MODE TOGGLE
         function toggleDarkMode() {
             document.body.classList.toggle('dark-theme');
             const icon = document.getElementById('themeIcon');
-            if(document.body.classList.contains('dark-theme')) {
-                icon.className = 'fa-solid fa-sun';
-            } else {
-                icon.className = 'fa-solid fa-moon';
+            if (icon) {
+                if (document.body.classList.contains('dark-theme')) {
+                    icon.className = 'fa-solid fa-sun';
+                } else {
+                    icon.className = 'fa-solid fa-moon';
+                }
             }
         }
 
-        // AI DEEPSEEK CHAT (OPENROUTER)
         let aiHistory = [];
         async function sendAiChat() {
             const input = document.getElementById('aiInputPrompt');
-            const prompt = input.value.trim();
+            const prompt = input ? input.value.trim() : '';
             if (!prompt) return;
 
             const box = document.getElementById('aiChatBox');
-            box.innerHTML += `<div style="color:#f8fafc; margin-top:6px;">[YOU] ${prompt}</div>`;
-            input.value = '';
-            box.scrollTop = box.scrollHeight;
+            if (box) {
+                box.innerHTML += `<div style="color:#f8fafc; margin-top:6px;">[YOU] ${prompt}</div>`;
+                box.scrollTop = box.scrollHeight;
+            }
+            if (input) input.value = '';
 
             aiHistory.push({ role: 'user', content: prompt });
 
@@ -1305,23 +1143,24 @@
                 });
 
                 const data = await res.json();
-                if (data.choices && data.choices[0]) {
+                if (data.choices && data.choices[0] && box) {
                     const aiReply = data.choices[0].message.content;
                     aiHistory.push({ role: 'assistant', content: aiReply });
                     box.innerHTML += `<div style="color:#38bdf8; margin-top:6px;">[AI] ${aiReply}</div>`;
-                } else {
+                } else if (box) {
                     box.innerHTML += `<div style="color:#f87171; margin-top:6px;">[AI ERROR] Tidak dapat merespon dari OpenRouter.</div>`;
                 }
             } catch(e) {
-                box.innerHTML += `<div style="color:#f87171; margin-top:6px;">[AI ERROR] ${e.message}</div>`;
+                if (box) box.innerHTML += `<div style="color:#f87171; margin-top:6px;">[AI ERROR] ${e.message}</div>`;
             }
-            box.scrollTop = box.scrollHeight;
+            if (box) box.scrollTop = box.scrollHeight;
         }
 
-        // CHART LATENCY
         let latencyChart;
         function initChart() {
-            const ctx = document.getElementById('latencyChart').getContext('2d');
+            const chartCanvas = document.getElementById('latencyChart');
+            if (!chartCanvas) return;
+            const ctx = chartCanvas.getContext('2d');
             latencyChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -1343,11 +1182,11 @@
             });
         }
 
-        // BANNER SLIDER LOGIC
         let currentSlide = 0;
         function goToSlide(i) {
             currentSlide = i;
-            document.getElementById('sliderTrack').style.transform = `translateX(-${i*50}%)`;
+            const track = document.getElementById('sliderTrack');
+            if (track) track.style.transform = `translateX(-${i*50}%)`;
             document.querySelectorAll('.slider-dot').forEach((d, idx) => {
                 d.classList.toggle('active', idx === i);
             });
