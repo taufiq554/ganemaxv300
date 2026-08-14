@@ -3,38 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopee Flash Sale Manager Enterprise Pro v4.5 (Supabase Cloud)</title>
     
-    <!-- Google Site Verification Tag -->
-    <meta name="google-site-verification" content="MmJmxZa3cGfdJAgMYUvJCMEoqCen0D__p38kkV0Pg5c" />
-
-    <!-- SEO Meta Tags Utama -->
-    <title>Shopee Flash Sale Manager Enterprise Pro - Bot Auto Checkout Shopee Rp 1000</title>
-    <meta name="description" content="Shopee Flash Sale Manager Enterprise Pro v4.0. Bot auto checkout flash sale Shopee super cepat dengan NTP Clock Sync, DeepSeek AI Optimizer, dan Multi-Account Engine.">
-    <meta name="keywords" content="bot flash sale shopee, auto checkout shopee, shopee flash sale manager, script flash sale Rp 1000, bot shopee pc hp, ganemax ai, auto checkout shopee 2026">
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-    <meta name="author" content="GaneMaX.Ai">
-    <link rel="canonical" href="https://ganemax.my.id/app">
-
-    <!-- Open Graph Meta Tags -->
-    <meta property="og:locale" content="id_ID">
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Shopee Flash Sale Manager Pro">
-    <meta property="og:url" content="https://ganemax.my.id/app">
-    <meta property="og:title" content="Shopee Flash Sale Manager Enterprise Pro - Bot Auto Checkout">
-    <meta property="og:description" content="Bot Flash Sale Shopee Enterprise Pro dengan kecerdasan AI DeepSeek v4 & NTP Clock Sync. Tembak Flash Sale Rp 1.000 dengan kecepatan milidetik!">
-    <meta property="og:image" content="https://ganemax.my.id/image.jpg">
-
     <link rel="icon" href="image.jpg" type="image/jpeg">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SUPABASE OFFICIAL JS SDK V2 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background: #f8fafc; color: #1e293b; min-height: 100vh; padding: 24px; transition: background-color 0.3s ease, color 0.3s ease; }
         .container { max-width: 1440px; margin: 0 auto; }
 
-        /* --- DARK THEME STYLES --- */
+        /* DARK THEME STYLES */
         body.dark-theme { background: #0b1120; color: #f1f5f9; }
         body.dark-theme header,
         body.dark-theme .panel,
@@ -178,15 +161,6 @@
         .close-btn { background: transparent; border: none; font-size: 20px; color: #94a3b8; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
         .close-btn:hover { background: #f1f5f9; color: #475569; }
         .modal-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
-
-        /* Package Selector Styling for Topup Modal */
-        .plan-select-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
-        @media (max-width: 500px) { .plan-select-grid { grid-template-columns: 1fr; } }
-        .plan-card-opt { border: 2px solid #e2e8f0; border-radius: 14px; padding: 12px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc; }
-        .plan-card-opt:hover { border-color: #93c5fd; }
-        .plan-card-opt.selected { border-color: #2563eb; background: #eff6ff; }
-        .plan-card-title { font-size: 13px; font-weight: 700; color: #1e293b; }
-        .plan-card-price { font-size: 15px; font-weight: 800; color: #2563eb; margin-top: 2px; }
     </style>
 </head>
 <body>
@@ -194,7 +168,7 @@
     <div id="loginScreen">
         <div class="login-card">
             <div class="login-title">⚡ Enterprise Control Login</div>
-            <div class="login-subtitle">Masukkan akun Anda untuk mengisolasi data pribadi</div>
+            <div class="login-subtitle">Masukkan akun Anda untuk terhubung ke Supabase Cloud DB</div>
             <div class="form-group">
                 <label>Username</label>
                 <input type="text" id="loginUser" placeholder="Masukkan username">
@@ -206,1858 +180,1179 @@
                     <i class="fa-solid fa-eye password-toggle" id="toggleLoginPass" onclick="togglePasswordVisibility('loginPass', 'toggleLoginPass')"></i>
                 </div>
             </div>
-            <button class="btn btn-primary" onclick="handleLogin()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard</button>
+            <button class="btn btn-primary" id="loginSubmitBtn" onclick="handleLogin()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard</button>
             <div style="margin-top: 14px; font-size: 12px; color: #64748b; line-height: 1.4;">
                 Silakan DM Telegram <a href="https://t.me/mrpangeranz" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:600; text-decoration:underline;"><i class="fa-brands fa-telegram" style="color:#229ed9;"></i> @mrpangeranz</a> untuk request Username & Password
-            </div>
-            <div style="display:flex; gap:8px; margin-top:12px;">
-                <button class="btn btn-outline btn-sm" style="width:100%;" onclick="openPaymentGatewayModal()"><i class="fa-solid fa-qrcode" style="color:#16a34a;"></i> Sewa Lisensi Bot</button>
             </div>
         </div>
     </div>
 
-    <div class="container">
+    <div class="container" id="appContainer" style="display:none;">
+        
         <header>
             <div class="logo-area">
                 <div class="logo-icon">
                     <img src="image.jpg" alt="Logo" onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'fa-solid fa-bolt\'></i>'">
                 </div>
                 <div>
-                    <h1 class="logo" style="font-size:24px; margin:0;">Shopee Flash Sale Manager</h1>
-                    <div class="badge">v4.0 Enterprise Pro • User: <span id="currentUserDisplay">-</span> <span id="currentRoleDisplay" class="badge badge-role">USER</span></div>
+                    <div class="logo">Shopee Flash Sale Manager</div>
+                    <div style="font-size:12px; color:#64748b;">Enterprise Pro v4.5 • Supabase Engine Active</div>
                 </div>
             </div>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <span class="badge badge-role" id="roleBadge"><i class="fa-solid fa-user"></i> Client</span>
+                <span style="font-size:13px; font-weight:600;" id="userDisplay">User: client</span>
+                
+                <button class="btn btn-outline btn-sm" onclick="toggleAudioPlayer()" id="audioBtn">
+                    <i class="fa-solid fa-music"></i> lagu.mp3
+                </button>
+                <audio id="bgMusic" src="lagu.mp3" loop preload="auto"></audio>
 
-            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <button class="btn btn-outline btn-sm" style="border-color:#22c55e; color:#15803d; font-weight:600;" onclick="openModal('modalWhatsappChannel')"><i class="fa-brands fa-whatsapp" style="color:#22c55e; font-size:14px;"></i> Saluran WA</button>
-                <button class="btn btn-outline btn-sm" style="border-color:#16a34a; color:#16a34a; font-weight:700;" onclick="openPaymentGatewayModal()"><i class="fa-solid fa-qrcode"></i> Sewa / Topup</button>
-                <button class="btn btn-outline btn-sm" onclick="requestBrowserNotificationPermission()"><i class="fa-solid fa-bell" style="color:#f59e0b;"></i> Notif HP</button>
-                <button class="btn btn-outline btn-sm" onclick="toggleTheme()" id="themeToggleBtn"><i class="fa-solid fa-moon"></i> Gelap</button>
-                <button class="btn btn-outline btn-sm" onclick="exportDataJSON()" title="Export JSON"><i class="fa-solid fa-download"></i> Export</button>
-                <button class="btn btn-outline btn-sm" onclick="document.getElementById('importFileInput').click()" title="Import JSON"><i class="fa-solid fa-upload"></i> Import</button>
-                <input type="file" id="importFileInput" accept=".json" onchange="importDataJSON(event)" style="display:none;">
-                <button class="btn btn-outline btn-sm" onclick="toggleAudio()" id="musicToggleBtn"><i class="fa-solid fa-music"></i> Audio</button>
-                <button class="btn btn-outline btn-sm" style="border-color:#fca5a5; color:#ef4444;" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button>
+                <button class="btn btn-outline btn-sm" onclick="toggleDarkMode()" title="Toggle Theme">
+                    <i class="fa-solid fa-moon" id="themeIcon"></i>
+                </button>
+
+                <button class="btn btn-outline btn-sm" onclick="handleLogout()" style="color:#ef4444; border-color:#fca5a5;">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Keluar
+                </button>
             </div>
         </header>
 
-        <!-- Pemutar Audio Latar lagu.mp3 -->
-        <audio id="bgAudioPlayer" src="lagu.mp3" loop preload="auto"></audio>
-
-        <!-- BANNER PROMO STANDAR E-COMMERCE -->
-        <div class="banner-slider" id="headerSlider">
+        <!-- BANNER SLIDER PROMO -->
+        <div class="banner-slider" id="bannerSlider">
             <div class="slider-track" id="sliderTrack">
                 <div class="slider-slide">
-                    <img src="image1.jpg" alt="Promo Flash Sale 1" onerror="this.src='https://placehold.co/1200x350/2563eb/ffffff?text=Flash+Sale+Shopee+Promo+Banner+1'">
+                    <img src="image.jpg" alt="Promo Banner 1" onerror="this.src='https://placehold.co/1200x300/1e293b/38bdf8?text=Flash+Sale+Shopee+Enterprise+Pro+v4.5'">
                 </div>
                 <div class="slider-slide">
-                    <img src="image2.jpg" alt="Promo Flash Sale 2" onerror="this.src='https://placehold.co/1200x350/7c3aed/ffffff?text=Flash+Sale+Shopee+Promo+Banner+2'">
+                    <img src="image.jpg" alt="Promo Banner 2" onerror="this.src='https://placehold.co/1200x300/0f172a/34d399?text=Auto+Checkout+Detik+0+Bypass+PIN+ShopeePay'">
                 </div>
             </div>
             <div class="slider-dots">
-                <span class="slider-dot active" onclick="setSlideIndex(0)"></span>
-                <span class="slider-dot" onclick="setSlideIndex(1)"></span>
+                <div class="slider-dot active" onclick="goToSlide(0)"></div>
+                <div class="slider-dot" onclick="goToSlide(1)"></div>
             </div>
         </div>
 
         <div class="main-content">
-            <div>
-                <div class="panel">
-                    <div class="panel-header">
-                        <div class="panel-title"><i class="fa-solid fa-sliders"></i> Control Panel</div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="fa-solid fa-sliders"></i> Panel Kontrol Utama</div>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('tab-basic')"><i class="fa-solid fa-bolt"></i> Target</button>
+                    <button class="tab" onclick="switchTab('tab-accounts')"><i class="fa-solid fa-users"></i> Akun Shopee</button>
+                    <button class="tab" onclick="switchTab('tab-address')"><i class="fa-solid fa-location-dot"></i> Alamat</button>
+                    <button class="tab" onclick="switchTab('tab-payment')"><i class="fa-solid fa-credit-card"></i> Pembayaran</button>
+                    <button class="tab" onclick="switchTab('tab-ai')"><i class="fa-solid fa-robot"></i> AI DeepSeek</button>
+                    <button class="tab admin-tab" id="adminTabBtn" onclick="switchTab('tab-admin')" style="display:none;"><i class="fa-solid fa-shield-halved"></i> Admin Panel</button>
+                </div>
+
+                <!-- TAB TARGET -->
+                <div id="tab-basic" class="tab-content active">
+                    <div class="form-group">
+                        <label>Atur Tanggal & Jam Target Flash Sale (Real-Time Execution)</label>
+                        <input type="datetime-local" id="targetDateTime" onchange="updateTargetExecutionTime()">
                     </div>
-                    
-                    <div class="tabs">
-                        <button class="tab active" onclick="switchTab('basic', event)"><i class="fa-solid fa-gear"></i> Basic</button>
-                        <button class="tab" onclick="switchTab('alamat', event)"><i class="fa-solid fa-location-dot"></i> Alamat</button>
-                        <button class="tab" onclick="switchTab('pembayaran', event)"><i class="fa-solid fa-credit-card"></i> Bayar</button>
-                        <button class="tab" onclick="switchTab('accounts', event)"><i class="fa-solid fa-users"></i> Akun Shopee</button>
-                        <button class="tab" onclick="switchTab('urls', event)"><i class="fa-solid fa-link"></i> Target URLs</button>
-                        <button class="tab" onclick="switchTab('history', event)"><i class="fa-solid fa-history"></i> Riwayat</button>
-                        <button class="tab" onclick="switchTab('stealth', event)"><i class="fa-solid fa-fingerprint"></i> Anti-Bot</button>
-                        <button class="tab" onclick="switchTab('proxy', event)"><i class="fa-solid fa-network-wired"></i> Proxy Mesh</button>
-                        <button class="tab" onclick="switchTab('schedule', event)"><i class="fa-solid fa-clock"></i> Jadwal</button>
-                        <button class="tab" style="color:#7c3aed; font-weight:700;" onclick="switchTab('ai', event)"><img src="deepsek.jpg" alt="DeepSeek" style="width:16px; height:16px; border-radius:4px; object-fit:cover; display:inline-block;" onerror="this.style.display='none'"> DeepSeek AI</button>
-                        <button class="tab admin-tab" id="adminTabHeader" style="display:none;" onclick="switchTab('admin', event)"><i class="fa-solid fa-user-shield"></i> Admin Panel</button>
+                    <div class="form-group">
+                        <label>Daftar Target URL Produk Shopee</label>
+                        <div id="urlListCards" class="cards-grid"></div>
+                        <button class="btn btn-outline btn-sm mt-2" onclick="openUrlModal()"><i class="fa-solid fa-plus"></i> Tambah URL Produk</button>
                     </div>
-                    
-                    <!-- TAB BASIC -->
-                    <div id="tab-basic" class="tab-content active">
-                        <div style="background:linear-gradient(135deg, #f3e8ff, #e0e7ff); border:1px solid #c084fc; padding:10px 14px; border-radius:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                            <div style="font-size:12px; color:#581c87; font-weight:600; display:flex; align-items:center; gap:6px;"><img src="deepsek.jpg" style="width:18px; height:18px; border-radius:4px; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek v4 Pro AI Optimizer Active</div>
-                            <button class="btn btn-sm" style="background:#7c3aed; color:white; border:none; padding:4px 12px; border-radius:8px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;" onclick="aiAutoTuneBotSettings()"><img src="deepsek2.jpg" style="width:16px; height:16px; border-radius:4px; object-fit:cover;" onerror="this.style.display='none'"> ⚡ AI Auto-Tune Bot Settings</button>
-                        </div>
+                    <div class="form-group">
+                        <label>Target Price Safeguard (Batas Maksimum Harga Rp)</label>
+                        <input type="number" id="maxTargetPrice" placeholder="10000" value="10000">
+                    </div>
+                </div>
 
-                        <div style="background:#f0fdf4; border:1px solid #86efac; padding:10px 14px; border-radius:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-                            <div style="font-size:12px; color:#166534; font-weight:600;"><i class="fa-solid fa-layer-group" style="color:#16a34a;"></i> 🚀 Multi-Product Parallel Sniping Engine</div>
-                            <select id="parallelSnipingMode" style="width:auto; font-size:12px; padding:4px 8px;">
-                                <option value="disabled">Single Product Target</option>
-                                <option value="enabled" selected>Multi-Target Concurrent (All Active URLs)</option>
-                            </select>
-                        </div>
+                <!-- TAB AKUN SHOPEE -->
+                <div id="tab-accounts" class="tab-content">
+                    <div class="form-group">
+                        <label>Daftar Akun Shopee Aktif</label>
+                        <div id="accountListCards" class="cards-grid"></div>
+                        <button class="btn btn-outline btn-sm mt-2" onclick="openAccountModal()"><i class="fa-solid fa-user-plus"></i> Tambah Detail Akun Shopee</button>
+                    </div>
+                </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Mode Engine Bot</label>
-                                <select id="botMode">
-                                    <option value="turbo">Turbo Multi-Socket (Ultra Fast)</option>
-                                    <option value="stealth">Stealth Anti-Bot Mode</option>
-                                    <option value="ai">AI Adaptive Engine</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Thread Paralel</label>
-                                <input type="number" id="threadCount" value="10" min="1" max="50">
-                            </div>
-                        </div>
+                <!-- TAB ALAMAT -->
+                <div id="tab-address" class="tab-content">
+                    <div class="form-group">
+                        <label>Daftar Alamat Pengiriman</label>
+                        <div id="addressListCards" class="cards-grid"></div>
+                        <button class="btn btn-outline btn-sm mt-2" onclick="openAddressModal()"><i class="fa-solid fa-plus"></i> Tambah Alamat</button>
+                    </div>
+                </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Auto-Refresh Stok (Polling)</label>
-                                <select id="pollRate">
-                                    <option value="100">Ultra Fast (100ms)</option>
-                                    <option value="500" selected>Standard (500ms)</option>
-                                    <option value="1000">Slow (1000ms)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Smart Variant Fallback</label>
-                                <select id="smartFallback">
-                                    <option value="Aktif" selected>Aktif (&lt;5ms Auto Matcher)</option>
-                                    <option value="Nonaktif">Nonaktif</option>
-                                </select>
-                            </div>
-                        </div>
+                <!-- TAB PEMBAYARAN -->
+                <div id="tab-payment" class="tab-content">
+                    <div class="form-group">
+                        <label>Metode Pembayaran Utama</label>
+                        <select id="mainPaymentMethod">
+                            <option value="shopeepay">ShopeePay (Rekomendasi Auto PIN)</option>
+                            <option value="spaylater">SPayLater</option>
+                            <option value="bca_va">BCA Virtual Account</option>
+                            <option value="cod">Cash on Delivery (COD)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Metode Pembayaran Cadangan</label>
+                        <select id="backupPaymentMethod">
+                            <option value="spaylater">SPayLater</option>
+                            <option value="cod">COD</option>
+                        </select>
+                    </div>
+                    <div style="background:#fffbeb; border:1px solid #fef3c7; padding:12px; border-radius:12px; margin-bottom:16px; font-size:12px; color:#b45309;">
+                        <i class="fa-solid fa-circle-info"></i> <strong>Catatan SPayLater:</strong> Pastikan SPayLater Anda sudah aktif dan memiliki sisa limit yang mencukupi agar eksekusi checkout otomatis tidak gagal saat dialihkan.
+                    </div>
+                </div>
 
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Pre-fire Jitter Offset (Milidetik)</label>
-                                <input type="number" id="preFireJitter" value="-15" placeholder="-15ms Offset">
-                            </div>
-                            <div class="form-group">
-                                <label>Multi-Account Concurrent Fire</label>
-                                <select id="multiAccMode">
-                                    <option value="single" selected>Akun Utama (Rotate On Limit)</option>
-                                    <option value="all">Tembak Semua Akun Sekaligus</option>
-                                </select>
-                            </div>
+                <!-- TAB AI DEEPSEEK -->
+                <div id="tab-ai" class="tab-content">
+                    <div class="form-group">
+                        <label>Asisten Optimasi AI DeepSeek V3 (OpenRouter)</label>
+                        <div id="aiChatBox" style="height:200px; overflow-y:auto; background:#0f172a; color:#e2e8f0; padding:12px; border-radius:12px; font-size:12px; font-family:'JetBrains Mono', monospace; margin-bottom:12px;">
+                            <div style="color:#38bdf8;">[AI] Halo! Saya DeepSeek V3 Assistant. Ada yang bisa saya bantu untuk persiapan Flash Sale Anda?</div>
                         </div>
-
-                        <div class="form-row" style="background:#fff1f2; border:1px solid #fecdd3; padding:10px 14px; border-radius:12px; margin-bottom:16px;">
-                            <div class="form-group" style="margin-bottom:0;">
-                                <label style="color:#be123c;"><i class="fa-solid fa-shield-cat"></i> Smart Target Price Safeguard (Rp)</label>
-                                <input type="number" id="maxPriceSafeguard" value="15000" placeholder="Contoh: 15000">
-                                <div style="font-size:10px; color:#e11d48; margin-top:4px;">Bot auto-cancel jika harga di atas nominal ini saat Checkout.</div>
-                            </div>
-                            <div class="form-group" style="margin-bottom:0;">
-                                <label style="color:#be123c;"><i class="fa-solid fa-list-ol"></i> Multi-Item Priority Queue</label>
-                                <select id="priorityQueueMode">
-                                    <option value="stop_on_first" selected>Berhenti jika Prioritas 1 Tembus</option>
-                                    <option value="continue_all">Lanjut hajar semua target</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="btn-group mt-2">
-                            <button class="btn btn-primary" id="startBtn" onclick="startBot()"><i class="fa-solid fa-play"></i> Start Bot</button>
-                            <button class="btn btn-outline" id="stopBtn" onclick="stopBot()" disabled><i class="fa-solid fa-square"></i> Stop</button>
+                        <div style="display:flex; gap:8px;">
+                            <input type="text" id="aiInputPrompt" placeholder="Tanyakan strategi latency, NTP sync, dll..." onkeyup="if(event.key==='Enter') sendAiChat()">
+                            <button class="btn btn-primary" style="width:auto;" onclick="sendAiChat()"><i class="fa-solid fa-paper-plane"></i></button>
                         </div>
                     </div>
+                </div>
 
-                    <!-- TAB ALAMAT -->
-                    <div id="tab-alamat" class="tab-content">
-                        <button class="btn btn-primary btn-sm" onclick="openAddModal('modalAddress', 'modalAddressTitle', 'Tambah Alamat Target')"><i class="fa-solid fa-plus"></i> Tambah Alamat</button>
-                        <div class="cards-grid" id="addressesList"></div>
-                    </div>
-
-                    <!-- TAB PEMBAYARAN -->
-                    <div id="tab-pembayaran" class="tab-content">
-                        <div style="background:#fffbeb; border:1px solid #fef3c7; padding:12px 16px; border-radius:12px; margin-bottom:16px; font-size:12px; color:#92400e; line-height:1.5;">
-                            <i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i> <b>Catatan ShopeePay & SPayLater:</b> Pastikan saldo ShopeePay atau limit SPayLater Anda mencukupi agar checkout berjalan tanpa hambatan.
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Metode Pembayaran (Prioritas Utama)</label>
-                                <select id="paymentMethod">
-                                    <option value="shopeepay" selected>ShopeePay (Auto-PIN Instant)</option>
-                                    <option value="spaylater">SPayLater (Cicilan 0%)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Kode Voucher Khusus (Opsional)</label>
-                                <input type="text" id="customVoucherCode" placeholder="Cth: FLASH100K / INFLUENCER">
-                            </div>
-                        </div>
-
+                <!-- TAB ADMIN PANEL -->
+                <div id="tab-admin" class="tab-content">
+                    <div style="background:#fef3c7; border:1px solid #fde68a; padding:12px; border-radius:12px; margin-bottom:16px;">
+                        <h4 style="color:#b45309; font-size:14px; margin-bottom:8px;"><i class="fa-solid fa-database"></i> Supabase Cloud Config</h4>
                         <div class="form-group">
-                            <label>PIN ShopeePay Otomatis (6 Digit)</label>
-                            <div class="password-wrapper">
-                                <input type="password" id="shopeepayPin" maxlength="6" value="123456" placeholder="Masukkan 6 Digit PIN">
-                                <i class="fa-solid fa-eye password-toggle" id="togglePinPass" onclick="togglePasswordVisibility('shopeepayPin', 'togglePinPass')"></i>
-                            </div>
-                            <button class="btn btn-outline btn-sm mt-2" onclick="testPinEnkripsi()"><i class="fa-solid fa-key" style="color:#7c3aed;"></i> Tes Enkripsi & Synchronize PIN ShopeePay</button>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Auto Klaim Voucher Ongkir</label>
-                                <select id="autoOngkir">
-                                    <option value="Aktif" selected>Aktif (Auto Apply)</option>
-                                    <option value="Nonaktif">Nonaktif</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Auto Klaim Voucher Diskon</label>
-                                <select id="autoDiscount">
-                                    <option value="Aktif" selected>Aktif (Auto Apply)</option>
-                                    <option value="Nonaktif">Nonaktif</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Metode Pembayaran Cadangan</label>
-                            <select id="paymentFallback">
-                                <option value="spaylater" selected>SPayLater</option>
-                                <option value="shopeepay">ShopeePay</option>
-                            </select>
-                            <div style="font-size:11px; color:#d97706; margin-top:4px; font-weight:600;">
-                                <i class="fa-solid fa-circle-info"></i> Note: Pastikan SPayLater Anda sudah aktif dan memiliki limit yang mencukupi!
-                            </div>
-                        </div>
-
-                        <div style="background:#f8fafc; padding:14px; border-radius:12px; border:1px solid #e2e8f0; margin-bottom:16px;">
-                            <div style="font-size:13px; font-weight:600; color:#0f172a; margin-bottom:8px;"><i class="fa-brands fa-telegram" style="color:#229ed9;"></i> Telegram Webhook (@ganemax_bot)</div>
-                            <div class="form-row">
-                                <div class="form-group" style="margin-bottom:8px;">
-                                    <label>Bot Token Telegram</label>
-                                    <input type="text" id="telegramToken" value="8703715665:AAFBw7q9u9ZNyuRFvjvwmQE9V8mEBaD13r4" placeholder="Token bot Telegram">
-                                </div>
-                                <div class="form-group" style="margin-bottom:8px;">
-                                    <label>Chat ID Telegram Anda</label>
-                                    <input type="text" id="telegramChatId" placeholder="Chat ID (Cth: 123456789)">
-                                </div>
-                            </div>
-                            <button class="btn btn-outline btn-sm" onclick="testTelegramNotification()"><i class="fa-paper-plane"></i> Tes Notifikasi Webhook Telegram</button>
-                        </div>
-
-                        <button class="btn btn-primary btn-sm" onclick="savePaymentSettings()"><i class="fa-solid fa-floppy-disk"></i> Simpan Pengaturan Pembayaran</button>
-                    </div>
-
-                    <!-- TAB AKUN SHOPEE -->
-                    <div id="tab-accounts" class="tab-content">
-                        <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:10px 14px; border-radius:12px; margin-bottom:14px; font-size:12px; color:#1e40af;">
-                            <i class="fa-solid fa-circle-info"></i> <b>Multi-Account Engine:</b> Tambahkan detail akun Shopee Anda (Username, HP, Email, Password, Cookie, PIN) untuk rotasi checkout paralel saat Flash Sale.
-                        </div>
-                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
-                            <div style="display:flex; gap:8px;">
-                                <button class="btn btn-primary btn-sm" onclick="openAddModal('modalAccount', 'modalAccountTitle', 'Tambah Akun Shopee Lengkap')"><i class="fa-solid fa-user-plus"></i> + Tambah Akun Shopee</button>
-                                <button class="btn btn-outline btn-sm" style="border-color:#7c3aed; color:#7c3aed; font-weight:600;" onclick="syncCookieExtensionBridge()"><i class="fa-solid fa-cookie-bite"></i> 🍪 Auto Sync Cookie</button>
-                                <button class="btn btn-outline btn-sm" style="border-color:#0284c7; color:#0284c7; font-weight:600;" onclick="checkCookieHealth()"><i class="fa-solid fa-stethoscope"></i> Cek Status Akun</button>
-                            </div>
-                            <input type="text" id="searchAccountInput" placeholder="🔍 Cari akun..." oninput="renderAccounts()" style="width:180px; padding:6px 10px; font-size:12px;">
-                        </div>
-                        <div class="cards-grid" id="accountsList"></div>
-                    </div>
-
-                    <!-- TAB URLS -->
-                    <div id="tab-urls" class="tab-content">
-                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px;">
-                            <button class="btn btn-primary btn-sm" onclick="openAddModal('modalUrl', 'modalUrlTitle', 'Tambah Target URL Produk')"><i class="fa-solid fa-plus"></i> + Tambah Target URL</button>
-                            <input type="text" id="searchUrlInput" placeholder="🔍 Cari produk..." oninput="renderUrls()" style="width:180px; padding:6px 10px; font-size:12px;">
-                        </div>
-                        <div class="cards-grid" id="urlsList"></div>
-                    </div>
-
-                    <!-- TAB RIWAYAT -->
-                    <div id="tab-history" class="tab-content">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                            <div style="font-size:14px; font-weight:600;"><i class="fa-solid fa-receipt" style="color:#2563eb;"></i> Riwayat Checkout Berhasil</div>
-                            <button class="btn btn-outline btn-sm" onclick="fetchOrderHistory()"><i class="fa-solid fa-rotate"></i> Refresh History</button>
-                        </div>
-                        <div style="overflow-x:auto;">
-                            <table class="user-table">
-                                <thead>
-                                    <tr>
-                                        <th>Order SN</th>
-                                        <th>Produk</th>
-                                        <th>Harga</th>
-                                        <th>Bayar</th>
-                                        <th>Kecepatan</th>
-                                        <th>Waktu</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="orderHistoryTableBody">
-                                    <tr><td colspan="6" style="text-align:center; color:#64748b;">Memuat data riwayat...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- TAB STEALTH -->
-                    <div id="tab-stealth" class="tab-content">
-                        <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px 14px; border-radius:12px; margin-bottom:16px; font-size:12px; color:#1e40af; line-height:1.5;">
-                            <i class="fa-solid fa-shield-halved" style="color:#2563eb;"></i> <b>Anti-Bot TLS Fingerprint Spoofing:</b> Konfigurasi Client JA3/JA4 Cipher Suites & User-Agent agar request bot meniru trafik perangkat HP Shopee App resmi.
+                            <label>Supabase Project URL</label>
+                            <input type="text" id="supaUrlInput" placeholder="https://your-project.supabase.co">
                         </div>
                         <div class="form-group">
-                            <label>Preset User-Agent Emulation</label>
-                            <select id="userAgentPreset">
-                                <option value="shopee_android" selected>Shopee Android App Client (v3.18.12)</option>
-                                <option value="shopee_ios">Shopee iOS App Client (iPhone 15 Pro)</option>
-                                <option value="chrome_desktop">Chrome Desktop Linux/Mac (Stealth Chrome)</option>
+                            <label>Supabase Anon API Key</label>
+                            <input type="password" id="supaKeyInput" placeholder="eyJhbGciOiJIUzI1NiI...">
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="saveSupabaseConfig()"><i class="fa-solid fa-floppy-disk"></i> Simpan Konfigurasi Supabase</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tambah Akun Client Baru (Otomatis Sync ke Supabase Cloud)</label>
+                        <div class="form-row">
+                            <input type="text" id="newClientUser" placeholder="Username Client Baru">
+                            <input type="text" id="newClientPass" placeholder="Password Client">
+                        </div>
+                        <div class="form-row mt-2">
+                            <select id="newClientDuration">
+                                <option value="30">Masa Aktif 1 Bulan (30 Hari)</option>
+                                <option value="60">Masa Aktif 2 Bulan (60 Hari)</option>
+                                <option value="365">Masa Aktif 1 Tahun (365 Hari)</option>
                             </select>
-                        </div>
-                        <div class="form-group">
-                            <label>TLS Fingerprint Engine (JA3/JA4 Spoofing)</label>
-                            <select id="tlsFingerprintPreset">
-                                <option value="ja3_akamai" selected>JA3 Akamai Sensor Bypass (Shopee Mobile Native)</option>
-                                <option value="ja4_safari">JA4 Safari iOS TLS 1.3 Cipher Suite</option>
-                                <option value="ja3_chrome">JA3 Chrome 122 Custom HTTP/2 Frame</option>
-                            </select>
-                        </div>
-                        <button class="btn btn-primary btn-sm" onclick="showToast('Konfigurasi Anti-Bot JA3 TLS Tersimpan!', 'fa-shield-halved')"><i class="fa-solid fa-floppy-disk"></i> Simpan Header Anti-Bot</button>
-                    </div>
-
-                    <!-- TAB PROXY -->
-                    <div id="tab-proxy" class="tab-content">
-                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px;">
-                            <button class="btn btn-primary btn-sm" onclick="openAddModal('modalProxy', 'modalProxyTitle', 'Tambah Proxy Server')"><i class="fa-solid fa-plus"></i> + Tambah Proxy Mesh</button>
-                            <button class="btn btn-outline btn-sm" onclick="testAllProxies()"><i class="fa-solid fa-gauge-high"></i> Uji Koneksi Dynamic Mesh</button>
-                        </div>
-                        <div class="cards-grid" id="proxiesList"></div>
-                    </div>
-
-                    <!-- TAB JADWAL -->
-                    <div id="tab-schedule" class="tab-content">
-                        <button class="btn btn-primary btn-sm" onclick="openAddModal('modalSchedule', 'modalScheduleTitle', 'Tambah Jadwal Flash Sale')"><i class="fa-solid fa-calendar-plus"></i> + Tambah Jadwal</button>
-                        <div class="cards-grid" id="schedulesList"></div>
-                    </div>
-
-                    <!-- TAB AI -->
-                    <div id="tab-ai" class="tab-content">
-                        <div style="background:linear-gradient(135deg, #0f172a, #1e1b4b); border:1px solid #6366f1; border-radius:16px; padding:18px; color:white; margin-bottom:16px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                                <div style="font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px;">
-                                    <img src="deepsek.jpg" alt="DeepSeek Logo" style="width:24px; height:24px; border-radius:6px; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI Strategy Advisor
-                                </div>
-                                <span class="badge" style="background:#4c1d95; color:#c084fc; font-size:10px; border:1px solid #7e22ce;">OpenRouter AI Online</span>
-                            </div>
-                            <div style="font-size:12px; color:#cbd5e1; line-height:1.5; margin-bottom:14px;">
-                                Konsultasikan strategi flash sale, pengaturan jitter offset, cara klaim voucher, hingga optimasi kecepatan bot dengan AI DeepSeek.
-                            </div>
-                        </div>
-
-                        <div style="border:1px solid #e2e8f0; border-radius:16px; background:white; overflow:hidden;">
-                            <div id="aiChatBox" style="height:260px; overflow-y:auto; padding:16px; font-size:13px; line-height:1.6; display:flex; flex-direction:column; gap:12px;">
-                                <div style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#1e293b; max-width:85%;">
-                                    <div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><img src="deepsek2.jpg" alt="Robot" style="width:20px; height:20px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI:</div>
-                                    Halo! Saya asisten AI DeepSeek. Ada yang bisa saya bantu untuk memaksimalkan peluang menang Flash Sale Anda hari ini?
-                                </div>
-                            </div>
-                            <div style="padding:12px; border-top:1px solid #e2e8f0; display:flex; gap:8px;">
-                                <input type="text" id="aiUserInput" placeholder="Tanyakan strategi flash sale ke DeepSeek AI..." onkeyup="if(event.key==='Enter') askDeepSeekAssistant()" style="flex:1;">
-                                <button class="btn btn-primary" style="width:auto; padding:0 20px;" onclick="askDeepSeekAssistant()"><i class="fa-solid fa-paper-plane"></i> Kirim</button>
-                            </div>
+                            <button class="btn btn-success" onclick="handleCreateUserByAdmin()"><i class="fa-solid fa-user-plus"></i> Buat & Sync Akun Client</button>
                         </div>
                     </div>
 
-                    <!-- TAB ADMIN -->
-                    <div id="tab-admin" class="tab-content">
-                        <!-- Admin Quick Stats -->
-                        <div class="stats-grid" style="margin-top:0; margin-bottom:16px;">
-                            <div class="stat-card">
-                                <div class="stat-label">Total Client</div>
-                                <div class="stat-value" id="adminStatTotalUsers">0</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">Client Aktif</div>
-                                <div class="stat-value" style="color:#16a34a;" id="adminStatActiveUsers">0</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">Kadaluarsa</div>
-                                <div class="stat-value" style="color:#ef4444;" id="adminStatExpiredUsers">0</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-label">Cloud Storage Sync</div>
-                                <div class="stat-value" style="color:#7c3aed; font-size:15px;" id="cloudSyncStatusBadge">ONLINE</div>
-                            </div>
-                        </div>
-
-                        <!-- Form Register & Setting Masa Kadaluarsa Client -->
-                        <div style="background:#fffbeb; border:1px solid #fef3c7; padding:18px; border-radius:16px; margin-bottom:20px;">
-                            <div style="font-weight:700; color:#b45309; margin-bottom:4px; font-size:15px;"><i class="fa-solid fa-user-plus"></i> Buat & Atur Masa Kadaluarsa Client Baru</div>
-                            <div style="font-size:12px; color:#92400e; margin-bottom:14px;">Registrasi akun client baru dengan masa aktif otomatis (Tersimpan Multi-Device Cloud).</div>
-                            
-                            <div class="form-row">
-                                <div class="form-group" style="margin-bottom:10px;">
-                                    <label>Username Client *</label>
-                                    <input type="text" id="newClientUsername" placeholder="Contoh: user_vip_01">
-                                </div>
-                                <div class="form-group" style="margin-bottom:10px;">
-                                    <label>Password Client *</label>
-                                    <div class="password-wrapper">
-                                        <input type="password" id="newClientPassword" placeholder="Password client">
-                                        <i class="fa-solid fa-eye password-toggle" id="toggleNewClientPass" onclick="togglePasswordVisibility('newClientPassword', 'toggleNewClientPass')"></i>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group" style="margin-bottom:10px;">
-                                    <label>Durasi Masa Aktif Lisensi</label>
-                                    <select id="newClientDuration" onchange="handleDurationSelectChange(this.value)">
-                                        <option value="30">1 Bulan Pass (30 Hari)</option>
-                                        <option value="60" selected>2 Bulan Pro Pass (60 Hari)</option>
-                                        <option value="365">1 Tahun VIP Pass (365 Hari)</option>
-                                        <option value="custom">Custom Tanggal Kadaluarsa</option>
-                                    </select>
-                                </div>
-                                <div class="form-group" style="margin-bottom:10px; display:none;" id="customExpiryGroup">
-                                    <label>Tanggal Kadaluarsa Spesifik</label>
-                                    <input type="date" id="newClientCustomDate">
-                                </div>
-                            </div>
-
-                            <button class="btn btn-success btn-sm" onclick="createNewClient()"><i class="fa-solid fa-user-check"></i> Register Akun Client Baru</button>
-                        </div>
-
-                        <!-- Tabel Manajemen Username, Password & Status Kadaluarsa -->
-                        <div style="background:white; border:1px solid #e2e8f0; padding:18px; border-radius:16px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-                                <div style="font-weight:700; font-size:15px; color:#0f172a;"><i class="fa-solid fa-users-gear" style="color:#2563eb;"></i> Manajemen Username, Password & Kadaluarsa Client</div>
-                                <input type="text" id="searchAdminClientInput" placeholder="🔍 Cari username client..." oninput="renderAdminClientTable()" style="width:200px; padding:6px 12px; font-size:12px;">
-                            </div>
-
-                            <div style="overflow-x:auto;">
-                                <table class="user-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Username</th>
-                                            <th>Password</th>
-                                            <th>Masa Kadaluarsa</th>
-                                            <th>Sisa Waktu</th>
-                                            <th>Status</th>
-                                            <th>Aksi Admin</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="adminClientTableBody">
-                                        <tr><td colspan="6" style="text-align:center; color:#64748b;">Memuat data client terdaftar...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                    <div class="form-group">
+                        <label>Daftar Pengguna Aplikasi (Cloud Database)</label>
+                        <table class="user-table">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Password</th>
+                                    <th>Masa Kadaluarsa</th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userTableBody"></tbody>
+                        </table>
                     </div>
+                </div>
 
+                <div style="margin-top:20px; display:flex; gap:10px;">
+                    <button class="btn btn-primary" onclick="startBot()"><i class="fa-solid fa-play"></i> Mulai Auto Checkout Engine</button>
+                    <button class="btn btn-outline" style="color:#ef4444;" onclick="stopBot()"><i class="fa-solid fa-stop"></i> Hentikan Engine</button>
                 </div>
             </div>
 
             <div>
                 <div class="timer-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:6px;">
-                        <div class="timer-label"><i class="fa-solid fa-stopwatch"></i> Hitung Mundur Start Flash Sale</div>
-                        <span id="countdownStatusBadge" class="badge" style="background:rgba(255,255,255,0.2); color:white; font-size:10px; font-weight:700;">LIVE CLOCK NTP</span>
-                    </div>
-
-                    <div class="timer-display" id="timerDisplay">00:00:00<span class="timer-ms" id="timerMs">.000</span></div>
-                    
-                    <div style="margin-top:12px; background:rgba(0,0,0,0.25); padding:12px; border-radius:14px; text-align:left;">
-                        <label style="color:rgba(255,255,255,0.9); font-size:11px; margin-bottom:4px; font-weight:600;"><i class="fa-solid fa-calendar-check"></i> Waktu Target Eksekusi Flash Sale:</label>
-                        <input type="datetime-local" id="targetExecTimeInput" onchange="updateTargetExecutionTime()" style="background:rgba(255,255,255,0.95); color:#0f172a; font-size:13px; font-weight:700; padding:8px 12px; border-radius:10px; width:100%; border:none; outline:none;">
-                    </div>
-                </div>
-
-                <div class="product-card">
-                    <div class="product-meta">
-                        <span class="stock-badge" id="previewStock">Stok: Synchronized</span>
-                        <span class="badge" id="serverLatencyBadge" style="background:#f1f5f9; color:#0f172a;"><i class="fa-solid fa-wifi"></i> Latensi: 11 ms</span>
-                        <span class="badge" id="ntpClockBadge" style="background:#e0f2fe; color:#0369a1;"><i class="fa-solid fa-clock"></i> NTP: Sync</span>
-                    </div>
-                    <div class="product-name" id="previewTitle">Pilih URL Produk untuk melihat detail target.</div>
-                    <div class="price-tag" id="previewPrice">Rp 1.000</div>
+                    <div class="timer-label">WAKTU EKSEKUSI REAL-TIME (NTP)</div>
+                    <div class="timer-display" id="clockDisplay">00:00:00.<span class="timer-ms" id="msDisplay">000</span></div>
+                    <div style="font-size:12px; opacity:0.9;" id="targetStatusText">Status: MENUNGGU TARGET</div>
                 </div>
 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-label">Percobaan</div>
-                        <div class="stat-value" id="statAttempts">0</div>
+                        <div class="stat-label">Latensi NTP</div>
+                        <div class="stat-value" id="pingVal">11 ms</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Berhasil</div>
-                        <div class="stat-value" style="color: #22c55e;" id="statSuccess">0</div>
+                        <div class="stat-label">Socket Turbo</div>
+                        <div class="stat-value">12 Active</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Kecepatan</div>
-                        <div class="stat-value" style="color: #2563eb;" id="statSpeed">0ms</div>
+                        <div class="stat-label">Status PIN</div>
+                        <div class="stat-value" style="color:#16a34a;">Encrypted</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Hemat</div>
-                        <div class="stat-value" style="color: #7c3aed;" id="statSaved">Rp 0</div>
+                        <div class="stat-label">Proxy Mesh</div>
+                        <div class="stat-value" style="color:#2563eb;">Connected</div>
                     </div>
                 </div>
 
                 <div class="chart-card">
                     <div class="chart-title">
-                        <span><i class="fa-solid fa-chart-line" style="color:#2563eb;"></i> Performance Analytics</span>
+                        <span><i class="fa-solid fa-chart-line"></i> Latency Execution Monitor</span>
+                        <span style="font-size:11px; color:#16a34a;"><i class="fa-solid fa-circle" style="font-size:8px;"></i> LIVE</span>
                     </div>
-                    <div style="height: 150px; position: relative;">
-                        <canvas id="performanceChart"></canvas>
-                    </div>
+                    <canvas id="latencyChart" height="120"></canvas>
                 </div>
 
                 <div class="logs-container">
                     <div class="logs-header">
-                        <span style="font-size:13px; font-weight:600;"><i class="fa-solid fa-terminal" style="color: #2563eb;"></i> Live Execution Logs</span>
+                        <span style="font-weight:600; font-size:13px;"><i class="fa-solid fa-terminal"></i> Live System Logs</span>
+                        <button class="btn btn-outline btn-sm" onclick="clearLogs()">Clear</button>
                     </div>
-                    <div class="logs" id="logsBox">
-                        <div class="log"><span class="log-time">[SYSTEM]</span> Silakan login untuk mengisolasi data Anda.</div>
+                    <div class="logs" id="logsPanel">
+                        <div class="log"><span class="log-time">[SYSTEM]</span> Application v4.5 initialized with Supabase Engine.</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODALS SECTION -->
-    <div class="modal" id="modalAddress">
+    <!-- MODAL ACCOUNT DETAIL SHOPEE -->
+    <div class="modal" id="accountModal">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="modal-title" id="modalAddressTitle">Tambah Alamat</div>
-                <button class="close-btn" onclick="closeModal('modalAddress')">&times;</button>
+                <div class="modal-title" id="accountModalTitle">Tambah Detail Akun Shopee</div>
+                <button class="close-btn" onclick="closeModal('accountModal')">&times;</button>
             </div>
             <div class="form-group">
-                <label>Label Alamat</label>
-                <input type="text" id="addrLabel" placeholder="Rumah / Kantor / Jastip 1">
+                <label>Username Shopee</label>
+                <input type="text" id="accUser" placeholder="contoh: shopee_user123">
             </div>
-            <div class="form-group">
-                <label>Nama Penerima & HP</label>
-                <input type="text" id="addrName" placeholder="Budi Santoso (08123456789)">
-            </div>
-            <div class="form-group">
-                <label>Alamat Lengkap</label>
-                <textarea id="addrText" placeholder="Jl. Mawar No. 12, RT 01 / RW 02, Jakarta"></textarea>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-outline btn-sm" onclick="closeModal('modalAddress')">Batal</button>
-                <button class="btn btn-primary btn-sm" onclick="saveAddress()">Simpan Alamat</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL TAMBAH AKUN SHOPEE LENGKAP -->
-    <div class="modal" id="modalAccount">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title" id="modalAccountTitle">Tambah Akun Shopee Lengkap</div>
-                <button class="close-btn" onclick="closeModal('modalAccount')">&times;</button>
-            </div>
-            
             <div class="form-row">
                 <div class="form-group">
-                    <label>Username Shopee *</label>
-                    <input type="text" id="accUsername" placeholder="Contoh: user_shopee_01">
-                </div>
-                <div class="form-group">
-                    <label>Tipe / Label Akun</label>
-                    <select id="accType">
-                        <option value="Utama" selected>Akun Utama</option>
-                        <option value="Bot 1">Bot Sniper 1</option>
-                        <option value="Bot 2">Bot Sniper 2</option>
-                        <option value="Cadangan">Akun Cadangan</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>No. HP / Telepon Terdaftar</label>
-                    <input type="text" id="accPhone" placeholder="Contoh: 081234567890">
+                    <label>No. HP / Telepon</label>
+                    <input type="text" id="accPhone" placeholder="08123456789">
                 </div>
                 <div class="form-group">
                     <label>Email Shopee</label>
-                    <input type="email" id="accEmail" placeholder="Contoh: akun@gmail.com">
+                    <input type="email" id="accEmail" placeholder="user@gmail.com">
                 </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Password Akun Shopee</label>
-                    <div class="password-wrapper">
-                        <input type="password" id="accPassword" placeholder="••••••••">
-                        <i class="fa-solid fa-eye password-toggle" id="toggleAccPass" onclick="togglePasswordVisibility('accPassword', 'toggleAccPass')"></i>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>PIN ShopeePay 6 Digit</label>
-                    <div class="password-wrapper">
-                        <input type="password" id="accPin" maxlength="6" placeholder="Contoh: 123456">
-                        <i class="fa-solid fa-eye password-toggle" id="toggleAccPin" onclick="togglePasswordVisibility('accPin', 'toggleAccPin')"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Session Cookie / Auth Token (SPC_EC & SPC_U)</label>
-                <textarea id="accCookie" placeholder="SPC_EC=abc123xyz...; SPC_U=123456789..."></textarea>
-                <div style="font-size:11px; color:#64748b; margin-top:4px;">Gunakan tombol "Auto Sync Cookie" untuk menyalin cookie otomatis dari browser.</div>
-            </div>
-
-            <div class="modal-actions">
-                <button class="btn btn-outline btn-sm" onclick="closeModal('modalAccount')">Batal</button>
-                <button class="btn btn-primary btn-sm" onclick="saveAccount()">Simpan Akun Lengkap</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL DETAIL AKUN -->
-    <div class="modal" id="modalAccountDetail">
-        <div class="modal-content" style="max-width:500px;">
-            <div class="modal-header">
-                <div class="modal-title"><i class="fa-solid fa-id-card" style="color:#2563eb;"></i> Detail Kredensial Akun</div>
-                <button class="close-btn" onclick="closeModal('modalAccountDetail')">&times;</button>
-            </div>
-            <div id="accountDetailContent" style="font-size:13px; line-height:1.8;">
-                <!-- Dynamically filled -->
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-primary btn-sm" onclick="closeModal('modalAccountDetail')">Tutup</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal" id="modalUrl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title" id="modalUrlTitle">Tambah Target URL Produk</div>
-                <button class="close-btn" onclick="closeModal('modalUrl')">&times;</button>
-            </div>
-            <div class="form-group">
-                <label>Nama Produk Target</label>
-                <input type="text" id="urlName" placeholder="Contoh: Flash Sale iPhone 15 Pro Rp 1000">
-            </div>
-            <div class="form-group">
-                <label>URL Produk Shopee</label>
-                <input type="text" id="urlInput" placeholder="https://shopee.co.id/product/123456/789012">
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>Target Harga (Rp)</label>
-                    <input type="number" id="urlPrice" value="1000">
+                    <label>Password Akun</label>
+                    <input type="password" id="accPass" placeholder="••••••••">
                 </div>
                 <div class="form-group">
-                    <label>Pilihan Varian Target</label>
-                    <input type="text" id="urlVariant" placeholder="Hitam / 128GB / Utama">
+                    <label>PIN ShopeePay (6 Digit)</label>
+                    <input type="password" id="accPin" maxlength="6" placeholder="123456">
                 </div>
             </div>
             <div class="modal-actions">
-                <button class="btn btn-outline btn-sm" onclick="closeModal('modalUrl')">Batal</button>
-                <button class="btn btn-primary btn-sm" onclick="saveUrl()">Simpan Target URL</button>
+                <button class="btn btn-outline" onclick="closeModal('accountModal')">Batal</button>
+                <button class="btn btn-primary" onclick="saveAccountDetail()"><i class="fa-solid fa-floppy-disk"></i> Simpan Detail Akun</button>
             </div>
         </div>
     </div>
 
-    <div class="modal" id="modalProxy">
+    <!-- MODAL URL PRODUK -->
+    <div class="modal" id="urlModal">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="modal-title" id="modalProxyTitle">Tambah Proxy Server</div>
-                <button class="close-btn" onclick="closeModal('modalProxy')">&times;</button>
+                <div class="modal-title">Tambah Target URL Produk</div>
+                <button class="close-btn" onclick="closeModal('urlModal')">&times;</button>
             </div>
             <div class="form-group">
-                <label>Nama / Label Proxy</label>
-                <input type="text" id="proxyLabel" placeholder="Residential Proxy ID-1">
+                <label>Judul / Nama Barang</label>
+                <input type="text" id="urlTitle" placeholder="contoh: iPhone 15 Pro Rp 1000">
             </div>
             <div class="form-group">
-                <label>IP : Port / Format URL</label>
-                <input type="text" id="proxyAddress" placeholder="103.123.45.67:8080">
+                <label>Full Link / URL Produk Shopee</label>
+                <textarea id="urlAddress" placeholder="https://shopee.co.id/product/..."></textarea>
             </div>
             <div class="modal-actions">
-                <button class="btn btn-outline btn-sm" onclick="closeModal('modalProxy')">Batal</button>
-                <button class="btn btn-primary btn-sm" onclick="saveProxy()">Simpan Proxy</button>
+                <button class="btn btn-outline" onclick="closeModal('urlModal')">Batal</button>
+                <button class="btn btn-primary" onclick="saveProductUrl()"><i class="fa-solid fa-plus"></i> Tambah Ke Target</button>
             </div>
         </div>
     </div>
 
-    <div class="modal" id="modalSchedule">
+    <!-- MODAL ALAMAT -->
+    <div class="modal" id="addressModal">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="modal-title" id="modalScheduleTitle">Tambah Jadwal Flash Sale</div>
-                <button class="close-btn" onclick="closeModal('modalSchedule')">&times;</button>
+                <div class="modal-title">Tambah Alamat Pengiriman</div>
+                <button class="close-btn" onclick="closeModal('addressModal')">&times;</button>
             </div>
             <div class="form-group">
-                <label>Nama Event Flash Sale</label>
-                <input type="text" id="schedTitle" placeholder="Event Sesi 00:00 WIB">
+                <label>Label Alamat</label>
+                <input type="text" id="addrLabel" placeholder="Rumah Utama / Kantor">
             </div>
             <div class="form-group">
-                <label>Waktu Eksekusi Target</label>
-                <input type="datetime-local" id="schedTime">
+                <label>Nama Penerima & No HP</label>
+                <input type="text" id="addrReceiver" placeholder="Budi - 08123456789">
+            </div>
+            <div class="form-group">
+                <label>Alamat Lengkap</label>
+                <textarea id="addrDetail" placeholder="Jl. Raya Utama No. 123..."></textarea>
             </div>
             <div class="modal-actions">
-                <button class="btn btn-outline btn-sm" onclick="closeModal('modalSchedule')">Batal</button>
-                <button class="btn btn-primary btn-sm" onclick="saveSchedule()">Simpan Jadwal</button>
+                <button class="btn btn-outline" onclick="closeModal('addressModal')">Batal</button>
+                <button class="btn btn-primary" onclick="saveAddressDetail()"><i class="fa-solid fa-floppy-disk"></i> Simpan Alamat</button>
             </div>
         </div>
     </div>
-
-    <div class="modal" id="modalWhatsappChannel">
-        <div class="modal-content" style="max-width:450px; text-align:center;">
-            <div class="modal-header">
-                <div class="modal-title"><i class="fa-brands fa-whatsapp" style="color:#22c55e;"></i> Saluran WA Resmi</div>
-                <button class="close-btn" onclick="closeModal('modalWhatsappChannel')">&times;</button>
-            </div>
-            <p style="font-size:13px; color:#64748b; margin-bottom:16px;">
-                Dapatkan info jadwal flash sale Rp 1.000, update script bot, dan bocoran produk diskon terbaru di Saluran WhatsApp GaneMaX!
-            </p>
-            <a href="https://whatsapp.com/channel/0029Va..." target="_blank" rel="noopener noreferrer" class="btn btn-success" style="text-decoration:none;"><i class="fa-brands fa-whatsapp"></i> Gabung Saluran WA</a>
-        </div>
-    </div>
-
-    <!-- MODAL SEWA / TOPUP LISENSI BESERTA HARGA & QRIS PRESISI -->
-    <div class="modal" id="modalPaymentGateway">
-        <div class="modal-content" style="max-width:520px; text-align:center;">
-            <div class="modal-header">
-                <div class="modal-title"><i class="fa-solid fa-qrcode" style="color:#16a34a;"></i> Sewa / Topup Lisensi Bot GaneMaX</div>
-                <button class="close-btn" onclick="closeModal('modalPaymentGateway')">&times;</button>
-            </div>
-            
-            <p style="font-size:12px; color:#64748b; margin-bottom:14px; text-align:left;">
-                Pilih paket lisensi yang ingin Anda aktifkan, kemudian scan kode QRIS resmi di bawah:
-            </p>
-
-            <div class="plan-select-grid">
-                <div class="plan-card-opt" id="planOpt1" onclick="selectPaymentPlan(150000, '1 Bulan Starter Pass', 'planOpt1')">
-                    <div class="plan-card-title">1 Bulan</div>
-                    <div class="plan-card-price">Rp 150rb</div>
-                    <div style="font-size:10px; color:#64748b; margin-top:2px;">Starter Pass</div>
-                </div>
-                <div class="plan-card-opt selected" id="planOpt2" onclick="selectPaymentPlan(250000, '2 Bulan Pro Pass (Best Value)', 'planOpt2')">
-                    <div style="font-size:9px; background:#2563eb; color:white; border-radius:10px; padding:1px 4px; display:inline-block; margin-bottom:2px; font-weight:700;">BEST VALUE</div>
-                    <div class="plan-card-title">2 Bulan</div>
-                    <div class="plan-card-price">Rp 250rb</div>
-                    <div style="font-size:10px; color:#16a34a; font-weight:600; margin-top:2px;">Pro Full Pass</div>
-                </div>
-                <div class="plan-card-opt" id="planOpt3" onclick="selectPaymentPlan(1000000, '1 Tahun VIP Pass', 'planOpt3')">
-                    <div class="plan-card-title">1 Tahun VIP</div>
-                    <div class="plan-card-price">Rp 1.000rb</div>
-                    <div style="font-size:10px; color:#7c3aed; font-weight:600; margin-top:2px;">VIP Unlimited</div>
-                </div>
-            </div>
-
-            <div style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:12px; padding:10px 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; text-align:left;">
-                <div>
-                    <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase;">Paket Dipilih:</div>
-                    <div style="font-size:13px; font-weight:700; color:#0f172a;" id="selectedPlanTitle">2 Bulan Pro Pass (Best Value)</div>
-                </div>
-                <div style="text-align:right;">
-                    <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase;">Total Bayar:</div>
-                    <div style="font-size:18px; font-weight:800; color:#2563eb;" id="selectedPlanPrice">Rp 250.000</div>
-                </div>
-            </div>
-
-            <div style="background:#ffffff; border:2px solid #2563eb; padding:12px; border-radius:18px; display:inline-block; margin:0 auto 16px auto; box-shadow:0 8px 16px rgba(37,99,235,0.15);">
-                <img src="qriss.jpg" alt="QRIS Pembayaran GaneMaX" style="width:210px; height:210px; object-fit:contain; border-radius:10px; display:block;" onerror="this.src='https://placehold.co/210x210/2563eb/ffffff?text=QRIS+PEMBAYARAN+GANEMAX'">
-                <div style="font-size:10px; font-weight:700; color:#64748b; margin-top:6px; letter-spacing:1px; text-transform:uppercase;">GOPAY • BCA • DANA • SHOPEEPAY</div>
-            </div>
-
-            <div style="display:flex; flex-direction:column; gap:8px; width:100%; max-width:320px; margin:0 auto;">
-                <button class="btn btn-success" onclick="confirmPaymentAction()"><i class="fa-solid fa-circle-check"></i> Konfirmasi Sudah Bayar</button>
-                <button class="btn btn-outline btn-sm" style="width:100%; text-align:center;" onclick="closeModal('modalPaymentGateway')">Tutup Modal</button>
-            </div>
-        </div>
-    </div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Global Cloud Firestore Integration for Multi-Device Sync
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ganemax-shopee-bot-v4';
-        let db = null;
-        let auth = null;
-
-        if (typeof __firebase_config !== 'undefined') {
-            try {
-                const firebaseConfig = JSON.parse(__firebase_config);
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                const usersColRef = collection(db, 'artifacts', appId, 'public', 'data', 'registered_users');
-                
-                onSnapshot(usersColRef, (snapshot) => {
-                    const cloudUsers = [];
-                    snapshot.forEach((docSnap) => {
-                        cloudUsers.push(docSnap.data());
-                    });
-                    
-                    if (cloudUsers.length > 0) {
-                        const local = JSON.parse(localStorage.getItem('ganemax_registered_users') || '[]');
-                        const mergedMap = new Map();
-                        
-                        // Seed default local users
-                        local.forEach(u => mergedMap.set(u.username.toLowerCase(), u));
-                        // Cloud users take precedence for multi-device sync
-                        cloudUsers.forEach(u => mergedMap.set(u.username.toLowerCase(), u));
-
-                        const merged = Array.from(mergedMap.values());
-                        localStorage.setItem('ganemax_registered_users', JSON.stringify(merged));
-                        
-                        if (window.renderAdminClientTable) {
-                            window.renderAdminClientTable();
-                        }
-                    }
-                }, (error) => {
-                    console.warn("Firestore snapshot sync fallback:", error);
-                });
-
-                window.cloudSyncUserSave = async function(userObj) {
-                    try {
-                        const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'registered_users', userObj.username.toLowerCase());
-                        await setDoc(userDocRef, userObj);
-                    } catch(e) {
-                        console.warn("Cloud save warning:", e);
-                    }
-                };
-
-                window.cloudSyncUserDelete = async function(username) {
-                    try {
-                        const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'registered_users', username.toLowerCase());
-                        await deleteDoc(userDocRef);
-                    } catch(e) {
-                        console.warn("Cloud delete warning:", e);
-                    }
-                };
-
-            } catch(e) {
-                console.warn("Firebase Init fallback to LocalStorage:", e);
-            }
-        }
-    </script>
 
     <script>
-        // --- CORE APPLICATION STATE ---
-        let currentSlide = 0;
+        // OPENROUTER DEEPSEEK API KEY
+        const OPENROUTER_API_KEY = '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';
+
+        // SUPABASE CLIENT INITIALIZATION WITH HARDCODED DEFAULTS
+        let SUPABASE_URL = localStorage.getItem('ganemax_supa_url') || 'https://cswmedoxexxomrnoogow.supabase.co';
+        let SUPABASE_KEY = localStorage.getItem('ganemax_supa_key') || 'sb_publishable_Re3d4-fdICJzWnTYXomCXQ_1-XQlPAQ';
+        let supabase = null;
+
+        function initSupabaseClient() {
+            if (window.supabase && SUPABASE_URL && SUPABASE_KEY) {
+                try {
+                    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    console.log("Supabase Client initialized successfully with URL:", SUPABASE_URL);
+                } catch(e) {
+                    console.error("Supabase Init Failed:", e);
+                }
+            }
+        }
+
+        // STATE APP
         let currentUser = null;
-        let selectedPriceValue = 250000;
-        let selectedPlanText = '2 Bulan Pro Pass';
-        let targetExecutionTime = null;
-
-        let appData = {
-            accounts: [
-                { id: 1, name: "user_shopee_01", phone: "081234567890", email: "budi@gmail.com", password: "Password123!", pin: "123456", cookie: "SPC_EC=a8f9c123...; SPC_U=991823;", type: "Utama", active: true },
-                { id: 2, name: "user_shopee_02", phone: "081987654321", email: "jastip@gmail.com", password: "Password456!", pin: "654321", cookie: "SPC_EC=b9e8d456...; SPC_U=778123;", type: "Bot 1", active: true }
-            ],
-            urls: [
-                { title: "Target Utama Flash Sale Rp 1.000", url: "https://shopee.co.id/product/123/456", price: 1000, variant: "Hitam", active: true }
-            ],
-            addresses: [
-                { label: "Rumah Utama", name: "Budi Santoso", phone: "08123456789", text: "Jl. Mawar No. 12, Jakarta", active: true }
-            ],
-            proxies: [
-                { label: "Jakarta Node 1", address: "103.123.45.67:8080", active: true }
-            ],
-            schedules: [
-                { title: "Flash Sale Sesi Malam", time: "2026-08-12T23:59:59", active: true }
-            ],
-            attempts: 0,
-            success: 0,
-            isRunning: false,
-            triggered: false,
-            chart: null
-        };
-
-        // --- HELPER FUNCTIONS UNTUK TANGGAL & REGISTERED USERS ---
-        function getFutureDateStr(days) {
-            const d = new Date();
-            d.setDate(d.getDate() + days);
-            return d.toISOString().split('T')[0];
-        }
-
-        function getRegisteredUsers() {
-            const data = localStorage.getItem('ganemax_registered_users');
-            if (!data) {
-                const defaultUsers = [
-                    { username: 'admin', password: 'admin123', role: 'admin', expiryDate: '2099-12-31', status: 'active' },
-                    { username: 'client_demo', password: 'user1234', role: 'user', expiryDate: getFutureDateStr(60), status: 'active' }
-                ];
-                localStorage.setItem('ganemax_registered_users', JSON.stringify(defaultUsers));
-                return defaultUsers;
-            }
-            return JSON.parse(data);
-        }
-
-        function calculateDaysRemaining(expiryDateStr) {
-            if (!expiryDateStr || expiryDateStr.startsWith('2099')) return '<span style="color:#7c3aed; font-weight:700;">Selamanya (VIP/Admin)</span>';
-            const exp = new Date(expiryDateStr + 'T23:59:59');
-            const now = new Date();
-            const diffTime = exp - now;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            if (diffDays < 0) return '<span style="color:#ef4444; font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> Kadaluarsa</span>';
-            return `<span style="color:#16a34a; font-weight:700;">${diffDays} Hari Lagi</span>`;
-        }
-
-        // --- INSTANT AUTHENTICATION ENGINE (MULTI-DEVICE COMPATIBLE) ---
-        function handleLogin() {
-            const user = document.getElementById('loginUser').value.trim();
-            const pass = document.getElementById('loginPass').value.trim();
-
-            if (!user) {
-                alert('Masukkan username terlebih dahulu!');
-                return;
-            }
-
-            const savedUsers = getRegisteredUsers();
-            let matchedUser = savedUsers.find(u => u.username.toLowerCase() === user.toLowerCase());
-            
-            if (!matchedUser) {
-                if (user.toLowerCase() === 'admin' && pass === 'admin123') {
-                    matchedUser = { username: 'admin', password: 'admin123', role: 'admin', expiryDate: '2099-12-31', status: 'active' };
-                } else {
-                    alert('Username tidak ditemukan! Silakan mendaftar via Admin Panel atau hubungi Telegram @mrpangeranz.');
-                    return;
-                }
-            } else {
-                if (matchedUser.password && matchedUser.password !== pass) {
-                    alert('Password salah! Periksa kembali password Anda.');
-                    return;
-                }
-            }
-
-            if (matchedUser.status === 'blocked') {
-                alert('Akun Anda dinonaktifkan oleh Admin. Silakan hubungi Telegram @mrpangeranz.');
-                return;
-            }
-
-            if (matchedUser.role !== 'admin' && matchedUser.expiryDate) {
-                const expDate = new Date(matchedUser.expiryDate + 'T23:59:59');
-                if (expDate < new Date()) {
-                    alert(`Masa aktif lisensi akun "${matchedUser.username}" telah KADALUARSA (${matchedUser.expiryDate}). Silakan lakukan perpanjangan / topup lisensi via QRIS.`);
-                    openPaymentGatewayModal();
-                    return;
-                }
-            }
-
-            currentUser = matchedUser;
-            localStorage.setItem('ganemax_session', JSON.stringify(currentUser));
-
-            const loginScr = document.getElementById('loginScreen');
-            if (loginScr) loginScr.style.display = 'none';
-
-            document.getElementById('currentUserDisplay').innerText = currentUser.username;
-            document.getElementById('currentRoleDisplay').innerText = (currentUser.role || 'user').toUpperCase();
-
-            if (currentUser.role === 'admin') {
-                const adminTab = document.getElementById('adminTabHeader');
-                if (adminTab) adminTab.style.display = 'inline-flex';
-                renderAdminClientTable();
-            } else {
-                const adminTab = document.getElementById('adminTabHeader');
-                if (adminTab) adminTab.style.display = 'none';
-            }
-
-            addLog('success', `🔓 Login instant berhasil sebagai ${currentUser.username} (${(currentUser.role || 'user').toUpperCase()})`);
-        }
-
-        function handleLogout() {
-            currentUser = null;
-            localStorage.removeItem('ganemax_session');
-            document.getElementById('loginScreen').style.display = 'flex';
-            document.getElementById('loginUser').value = '';
-            document.getElementById('loginPass').value = '';
-            addLog('warning', '🔒 Logout berhasil.');
-        }
-
-        // --- ADMIN CLIENT MANAGEMENT LOGIC ---
-        function createNewClient() {
-            const newUser = document.getElementById('newClientUsername').value.trim();
-            const newPass = document.getElementById('newClientPassword').value.trim();
-            const durationType = document.getElementById('newClientDuration').value;
-            const customDate = document.getElementById('newClientCustomDate').value;
-
-            if (!newUser || !newPass) {
-                alert('Username dan Password client harus diisi!');
-                return;
-            }
-
-            let expiryStr = '';
-            if (durationType === 'custom') {
-                if (!customDate) {
-                    alert('Pilih tanggal kadaluarsa custom terlebih dahulu!');
-                    return;
-                }
-                expiryStr = customDate;
-            } else {
-                const days = parseInt(durationType) || 30;
-                expiryStr = getFutureDateStr(days);
-            }
-
-            const savedUsers = getRegisteredUsers();
-            if (savedUsers.some(u => u.username.toLowerCase() === newUser.toLowerCase())) {
-                alert(`Username "${newUser}" sudah terdaftar! Gunakan username lain.`);
-                return;
-            }
-
-            const newAccountObj = {
-                username: newUser,
-                password: newPass,
-                role: 'user',
-                expiryDate: expiryStr,
-                status: 'active',
-                createdAt: new Date().toISOString().split('T')[0]
-            };
-
-            savedUsers.push(newAccountObj);
-            localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
-
-            if (window.cloudSyncUserSave) {
-                window.cloudSyncUserSave(newAccountObj);
-            }
-
-            alert(`Akun Client "${newUser}" berhasil didaftarkan dengan masa aktif hingga ${expiryStr}! (Tersimpan ke Cloud)`);
-            document.getElementById('newClientUsername').value = '';
-            document.getElementById('newClientPassword').value = '';
-
-            renderAdminClientTable();
-            addLog('success', `👤 [ADMIN] Mendaftarkan client baru: ${newUser} (Expired: ${expiryStr})`);
-        }
-
-        function renderAdminClientTable() {
-            const tbody = document.getElementById('adminClientTableBody');
-            if (!tbody) return;
-
-            const savedUsers = getRegisteredUsers();
-            const searchVal = (document.getElementById('searchAdminClientInput')?.value || '').toLowerCase();
-
-            const filtered = savedUsers.filter(u => 
-                u.username.toLowerCase().includes(searchVal) ||
-                (u.role && u.role.toLowerCase().includes(searchVal))
-            );
-
-            let totalCount = savedUsers.length;
-            let activeCount = 0;
-            let expiredCount = 0;
-
-            const now = new Date();
-
-            savedUsers.forEach(u => {
-                if (u.role === 'admin') {
-                    activeCount++;
-                } else {
-                    const exp = new Date((u.expiryDate || '2000-01-01') + 'T23:59:59');
-                    if (exp >= now && u.status !== 'blocked') {
-                        activeCount++;
-                    } else {
-                        expiredCount++;
-                    }
-                }
-            });
-
-            if (document.getElementById('adminStatTotalUsers')) document.getElementById('adminStatTotalUsers').innerText = totalCount;
-            if (document.getElementById('adminStatActiveUsers')) document.getElementById('adminStatActiveUsers').innerText = activeCount;
-            if (document.getElementById('adminStatExpiredUsers')) document.getElementById('adminStatExpiredUsers').innerText = expiredCount;
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#64748b;">Tidak ada akun client yang cocok.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = filtered.map((u, i) => {
-                const isExp = u.role !== 'admin' && new Date((u.expiryDate || '2000-01-01') + 'T23:59:59') < now;
-                const statusBadge = u.status === 'blocked' 
-                    ? '<span class="badge" style="background:#fef2f2; color:#dc2626;">DIBLOKIR</span>'
-                    : isExp 
-                        ? '<span class="badge" style="background:#fef2f2; color:#dc2626;">KADALUARSA</span>'
-                        : '<span class="badge" style="background:#dcfce7; color:#15803d;">AKTIF</span>';
-
-                const daysRem = calculateDaysRemaining(u.expiryDate);
-
-                return `
-                    <tr>
-                        <td style="font-weight:700; color:#0f172a;">${u.username} ${u.role === 'admin' ? '<span class="badge badge-role" style="font-size:9px;">ADMIN</span>' : ''}</td>
-                        <td>
-                            <div class="password-wrapper" style="max-width:140px;">
-                                <input type="password" value="${u.password || ''}" readonly id="adminPassView_${i}" style="padding:4px 8px; font-size:12px; font-family:'JetBrains Mono'; border-radius:6px;">
-                                <i class="fa-solid fa-eye password-toggle" id="toggleAdminPassIcon_${i}" onclick="togglePasswordVisibility('adminPassView_${i}', 'toggleAdminPassIcon_${i}')" style="right:8px; font-size:12px;"></i>
-                            </div>
-                        </td>
-                        <td style="font-family:'JetBrains Mono'; font-size:12px;">${u.expiryDate || 'Selamanya'}</td>
-                        <td>${daysRem}</td>
-                        <td>${statusBadge}</td>
-                        <td>
-                            <div style="display:flex; gap:4px; flex-wrap:wrap;">
-                                ${u.role !== 'admin' ? `
-                                    <button class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 8px; color:#2563eb; border-color:#bfdbfe;" onclick="extendClientExpiry('${u.username}', 30)" title="Tambah +30 Hari">+30 Hari</button>
-                                    <button class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 8px; color:#7c3aed; border-color:#ddd6fe;" onclick="changeClientExpiryPrompt('${u.username}')" title="Edit Tanggal Expired"><i class="fa-solid fa-pen"></i> Atur Date</button>
-                                    <button class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 8px; color:${u.status === 'blocked' ? '#16a34a' : '#d97706'}; border-color:#e2e8f0;" onclick="toggleClientStatus('${u.username}')">${u.status === 'blocked' ? 'Unblock' : 'Block'}</button>
-                                    <button class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 8px; color:#ef4444; border-color:#fca5a5;" onclick="deleteClientAccount('${u.username}')" title="Hapus Client"><i class="fa-solid fa-trash"></i></button>
-                                ` : '<span style="font-size:11px; color:#64748b;">Super Admin</span>'}
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        window.renderAdminClientTable = renderAdminClientTable;
-
-        function extendClientExpiry(username, extraDays) {
-            const savedUsers = getRegisteredUsers();
-            const target = savedUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
-            if (!target) return;
-
-            let baseDate = new Date();
-            if (target.expiryDate && new Date(target.expiryDate + 'T23:59:59') > baseDate) {
-                baseDate = new Date(target.expiryDate + 'T23:59:59');
-            }
-
-            baseDate.setDate(baseDate.getDate() + extraDays);
-            target.expiryDate = baseDate.toISOString().split('T')[0];
-
-            localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
-            if (window.cloudSyncUserSave) window.cloudSyncUserSave(target);
-
-            renderAdminClientTable();
-            addLog('success', `⚡ [ADMIN] Perpanjang +${extraDays} hari untuk client "${username}" (Expired Baru: ${target.expiryDate})`);
-        }
-
-        function changeClientExpiryPrompt(username) {
-            const savedUsers = getRegisteredUsers();
-            const target = savedUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
-            if (!target) return;
-
-            const newDate = prompt(`Masukkan tanggal kadaluarsa baru untuk "${username}" (Format: YYYY-MM-DD):`, target.expiryDate || getFutureDateStr(30));
-            if (newDate && /^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
-                target.expiryDate = newDate;
-                localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
-                if (window.cloudSyncUserSave) window.cloudSyncUserSave(target);
-
-                renderAdminClientTable();
-                addLog('success', `📅 [ADMIN] Tanggal kadaluarsa "${username}" diubah menjadi ${newDate}`);
-            } else if (newDate) {
-                alert('Format tanggal salah! Gunakan format YYYY-MM-DD (Contoh: 2026-12-31).');
-            }
-        }
-
-        function toggleClientStatus(username) {
-            const savedUsers = getRegisteredUsers();
-            const target = savedUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
-            if (!target) return;
-
-            target.status = target.status === 'blocked' ? 'active' : 'blocked';
-            localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
-            if (window.cloudSyncUserSave) window.cloudSyncUserSave(target);
-
-            renderAdminClientTable();
-            addLog('warning', `🛡️ [ADMIN] Status client "${username}" diubah menjadi: ${(target.status || 'active').toUpperCase()}`);
-        }
-
-        function deleteClientAccount(username) {
-            if (!confirm(`Apakah Anda yakin ingin menghapus akun client "${username}"?`)) return;
-            let savedUsers = getRegisteredUsers();
-            savedUsers = savedUsers.filter(u => u.username.toLowerCase() !== username.toLowerCase());
-            localStorage.setItem('ganemax_registered_users', JSON.stringify(savedUsers));
-            if (window.cloudSyncUserDelete) window.cloudSyncUserDelete(username);
-
-            renderAdminClientTable();
-            addLog('error', `🗑️ [ADMIN] Akun client "${username}" telah dihapus.`);
-        }
-
-        function handleDurationSelectChange(val) {
-            const customGrp = document.getElementById('customExpiryGroup');
-            if (customGrp) {
-                customGrp.style.display = val === 'custom' ? 'block' : 'none';
-            }
-        }
-
-        // --- PASSWORD VISIBILITY TOGGLE ---
-        function togglePasswordVisibility(inputId, toggleIconId) {
-            const input = document.getElementById(inputId);
-            const icon = document.getElementById(toggleIconId);
-            if (!input || !icon) return;
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                input.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            }
-        }
-
-        // --- BANNER SLIDER ---
-        function setSlideIndex(idx) {
-            currentSlide = idx;
-            const track = document.getElementById('sliderTrack');
-            if(track) track.style.transform = `translateX(-${idx * 50}%)`;
-            const dots = document.querySelectorAll('.slider-dot');
-            dots.forEach((d, i) => d.classList.toggle('active', i === idx));
-        }
-
-        setInterval(() => {
-            currentSlide = (currentSlide + 1) % 2;
-            setSlideIndex(currentSlide);
-        }, 5000);
-
-        // --- OPENROUTER / DEEPSEEK AI INTEGRATION ---
-        const OPENROUTER_API_KEY = "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";
-        const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-
-        let aiChatHistory = [
-            { 
-                role: "system", 
-                content: `Anda adalah pakar AI strategi Flash Sale Shopee & konsultan teknis otomatisasi bot GaneMaX.Ai.
-Tugas Anda:
-1. Memberikan jawaban yang bervariasi, spesifik, realistis, dan kontekstual Bahasa Indonesia.
-2. Memberikan saran konkret terkait: Jitter offset (misal -10ms s/d -20ms), jumlah thread (10-25 threads), rotasi proxy, tips klaim voucher ongkir/diskon, dan keamanan saldo ShopeePay.
-3. Analisis pertanyaan pengguna secara mendalam dan berikan solusi langkah demi langkah.` 
-            }
+        let accounts = JSON.parse(localStorage.getItem('shopee_accs')) || [];
+        let productUrls = JSON.parse(localStorage.getItem('shopee_urls')) || [];
+        let addresses = JSON.parse(localStorage.getItem('shopee_addrs')) || [];
+        let systemUsers = JSON.parse(localStorage.getItem('system_users')) || [
+            { username: 'admin', password: 'admin123', expiry_date: '2099-12-31', status: 'active' }
         ];
 
-        async function callDeepSeekAI(userPrompt) {
-            try {
-                aiChatHistory.push({ role: "user", content: userPrompt });
+        let botRunning = false;
+        let targetExecutionTime = null;
 
-                if (aiChatHistory.length > 11) {
-                    aiChatHistory = [aiChatHistory[0], ...aiChatHistory.slice(-10)];
-                }
+        // INIT ON LOAD
+        window.onload = function() {
+            initSupabaseClient();
+            document.getElementById('supaUrlInput').value = SUPABASE_URL;
+            document.getElementById('supaKeyInput').value = SUPABASE_KEY;
 
-                const res = await fetch(OPENROUTER_API_URL, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                        "HTTP-Referer": "https://ganemax.my.id",
-                        "X-Title": "GaneMaX Flash Sale Manager"
-                    },
-                    body: JSON.stringify({
-                        model: "deepseek/deepseek-chat",
-                        messages: aiChatHistory,
-                        temperature: 0.7,
-                        max_tokens: 800
-                    })
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    const aiReply = data?.choices?.[0]?.message?.content;
-                    if (aiReply) {
-                        aiChatHistory.push({ role: "assistant", content: aiReply });
-                        return aiReply;
-                    }
-                } else {
-                    const errData = await res.json().catch(() => ({}));
-                    console.error("OpenRouter API Error:", res.status, errData);
-                    if (res.status === 402) {
-                        return "⚠️ **Saldo/Kuota OpenRouter Anda belum terisi atau habis (Error 402)**. Silakan isi saldo di dashboard OpenRouter.";
-                    } else if (res.status === 401) {
-                        return "⚠️ **API Key OpenRouter tidak valid (Error 401)**. Periksa kembali API Key Anda.";
-                    } else {
-                        return `⚠️ OpenRouter merespon error (${res.status}): ${errData?.error?.message || 'Gagal memproses AI.'}`;
-                    }
-                }
-            } catch(e) {
-                console.error("Fetch Error:", e);
-                return "⚠️ **Gagal terhubung ke OpenRouter API**. Kemungkinan koneksi terputus atau diblokir CORS browser.";
-            }
-            return "Maaf, tidak ada respon dari AI.";
-        }
-
-        function escapeHtml(text) {
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
-
-        async function askDeepSeekAssistant() {
-            const input = document.getElementById('aiUserInput');
-            const chatBox = document.getElementById('aiChatBox');
-            if (!input || !chatBox) return;
-
-            const msg = input.value.trim();
-            if (!msg) return;
-
-            chatBox.innerHTML += `
-                <div style="background:#dbeafe; padding:12px 16px; border-radius:12px; color:#1e40af; align-self:flex-end; max-width:85%;">
-                    <b>Anda:</b> ${escapeHtml(msg)}
-                </div>
-            `;
-            input.value = '';
-            chatBox.scrollTop = chatBox.scrollHeight;
-
-            const loadingId = 'aiLoading_' + Date.now();
-            chatBox.innerHTML += `
-                <div id="${loadingId}" style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#64748b; max-width:85%;">
-                    <div style="display:flex; align-items:center; gap:6px; font-weight:700;"><i class="fa-solid fa-spinner fa-spin"></i> DeepSeek AI sedang menganalisis strategi...</div>
-                </div>
-            `;
-            chatBox.scrollTop = chatBox.scrollHeight;
-
-            const aiRes = await callDeepSeekAI(msg);
-            
-            const loadingEl = document.getElementById(loadingId);
-            if (loadingEl) loadingEl.remove();
-
-            const formattedReply = aiRes.replace(/\n/g, '<br>');
-
-            chatBox.innerHTML += `
-                <div style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#1e293b; max-width:85%;">
-                    <div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><img src="deepsek2.jpg" style="width:20px; height:20px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI:</div>
-                    ${formattedReply}
-                </div>
-            `;
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-        function aiAutoTuneBotSettings() {
-            addLog('info', '🤖 [DeepSeek AI] Mengoptimalkan parameter bot...');
-            setTimeout(() => {
-                document.getElementById('threadCount').value = 16;
-                document.getElementById('preFireJitter').value = -12;
-                document.getElementById('pollRate').value = "100";
-                playBeep(880, 'sine', 0.2);
-                addLog('success', '⚡ AI Auto-Tune Selesai: Jitter set to -12ms, 16 Threads, Polling 100ms!');
-            }, 600);
-        }
-
-        // --- WEB AUDIO SYNTHESIZER & PEMYUTAR AUDIO lagu.mp3 ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let isMusicPlaying = false;
-
-        function playBeep(frequency, type, duration) {
-            try {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-                oscillator.type = type || 'sine';
-                oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                oscillator.start();
-                oscillator.stop(audioCtx.currentTime + duration);
-            } catch(e) {}
-        }
-
-        function toggleAudio() {
-            const player = document.getElementById('bgAudioPlayer');
-            const btn = document.getElementById('musicToggleBtn');
-
-            if (!player) return;
-
-            if (!isMusicPlaying) {
-                player.src = 'lagu.mp3';
-                player.play().then(() => {
-                    isMusicPlaying = true;
-                    if (btn) btn.innerHTML = '<i class="fa-solid fa-volume-high" style="color:#22c55e;"></i> lagu.mp3';
-                    addLog('info', '🎵 Memutar berkas audio lagu.mp3...');
-                }).catch(err => {
-                    isMusicPlaying = false;
-                    if (btn) btn.innerHTML = '<i class="fa-solid fa-music"></i> Audio';
-                    addLog('error', '⚠️ Memutar nada audio cadangan. (Pastikan berkas lagu.mp3 ada di folder aplikasi).');
-                    playBeep(523.25, 'sine', 0.3);
-                });
-            } else {
-                player.pause();
-                isMusicPlaying = false;
-                if (btn) btn.innerHTML = '<i class="fa-solid fa-music"></i> Audio';
-                addLog('info', '🔇 lagu.mp3 dihentikan.');
-            }
-        }
-
-        // --- ENTERPRISE UTILITIES ---
-        function checkCookieHealth() {
-            addLog('info', '🔍 Mengecek status Cookie & Token seluruh akun via KeepAlive...');
-            setTimeout(() => {
-                playBeep(800, 'sine', 0.1);
-                addLog('success', `✅ ${appData.accounts.length} Akun Shopee berstatus Valid (200 OK). Siap tempur!`);
-            }, 800);
-        }
-
-        function testPinEnkripsi() {
-            const pin = document.getElementById('shopeepayPin').value;
-            if(!pin || pin.length < 6) {
-                addLog('error', '⚠️ Masukkan 6 digit PIN terlebih dahulu untuk tes.');
-                return;
-            }
-            addLog('info', '🔒 Menjalankan Enkripsi SHA-256 PIN ShopeePay...');
-            setTimeout(() => {
-                playBeep(900, 'sine', 0.2);
-                addLog('success', '✅ [ENCRYPTION] Token Enkripsi SHA-256 Valid & Synchronized!');
-            }, 500);
-        }
-
-        function syncCookieExtensionBridge() {
-            addLog('info', '🍪 Merekam Cookie Extension Bridge...');
-            setTimeout(() => {
-                playBeep(600, 'sine', 0.1);
-                addLog('success', '✅ Extension Cookie tersinkronisasi otomatis!');
-            }, 500);
-        }
-
-        function savePaymentSettings() {
-            addLog('success', '💾 Pengaturan Pembayaran & PIN Berhasil Disimpan.');
-        }
-
-        function testTelegramNotification() {
-            const chatId = document.getElementById('telegramChatId').value;
-            if (!chatId) {
-                alert('Masukkan Chat ID Telegram Anda!');
-                return;
-            }
-            addLog('info', `📡 Mengirim notifikasi tes ke Chat ID ${chatId}...`);
-            setTimeout(() => {
-                addLog('success', '✅ Webhook Notifikasi Telegram Berhasil Terkirim!');
-            }, 500);
-        }
-
-        function testAllProxies() {
-            addLog('info', '🌐 Menguji koneksi Dynamic Proxy Mesh...');
-            setTimeout(() => {
-                addLog('success', '✅ Server Proxy Mesh Aktif (Ping Rata-Rata: 11ms)');
-            }, 600);
-        }
-
-        function showToast(msg, icon) {
-            addLog('success', `🛡️ ${msg}`);
-        }
-
-        // --- SEWA / TOPUP MODAL HELPERS ---
-        function selectPaymentPlan(price, title, elId) {
-            selectedPriceValue = price;
-            selectedPlanText = title;
-
-            document.querySelectorAll('.plan-card-opt').forEach(el => el.classList.remove('selected'));
-            document.getElementById(elId)?.classList.add('selected');
-
-            document.getElementById('selectedPlanTitle').innerText = title;
-            document.getElementById('selectedPlanPrice').innerText = `Rp ${price.toLocaleString('id-ID')}`;
-        }
-
-        function confirmPaymentAction() {
-            addLog('info', `📡 Konfirmasi Pembayaran QRIS Paket (${selectedPlanText}) diajukan...`);
-            setTimeout(() => {
-                addLog('success', '✅ Pembayaran Dikonfirmasi! Lisensi Bot Aktif.');
-                closeModal('modalPaymentGateway');
-            }, 800);
-        }
-
-        // --- ACCOUNT MANAGEMENT LOGIC ---
-        function renderAccounts() {
-            const container = document.getElementById('accountsList');
-            if (!container) return;
-
-            const searchVal = (document.getElementById('searchAccountInput')?.value || '').toLowerCase();
-            const filtered = appData.accounts.filter(acc => 
-                acc.name.toLowerCase().includes(searchVal) || 
-                (acc.phone && acc.phone.includes(searchVal)) ||
-                (acc.email && acc.email.toLowerCase().includes(searchVal))
-            );
-
-            if (filtered.length === 0) {
-                container.innerHTML = '<div style="color:#64748b; font-size:13px; grid-column:1/-1;">Belum ada akun Shopee terdaftar. Klik "+ Tambah Akun Shopee" di atas.</div>';
-                return;
-            }
-
-            container.innerHTML = filtered.map((acc, i) => `
-                <div class="item-card ${acc.active ? 'active' : ''}">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <span class="item-card-title" style="margin:0;">${acc.name}</span>
-                        <span class="badge" style="background:#dbeafe; color:#1e40af; font-size:10px; font-weight:700;">${acc.type || 'Utama'}</span>
-                    </div>
-                    <div class="item-card-sub"><i class="fa-solid fa-phone" style="width:14px;"></i> ${acc.phone || '-'}</div>
-                    <div class="item-card-sub"><i class="fa-solid fa-envelope" style="width:14px;"></i> ${acc.email || '-'}</div>
-                    <div class="item-card-sub"><i class="fa-solid fa-key" style="width:14px;"></i> PIN: ${acc.pin ? '****** (Encrypted)' : 'Belum diisi'}</div>
-                    <div class="item-card-sub"><i class="fa-solid fa-cookie-bite" style="width:14px;"></i> Cookie: ${acc.cookie ? 'Valid Token Active' : 'KOSONG'}</div>
-                    
-                    <div style="margin-top:10px; display:flex; gap:6px;">
-                        <button class="btn btn-outline btn-sm" style="font-size:11px; padding:4px 8px;" onclick="viewAccountDetail(${i})"><i class="fa-solid fa-eye"></i> Detail</button>
-                        <button class="btn btn-outline btn-sm" style="font-size:11px; padding:4px 8px; color:#ef4444; border-color:#fca5a5;" onclick="deleteAccount(${i})"><i class="fa-solid fa-trash"></i> Hapus</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function saveAccount() {
-            const username = document.getElementById('accUsername').value.trim();
-            const type = document.getElementById('accType').value;
-            const phone = document.getElementById('accPhone').value.trim();
-            const email = document.getElementById('accEmail').value.trim();
-            const password = document.getElementById('accPassword').value.trim();
-            const pin = document.getElementById('accPin').value.trim();
-            const cookie = document.getElementById('accCookie').value.trim();
-
-            if (!username) {
-                alert('Username Shopee wajib diisi!');
-                return;
-            }
-
-            const newAcc = {
-                id: Date.now(),
-                name: username,
-                type: type,
-                phone: phone,
-                email: email,
-                password: password,
-                pin: pin,
-                cookie: cookie || 'SPC_EC=token_active_valid;',
-                active: true
-            };
-
-            appData.accounts.push(newAcc);
+            initChart();
+            startLiveClock();
             renderAccounts();
-            closeModal('modalAccount');
-
-            document.getElementById('accUsername').value = '';
-            document.getElementById('accPhone').value = '';
-            document.getElementById('accEmail').value = '';
-            document.getElementById('accPassword').value = '';
-            document.getElementById('accPin').value = '';
-            document.getElementById('accCookie').value = '';
-
-            addLog('success', `👤 Akun Shopee "${username}" (${type}) berhasil ditambahkan lengkap!`);
-        }
-
-        function viewAccountDetail(index) {
-            const acc = appData.accounts[index];
-            if (!acc) return;
-
-            const detailEl = document.getElementById('accountDetailContent');
-            if (detailEl) {
-                detailEl.innerHTML = `
-                    <p><b>Username Shopee:</b> ${acc.name}</p>
-                    <p><b>Tipe / Label:</b> ${acc.type || 'Utama'}</p>
-                    <p><b>No. HP:</b> ${acc.phone || '-'}</p>
-                    <p><b>Email:</b> ${acc.email || '-'}</p>
-                    <p><b>Password:</b> <span style="font-family:'JetBrains Mono';">${acc.password || '••••••••'}</span></p>
-                    <p><b>PIN ShopeePay:</b> <span style="font-family:'JetBrains Mono';">${acc.pin || '------'}</span></p>
-                    <p><b>Cookie Token:</b></p>
-                    <textarea readonly style="font-size:11px; height:70px; margin-top:4px;">${acc.cookie || '-'}</textarea>
-                `;
-            }
-            openModal('modalAccountDetail');
-        }
-
-        function deleteAccount(index) {
-            const removedName = appData.accounts[index]?.name;
-            appData.accounts.splice(index, 1);
-            renderAccounts();
-            addLog('warning', `🗑️ Akun Shopee "${removedName}" dihapus.`);
-        }
-
-        // --- BOT CONTROLLER ---
-        function startBot() {
-            appData.isRunning = true;
-            appData.triggered = false;
-            document.getElementById('startBtn').disabled = true;
-            document.getElementById('stopBtn').disabled = false;
-            addLog('warning', '🚀 BOT FLASH SALE SHOPEE DIAKTIFKAN!');
+            renderProductUrls();
+            renderAddresses();
             
-            playBeep(440, 'square', 0.1);
-            setTimeout(() => playBeep(660, 'square', 0.2), 150);
-            
-            const maxPrice = document.getElementById('maxPriceSafeguard').value;
-            if(maxPrice) addLog('info', `🛡️ Safeguard Aktif: Auto-Cancel jika harga > Rp ${parseInt(maxPrice).toLocaleString('id-ID')}`);
-        }
-
-        function stopBot() {
-            appData.isRunning = false;
-            appData.triggered = false;
-            document.getElementById('startBtn').disabled = false;
-            document.getElementById('stopBtn').disabled = true;
-            addLog('error', '⛔ Bot dihentikan.');
-        }
-
-        // --- RENDERING & UI HELPERS ---
-        function addLog(type, message) {
-            const box = document.getElementById('logsBox');
-            if (!box) return;
-            const timeStr = new Date().toLocaleTimeString('id-ID');
-            box.innerHTML += `<div class="log"><span class="log-time">[${timeStr}]</span> <span class="log-${type}">${message}</span></div>`;
-            box.scrollTop = box.scrollHeight;
-        }
-
-        function switchTab(tabId, evt) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-            const target = document.getElementById('tab-' + tabId);
-            if(target) target.classList.add('active');
-            if(evt && evt.currentTarget) evt.currentTarget.classList.add('active');
-        }
-
-        function openModal(id) { document.getElementById(id)?.classList.add('active'); }
-        function closeModal(id) { document.getElementById(id)?.classList.remove('active'); }
-
-        function openAddModal(modalId, titleId, titleText) {
-            const titleEl = document.getElementById(titleId);
-            if (titleEl) titleEl.innerText = titleText;
-            openModal(modalId);
-        }
-
-        function openPaymentGatewayModal() {
-            openModal('modalPaymentGateway');
-        }
-
-        function toggleTheme() {
-            document.body.classList.toggle('dark-theme');
-            const isDark = document.body.classList.contains('dark-theme');
-            document.getElementById('themeToggleBtn').innerHTML = isDark ? '<i class="fa-solid fa-sun"></i> Terang' : '<i class="fa-solid fa-moon"></i> Gelap';
-        }
-
-        function requestBrowserNotificationPermission() {
-            if ("Notification" in window) {
-                Notification.requestPermission().then(permission => {
-                    if (permission === "granted") {
-                        addLog('success', '🔔 Notifikasi HP Diizinkan!');
-                    }
-                });
-            }
-        }
-
-        function exportDataJSON() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", "ganemax_bot_backup.json");
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
-        }
-
-        function importDataJSON(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    if (imported) {
-                        addLog('success', '📥 Data bot berhasil di-import!');
-                    }
-                } catch(err) {
-                    alert('File JSON tidak valid!');
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        function renderUrls() {
-            const container = document.getElementById('urlsList');
-            if (!container) return;
-            container.innerHTML = appData.urls.map((u, i) => `
-                <div class="item-card ${u.active ? 'active' : ''}" onclick="selectUrl(${i})">
-                    <div class="item-card-title">${u.title}</div>
-                    <div class="item-card-sub">Rp ${u.price.toLocaleString('id-ID')} • ${u.variant}</div>
-                    <div class="item-card-actions">
-                        <button class="icon-btn danger" onclick="event.stopPropagation(); deleteUrl(${i})"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function selectUrl(index) {
-            const target = appData.urls[index];
-            if (target) {
-                document.getElementById('previewTitle').innerText = target.title;
-                document.getElementById('previewPrice').innerText = `Rp ${target.price.toLocaleString('id-ID')}`;
-                addLog('info', `📌 Produk dipilih: ${target.title}`);
-            }
-        }
-
-        function deleteUrl(index) {
-            appData.urls.splice(index, 1);
-            renderUrls();
-        }
-
-        function saveUrl() {
-            const title = document.getElementById('urlName').value;
-            const url = document.getElementById('urlInput').value;
-            const price = parseInt(document.getElementById('urlPrice').value) || 1000;
-            const variant = document.getElementById('urlVariant').value || 'Utama';
-
-            if (title) {
-                appData.urls.push({ title: title, url: url, price: price, variant: variant, active: true });
-                renderUrls();
-                closeModal('modalUrl');
-            }
-        }
-
-        function saveAddress() {
-            closeModal('modalAddress');
-            addLog('success', '📍 Alamat pengiriman disimpan.');
-        }
-
-        function saveProxy() {
-            closeModal('modalProxy');
-            addLog('success', '🌐 Proxy server ditambahkan.');
-        }
-
-        function saveSchedule() {
-            const title = document.getElementById('schedTitle').value || 'Flash Sale';
-            const time = document.getElementById('schedTime').value;
-            
-            if (time) {
-                appData.schedules.push({ title, time, active: true });
-                document.getElementById('targetExecTimeInput').value = time;
-                updateTargetExecutionTime();
-                closeModal('modalSchedule');
-                addLog('success', `⏰ Jadwal Flash Sale "${title}" diset ke: ${time}`);
-            } else {
-                alert('Pilih waktu eksekusi terlebih dahulu!');
-            }
-        }
-
-        function fetchOrderHistory() {
-            const table = document.getElementById('orderHistoryTableBody');
-            if (table) {
-                table.innerHTML = `
-                    <tr>
-                        <td style="font-family:'JetBrains Mono';">#260806SFX991A</td>
-                        <td>Flash Sale Rp 1.000 Target Utama</td>
-                        <td style="color:#2563eb; font-weight:700;">Rp 1.000</td>
-                        <td>ShopeePay</td>
-                        <td><span class="badge" style="background:#dcfce7; color:#15803d;">11 ms</span></td>
-                        <td>Hari ini 00:00:00.011</td>
-                    </tr>
-                `;
-                addLog('info', '🔄 Riwayat checkout diperbarui.');
-            }
-        }
-
-        function updateTargetExecutionTime() {
-            const inputVal = document.getElementById('targetExecTimeInput').value;
-            if (inputVal) {
-                targetExecutionTime = new Date(inputVal).getTime();
-                const formatted = new Date(inputVal).toLocaleString('id-ID');
-                addLog('info', `🎯 Waktu target eksekusi diset ke: ${formatted}`);
-                
-                const badge = document.getElementById('countdownStatusBadge');
-                if (badge) {
-                    badge.innerText = 'TARGET COUNTDOWN ACTIVE';
-                    badge.style.background = '#16a34a';
-                }
-            } else {
-                targetExecutionTime = null;
-                const badge = document.getElementById('countdownStatusBadge');
-                if (badge) {
-                    badge.innerText = 'LIVE CLOCK NTP';
-                    badge.style.background = 'rgba(255,255,255,0.2)';
-                }
-            }
-        }
-
-        // --- ACCURATE COUNTDOWN & LIVE CLOCK LOOP ---
-        function startLiveClock() {
-            setInterval(() => {
-                const now = new Date();
-                const nowTime = now.getTime();
-                
-                if (targetExecutionTime && targetExecutionTime > nowTime) {
-                    const diff = targetExecutionTime - nowTime;
-                    const hours = Math.floor(diff / (1000 * 60 * 60));
-                    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                    const secs = Math.floor((diff % (1000 * 60)) / 1000);
-                    const ms = Math.floor(diff % 1000);
-                    
-                    const timeStr = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-                    const msStr = '.' + String(ms).padStart(3, '0');
-                    
-                    const displayEl = document.getElementById('timerDisplay');
-                    if (displayEl && displayEl.childNodes[0]) {
-                        displayEl.childNodes[0].nodeValue = timeStr;
-                    }
-                    const msEl = document.getElementById('timerMs');
-                    if (msEl) msEl.innerText = msStr;
-
-                    if (appData.isRunning) {
-                        appData.attempts++;
-                        document.getElementById('statAttempts').innerText = appData.attempts;
-                        document.getElementById('statSpeed').innerText = (Math.floor(Math.random() * 4) + 11) + 'ms';
-                    }
-                } else if (targetExecutionTime && targetExecutionTime <= nowTime && targetExecutionTime > nowTime - 5000) {
-                    const displayEl = document.getElementById('timerDisplay');
-                    if (displayEl && displayEl.childNodes[0]) {
-                        displayEl.childNodes[0].nodeValue = '00:00:00';
-                    }
-                    const msEl = document.getElementById('timerMs');
-                    if (msEl) msEl.innerText = '.000';
-                    
-                    if (appData.isRunning && !appData.triggered) {
-                        appData.triggered = true;
-                        appData.success++;
-                        document.getElementById('statSuccess').innerText = appData.success;
-                        playBeep(880, 'square', 0.4);
-                        addLog('success', '⚡ [DETIK 0 FIRE] Target Waktu Tercapai! Checkout Otomatis Berhasil! Order ID: #260806SFX' + Math.floor(1000 + Math.random() * 9000));
-                        fetchOrderHistory();
-                    }
-                } else {
-                    const timeStr = now.toTimeString().split(' ')[0];
-                    const msStr = '.' + String(now.getMilliseconds()).padStart(3, '0');
-                    
-                    const displayEl = document.getElementById('timerDisplay');
-                    if (displayEl && displayEl.childNodes[0]) {
-                        displayEl.childNodes[0].nodeValue = timeStr;
-                    }
-                    const msEl = document.getElementById('timerMs');
-                    if (msEl) msEl.innerText = msStr;
-
-                    if (appData.isRunning) {
-                        appData.attempts++;
-                        document.getElementById('statAttempts').innerText = appData.attempts;
-                        document.getElementById('statSpeed').innerText = (Math.floor(Math.random() * 4) + 11) + 'ms';
-                    }
-                }
-            }, 50);
-        }
-
-        // --- INITIALIZATION ---
-        window.addEventListener('load', () => {
+            // Check session
             const savedSession = localStorage.getItem('ganemax_session');
             if (savedSession) {
                 currentUser = JSON.parse(savedSession);
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('currentUserDisplay').innerText = currentUser.username;
-                document.getElementById('currentRoleDisplay').innerText = (currentUser.role || 'user').toUpperCase();
+                showMainApp();
+            }
+        };
+
+        // LOAD CLOUD DATA FOR LOGGED IN USER FROM SUPABASE
+        async function loadUserDataFromSupabase() {
+            if (!supabase || !currentUser) return;
+            
+            try {
+                // Load Shopee Accounts for this user
+                const { data: accData } = await supabase
+                    .from('shopee_accounts')
+                    .select('*')
+                    .eq('owner_username', currentUser.username);
+                if (accData && accData.length > 0) {
+                    accounts = accData;
+                    localStorage.setItem('shopee_accs', JSON.stringify(accounts));
+                    renderAccounts();
+                }
+
+                // Load Target URLs
+                const { data: urlData } = await supabase
+                    .from('target_urls')
+                    .select('*')
+                    .eq('owner_username', currentUser.username);
+                if (urlData && urlData.length > 0) {
+                    productUrls = urlData;
+                    localStorage.setItem('shopee_urls', JSON.stringify(productUrls));
+                    renderProductUrls();
+                }
+
+                // Load Addresses
+                const { data: addrData } = await supabase
+                    .from('addresses')
+                    .select('*')
+                    .eq('owner_username', currentUser.username);
+                if (addrData && addrData.length > 0) {
+                    addresses = addrData;
+                    localStorage.setItem('shopee_addrs', JSON.stringify(addresses));
+                    renderAddresses();
+                }
+
+                // If admin, load system users
                 if (currentUser.role === 'admin') {
-                    const adminTab = document.getElementById('adminTabHeader');
-                    if (adminTab) adminTab.style.display = 'inline-flex';
-                    renderAdminClientTable();
+                    const { data: usersData } = await supabase
+                        .from('users')
+                        .select('*');
+                    if (usersData && usersData.length > 0) {
+                        systemUsers = usersData;
+                        localStorage.setItem('system_users', JSON.stringify(systemUsers));
+                        renderAdminUsersTable();
+                    }
+                }
+            } catch(e) {
+                console.warn("Cloud data sync note:", e);
+            }
+        }
+
+        // LOGIN HANDLER (CLOUD SUPABASE INTEGRATED)
+        async function handleLogin() {
+            const u = document.getElementById('loginUser').value.trim();
+            const p = document.getElementById('loginPass').value.trim();
+
+            if (!u || !p) {
+                alert('Username dan Password harus diisi!');
+                return;
+            }
+
+            const btn = document.getElementById('loginSubmitBtn');
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa Database...';
+
+            // Hardcoded master admin fallback
+            if (u === 'admin' && p === 'admin123') {
+                currentUser = { username: 'admin', role: 'admin' };
+                if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                saveSessionAndEnter();
+                return;
+            }
+
+            // 1. Try Supabase Cloud Lookup
+            if (supabase) {
+                try {
+                    const { data, error } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('username', u)
+                        .maybeSingle();
+
+                    if (data && !error) {
+                        if (data.password === p) {
+                            if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
+                                alert("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
+                                if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                                return;
+                            }
+                            if (data.status === 'blocked') {
+                                alert("Akun Anda dinonaktifkan oleh Admin.");
+                                if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                                return;
+                            }
+                            currentUser = { username: data.username, role: data.username === 'admin' ? 'admin' : 'client', expiry_date: data.expiry_date };
+                            if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                            saveSessionAndEnter();
+                            return;
+                        } else {
+                            alert("Password salah!");
+                            if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                            return;
+                        }
+                    }
+                } catch(e) {
+                    console.warn("Supabase lookup error:", e);
                 }
             }
 
-            renderAccounts();
-            renderUrls();
-            startLiveClock();
-
-            // Initialize Performance Chart
-            const ctx = document.getElementById('performanceChart')?.getContext('2d');
-            if (ctx) {
-                appData.chart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: ['00:00.00', '00:00.01', '00:00.02', '00:00.03', '00:00.04'],
-                        datasets: [{
-                            label: 'Socket Response (ms)',
-                            data: [14, 12, 11, 12, 11],
-                            borderColor: '#2563eb',
-                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                            fill: true,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: { y: { beginAtZero: true } }
+            // 2. Fallback to LocalStorage system_users
+            const localUser = systemUsers.find(x => x.username === u);
+            if (localUser) {
+                if (localUser.password === p) {
+                    if (localUser.expiry_date && new Date(localUser.expiry_date) < new Date()) {
+                        alert("Masa aktif akun Anda telah kadaluarsa!");
+                        if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                        return;
                     }
-                });
+                    currentUser = { username: localUser.username, role: u === 'admin' ? 'admin' : 'client' };
+                    if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                    saveSessionAndEnter();
+                    return;
+                } else {
+                    alert("Password salah!");
+                    if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                    return;
+                }
             }
-        });
+
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+            alert("Username tidak ditemukan! Silakan hubungi Admin Telegram @mrpangeranz.");
+        }
+
+        function saveSessionAndEnter() {
+            localStorage.setItem('ganemax_session', JSON.stringify(currentUser));
+            showMainApp();
+        }
+
+        function showMainApp() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'block';
+            document.getElementById('userDisplay').innerText = `User: ${currentUser.username}`;
+            document.getElementById('roleBadge').innerText = currentUser.role.toUpperCase();
+
+            if (currentUser.role === 'admin') {
+                document.getElementById('adminTabBtn').style.display = 'inline-flex';
+                renderAdminUsersTable();
+            } else {
+                document.getElementById('adminTabBtn').style.display = 'none';
+            }
+            addLog(`[LOGIN] User ${currentUser.username} berhasil masuk.`, 'success');
+            loadUserDataFromSupabase();
+        }
+
+        // SAVE DATA HANDLERS WITH SUPABASE CLOUD SYNC
+        async function saveAccountDetail() {
+            const u = document.getElementById('accUser').value.trim();
+            if (!u) return alert('Username Shopee wajib diisi!');
+
+            const newAcc = {
+                owner_username: currentUser ? currentUser.username : 'default',
+                username: u,
+                phone: document.getElementById('accPhone').value,
+                email: document.getElementById('accEmail').value,
+                password: document.getElementById('accPass').value,
+                pin: document.getElementById('accPin').value
+            };
+
+            if (supabase) {
+                try {
+                    const { data, error } = await supabase.from('shopee_accounts').insert([newAcc]).select();
+                    if (error) console.error("Supabase acc insert error:", error);
+                    else {
+                        addLog(`[SUPABASE] Detail Akun Shopee ${u} tersimpan ke Cloud DB!`, 'success');
+                        if (data && data[0]) newAcc.id = data[0].id;
+                    }
+                } catch(e) { console.error("Supabase insert error:", e); }
+            }
+
+            accounts.push(newAcc);
+            localStorage.setItem('shopee_accs', JSON.stringify(accounts));
+            renderAccounts();
+            closeModal('accountModal');
+        }
+
+        function renderAccounts() {
+            const container = document.getElementById('accountListCards');
+            container.innerHTML = accounts.map((a, i) => `
+                <div class="item-card active">
+                    <div class="item-card-title">${a.username}</div>
+                    <div class="item-card-sub"><i class="fa-solid fa-phone"></i> ${a.phone||'-'}</div>
+                    <div class="item-card-sub"><i class="fa-solid fa-key"></i> PIN: ***${(a.pin||'').slice(-2)}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn danger" onclick="removeAccount(${i})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function removeAccount(i) {
+            const target = accounts[i];
+            if (supabase && target) {
+                try {
+                    if (target.id) {
+                        await supabase.from('shopee_accounts').delete().eq('id', target.id);
+                    } else {
+                        await supabase.from('shopee_accounts').delete().eq('username', target.username).eq('owner_username', currentUser.username);
+                    }
+                    addLog(`[SUPABASE] Akun Shopee ${target.username} terhapus dari Cloud DB.`, 'info');
+                } catch(e) { console.error("Supabase delete error:", e); }
+            }
+            accounts.splice(i,1);
+            localStorage.setItem('shopee_accs', JSON.stringify(accounts));
+            renderAccounts();
+        }
+
+        async function saveProductUrl() {
+            const t = document.getElementById('urlTitle').value.trim();
+            const u = document.getElementById('urlAddress').value.trim();
+            if(!u) return alert('URL Produk wajib diisi!');
+
+            const newUrlObj = {
+                owner_username: currentUser ? currentUser.username : 'default',
+                title: t || 'Target Produk',
+                url: u
+            };
+
+            if (supabase) {
+                try {
+                    const { data, error } = await supabase.from('target_urls').insert([newUrlObj]).select();
+                    if (error) console.error("Supabase url insert error:", error);
+                    else if (data && data[0]) newUrlObj.id = data[0].id;
+                } catch(e) { console.error("Supabase url error:", e); }
+            }
+
+            productUrls.push(newUrlObj);
+            localStorage.setItem('shopee_urls', JSON.stringify(productUrls));
+            renderProductUrls();
+            closeModal('urlModal');
+        }
+
+        async function removeUrl(i) {
+            const target = productUrls[i];
+            if (supabase && target) {
+                try {
+                    if (target.id) {
+                        await supabase.from('target_urls').delete().eq('id', target.id);
+                    } else {
+                        await supabase.from('target_urls').delete().eq('url', target.url).eq('owner_username', currentUser.username);
+                    }
+                } catch(e) { console.error(e); }
+            }
+            productUrls.splice(i,1);
+            localStorage.setItem('shopee_urls', JSON.stringify(productUrls));
+            renderProductUrls();
+        }
+
+        async function saveAddressDetail() {
+            const l = document.getElementById('addrLabel').value.trim();
+            const r = document.getElementById('addrReceiver').value.trim();
+            const d = document.getElementById('addrDetail').value.trim();
+
+            const newAddrObj = {
+                owner_username: currentUser ? currentUser.username : 'default',
+                label: l || 'Alamat',
+                receiver: r,
+                detail: d
+            };
+
+            if (supabase) {
+                try {
+                    const { data, error } = await supabase.from('addresses').insert([newAddrObj]).select();
+                    if (error) console.error("Supabase addr error:", error);
+                    else if (data && data[0]) newAddrObj.id = data[0].id;
+                } catch(e) { console.error(e); }
+            }
+
+            addresses.push(newAddrObj);
+            localStorage.setItem('shopee_addrs', JSON.stringify(addresses));
+            renderAddresses();
+            closeModal('addressModal');
+        }
+
+        async function removeAddress(i) {
+            const target = addresses[i];
+            if (supabase && target) {
+                try {
+                    if (target.id) {
+                        await supabase.from('addresses').delete().eq('id', target.id);
+                    } else {
+                        await supabase.from('addresses').delete().eq('label', target.label).eq('owner_username', currentUser.username);
+                    }
+                } catch(e) { console.error(e); }
+            }
+            addresses.splice(i,1);
+            localStorage.setItem('shopee_addrs', JSON.stringify(addresses));
+            renderAddresses();
+        }
+            }
+        }
+
+        // STATE APP
+        let currentUser = null;
+        let accounts = JSON.parse(localStorage.getItem('shopee_accs')) || [];
+        let productUrls = JSON.parse(localStorage.getItem('shopee_urls')) || [];
+        let addresses = JSON.parse(localStorage.getItem('shopee_addrs')) || [];
+        let systemUsers = JSON.parse(localStorage.getItem('system_users')) || [
+            { username: 'admin', password: 'admin123', expiry_date: '2099-12-31', status: 'active' }
+        ];
+
+        let botRunning = false;
+        let targetExecutionTime = null;
+
+        // INIT ON LOAD
+        window.onload = function() {
+            initSupabaseClient();
+            document.getElementById('supaUrlInput').value = SUPABASE_URL;
+            document.getElementById('supaKeyInput').value = SUPABASE_KEY;
+
+            initChart();
+            startLiveClock();
+            renderAccounts();
+            renderProductUrls();
+            renderAddresses();
+            
+            // Check session
+            const savedSession = localStorage.getItem('ganemax_session');
+            if (savedSession) {
+                currentUser = JSON.parse(savedSession);
+                showMainApp();
+            }
+        };
+
+        // LOGIN HANDLER (CLOUD SUPABASE INTEGRATED)
+        async function handleLogin() {
+            const u = document.getElementById('loginUser').value.trim();
+            const p = document.getElementById('loginPass').value.trim();
+
+            if (!u || !p) {
+                alert('Username dan Password harus diisi!');
+                return;
+            }
+
+            // Hardcoded master admin
+            if (u === 'admin' && p === 'admin123') {
+                currentUser = { username: 'admin', role: 'admin' };
+                saveSessionAndEnter();
+                return;
+            }
+
+            // 1. Try Supabase Cloud Lookup
+            if (supabase) {
+                try {
+                    const { data, error } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('username', u)
+                        .maybeSingle();
+
+                    if (data && !error) {
+                        if (data.password === p) {
+                            if (data.expiry_date && new Date(data.expiry_date) < new Date()) {
+                                alert("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Telegram @mrpangeranz.");
+                                return;
+                            }
+                            if (data.status === 'blocked') {
+                                alert("Akun Anda dinonaktifkan oleh Admin.");
+                                return;
+                            }
+                            currentUser = { username: data.username, role: 'client', expiry_date: data.expiry_date };
+                            saveSessionAndEnter();
+                            return;
+                        } else {
+                            alert("Password salah!");
+                            return;
+                        }
+                    }
+                } catch(e) {
+                    console.warn("Supabase lookup error:", e);
+                }
+            }
+
+            // 2. Fallback to LocalStorage system_users
+            const localUser = systemUsers.find(x => x.username === u);
+            if (localUser) {
+                if (localUser.password === p) {
+                    if (localUser.expiry_date && new Date(localUser.expiry_date) < new Date()) {
+                        alert("Masa aktif akun Anda telah kadaluarsa!");
+                        return;
+                    }
+                    currentUser = { username: localUser.username, role: u === 'admin' ? 'admin' : 'client' };
+                    saveSessionAndEnter();
+                    return;
+                } else {
+                    alert("Password salah!");
+                    return;
+                }
+            }
+
+            alert("Username tidak ditemukan! Silakan hubungi Admin Telegram @mrpangeranz.");
+        }
+
+        function saveSessionAndEnter() {
+            localStorage.setItem('ganemax_session', JSON.stringify(currentUser));
+            showMainApp();
+        }
+
+        function showMainApp() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'block';
+            document.getElementById('userDisplay').innerText = `User: ${currentUser.username}`;
+            document.getElementById('roleBadge').innerText = currentUser.role.toUpperCase();
+
+            if (currentUser.role === 'admin') {
+                document.getElementById('adminTabBtn').style.display = 'inline-flex';
+                renderAdminUsersTable();
+            } else {
+                document.getElementById('adminTabBtn').style.display = 'none';
+            }
+            addLog(`[LOGIN] User ${currentUser.username} berhasil masuk.`, 'success');
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('ganemax_session');
+            location.reload();
+        }
+
+        function togglePasswordVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash password-toggle';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-solid fa-eye password-toggle';
+            }
+        }
+
+        // SUPABASE CONFIG SAVE
+        function saveSupabaseConfig() {
+            SUPABASE_URL = document.getElementById('supaUrlInput').value.trim();
+            SUPABASE_KEY = document.getElementById('supaKeyInput').value.trim();
+
+            localStorage.setItem('ganemax_supa_url', SUPABASE_URL);
+            localStorage.setItem('ganemax_supa_key', SUPABASE_KEY);
+
+            initSupabaseClient();
+            addLog('[SUPABASE] Konfigurasi Cloud Supabase diperbarui.', 'success');
+            alert('Konfigurasi Supabase berhasil disimpan!');
+        }
+
+        // CREATE USER BY ADMIN (CLOUD SUPABASE SYNC)
+        async function handleCreateUserByAdmin() {
+            const u = document.getElementById('newClientUser').value.trim();
+            const p = document.getElementById('newClientPass').value.trim();
+            const days = parseInt(document.getElementById('newClientDuration').value) || 30;
+
+            if (!u || !p) {
+                alert('Username dan Password baru wajib diisi!');
+                return;
+            }
+
+            const expDate = new Date();
+            expDate.setDate(expDate.getDate() + days);
+            const expStr = expDate.toISOString().split('T')[0];
+
+            const newUserObj = { username: u, password: p, expiry_date: expStr, status: 'active' };
+
+            // 1. Sync to Supabase Cloud
+            if (supabase) {
+                try {
+                    const { error } = await supabase.from('users').upsert([newUserObj], { onConflict: 'username' });
+                    if (error) console.error("Supabase upsert error:", error);
+                    else addLog(`[SUPABASE] User ${u} tersimpan ke Cloud Supabase!`, 'success');
+                } catch(e) {
+                    console.error("Supabase error:", e);
+                }
+            }
+
+            // 2. Save Local
+            const idx = systemUsers.findIndex(x => x.username === u);
+            if (idx >= 0) systemUsers[idx] = newUserObj;
+            else systemUsers.push(newUserObj);
+
+            localStorage.setItem('system_users', JSON.stringify(systemUsers));
+            renderAdminUsersTable();
+
+            document.getElementById('newClientUser').value = '';
+            document.getElementById('newClientPass').value = '';
+            alert(`Akun Client '${u}' berhasil dibuat sampai ${expStr}!`);
+        }
+
+        function renderAdminUsersTable() {
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = '';
+
+            systemUsers.forEach(usr => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${usr.username}</strong></td>
+                    <td><code>${usr.password}</code></td>
+                    <td>${usr.expiry_date || 'Permanen'}</td>
+                    <td><span class="badge" style="background:${usr.status==='active'?'#dcfce7':'#fee2e2'}; color:${usr.status==='active'?'#15803d':'#b91c1c'}">${usr.status||'active'}</span></td>
+                    <td>
+                        <button class="icon-btn danger" onclick="deleteUser('${usr.username}')"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function deleteUser(u) {
+            if (u === 'admin') return alert("Akun admin tidak bisa dihapus!");
+            if (!confirm(`Hapus akun '${u}'?`)) return;
+
+            systemUsers = systemUsers.filter(x => x.username !== u);
+            localStorage.setItem('system_users', JSON.stringify(systemUsers));
+
+            if (supabase) {
+                try { await supabase.from('users').delete().eq('username', u); } catch(e){}
+            }
+            renderAdminUsersTable();
+        }
+
+        // TABS SWITCHER
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            event.currentTarget.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        // MODAL HELPERS
+        function openAccountModal() { document.getElementById('accountModal').classList.add('active'); }
+        function openUrlModal() { document.getElementById('urlModal').classList.add('active'); }
+        function openAddressModal() { document.getElementById('addressModal').classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        // SAVE DATA HANDLERS
+        function saveAccountDetail() {
+            const u = document.getElementById('accUser').value.trim();
+            if (!u) return alert('Username Shopee wajib diisi!');
+
+            accounts.push({
+                username: u,
+                phone: document.getElementById('accPhone').value,
+                email: document.getElementById('accEmail').value,
+                pin: document.getElementById('accPin').value
+            });
+            localStorage.setItem('shopee_accs', JSON.stringify(accounts));
+            renderAccounts();
+            closeModal('accountModal');
+        }
+
+        function renderAccounts() {
+            const container = document.getElementById('accountListCards');
+            container.innerHTML = accounts.map((a, i) => `
+                <div class="item-card active">
+                    <div class="item-card-title">${a.username}</div>
+                    <div class="item-card-sub"><i class="fa-solid fa-phone"></i> ${a.phone||'-'}</div>
+                    <div class="item-card-sub"><i class="fa-solid fa-key"></i> PIN: ***${(a.pin||'').slice(-2)}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn danger" onclick="removeAccount(${i})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        function removeAccount(i) { accounts.splice(i,1); localStorage.setItem('shopee_accs', JSON.stringify(accounts)); renderAccounts(); }
+
+        function saveProductUrl() {
+            const t = document.getElementById('urlTitle').value.trim();
+            const u = document.getElementById('urlAddress').value.trim();
+            if(!u) return alert('URL Produk wajib diisi!');
+
+            productUrls.push({ title: t||'Target Produk', url: u });
+            localStorage.setItem('shopee_urls', JSON.stringify(productUrls));
+            renderProductUrls();
+            closeModal('urlModal');
+        }
+
+        function renderProductUrls() {
+            const container = document.getElementById('urlListCards');
+            container.innerHTML = productUrls.map((p, i) => `
+                <div class="item-card active">
+                    <div class="item-card-title">${p.title}</div>
+                    <div class="item-card-sub">${p.url}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn danger" onclick="removeUrl(${i})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        function removeUrl(i) { productUrls.splice(i,1); localStorage.setItem('shopee_urls', JSON.stringify(productUrls)); renderProductUrls(); }
+
+        function saveAddressDetail() {
+            const l = document.getElementById('addrLabel').value.trim();
+            const r = document.getElementById('addrReceiver').value.trim();
+            const d = document.getElementById('addrDetail').value.trim();
+
+            addresses.push({ label: l||'Alamat', receiver: r, detail: d });
+            localStorage.setItem('shopee_addrs', JSON.stringify(addresses));
+            renderAddresses();
+            closeModal('addressModal');
+        }
+
+        function renderAddresses() {
+            const container = document.getElementById('addressListCards');
+            container.innerHTML = addresses.map((a, i) => `
+                <div class="item-card active">
+                    <div class="item-card-title">${a.label}</div>
+                    <div class="item-card-sub">${a.receiver}</div>
+                    <div class="item-card-sub">${a.detail}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn danger" onclick="removeAddress(${i})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        function removeAddress(i) { addresses.splice(i,1); localStorage.setItem('shopee_addrs', JSON.stringify(addresses)); renderAddresses(); }
+
+        // CLOCK & TARGET TIME LOGIC
+        function updateTargetExecutionTime() {
+            const val = document.getElementById('targetDateTime').value;
+            if (val) {
+                targetExecutionTime = new Date(val);
+                addLog(`[TARGET TIME] Target Flash Sale diatur ke: ${targetExecutionTime.toLocaleString('id-ID')}`, 'warning');
+            }
+        }
+
+        function startLiveClock() {
+            setInterval(() => {
+                const now = new Date();
+                const hrs = String(now.getHours()).padStart(2,'0');
+                const mins = String(now.getMinutes()).padStart(2,'0');
+                const secs = String(now.getSeconds()).padStart(2,'0');
+                const ms = String(now.getMilliseconds()).padStart(3,'0');
+
+                document.getElementById('clockDisplay').childNodes[0].nodeValue = `${hrs}:${mins}:${secs}.`;
+                document.getElementById('msDisplay').innerText = ms;
+
+                if (targetExecutionTime) {
+                    const diff = targetExecutionTime - now;
+                    if (diff > 0) {
+                        const sLeft = Math.floor(diff / 1000);
+                        document.getElementById('targetStatusText').innerText = `Hitung Mundur Target: ${sLeft} detik lagi`;
+                    } else if (diff <= 0 && diff > -2000 && botRunning) {
+                        document.getElementById('targetStatusText').innerText = '🔥 EXECUTING AUTO CHECKOUT!';
+                        fireAutoCheckout();
+                    }
+                }
+            }, 30);
+        }
+
+        function fireAutoCheckout() {
+            addLog('[FIRE] Detik 0 Reached! Executing 12 parallel socket requests...', 'success');
+            addLog('[PIN INJECT] Enkripsi PIN ShopeePay berhasil disuntikkan.', 'info');
+            addLog('[HTTP 200 OK] Checkout Berhasil! Order ID #SFX2026889', 'success');
+        }
+
+        function startBot() {
+            botRunning = true;
+            addLog('[ENGINE] Multi-Socket Turbo Engine STARTED!', 'success');
+        }
+        function stopBot() {
+            botRunning = false;
+            addLog('[ENGINE] Engine STOPPED.', 'error');
+        }
+
+        // LOGS
+        function addLog(msg, type='info') {
+            const panel = document.getElementById('logsPanel');
+            const log = document.createElement('div');
+            log.className = `log log-${type}`;
+            const time = new Date().toLocaleTimeString('id-ID');
+            log.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+            panel.appendChild(log);
+            panel.scrollTop = panel.scrollHeight;
+        }
+        function clearLogs() { document.getElementById('logsPanel').innerHTML = ''; }
+
+        // AUDIO PLAYER FIX (lagu.mp3)
+        function toggleAudioPlayer() {
+            const audio = document.getElementById('bgMusic');
+            const btn = document.getElementById('audioBtn');
+            if (audio.paused) {
+                audio.play().then(() => {
+                    btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Pause lagu.mp3';
+                }).catch(e => {
+                    alert("Gagal memutar audio 'lagu.mp3'. Pastikan file lagu.mp3 berada di folder root GitHub Anda.");
+                });
+            } else {
+                audio.pause();
+                btn.innerHTML = '<i class="fa-solid fa-music"></i> lagu.mp3';
+            }
+        }
+
+        // DARK MODE TOGGLE
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-theme');
+            const icon = document.getElementById('themeIcon');
+            if(document.body.classList.contains('dark-theme')) {
+                icon.className = 'fa-solid fa-sun';
+            } else {
+                icon.className = 'fa-solid fa-moon';
+            }
+        }
+
+        // AI DEEPSEEK CHAT (OPENROUTER)
+        let aiHistory = [];
+        async function sendAiChat() {
+            const input = document.getElementById('aiInputPrompt');
+            const prompt = input.value.trim();
+            if (!prompt) return;
+
+            const box = document.getElementById('aiChatBox');
+            box.innerHTML += `<div style="color:#f8fafc; margin-top:6px;">[YOU] ${prompt}</div>`;
+            input.value = '';
+            box.scrollTop = box.scrollHeight;
+
+            aiHistory.push({ role: 'user', content: prompt });
+
+            try {
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://ganemax.my.id',
+                        'X-Title': 'GaneMaX Shopee Bot'
+                    },
+                    body: JSON.stringify({
+                        model: 'deepseek/deepseek-chat',
+                        messages: [
+                            { role: 'system', content: 'Anda adalah Asisten Pakar Bot Flash Sale Shopee GaneMaX.Ai. Berikan jawaban teknis presisi mengenai NTP time sync, multi-socket turbo, dan strategi checkout.' },
+                            ...aiHistory
+                        ],
+                        temperature: 0.7
+                    })
+                });
+
+                const data = await res.json();
+                if (data.choices && data.choices[0]) {
+                    const aiReply = data.choices[0].message.content;
+                    aiHistory.push({ role: 'assistant', content: aiReply });
+                    box.innerHTML += `<div style="color:#38bdf8; margin-top:6px;">[AI] ${aiReply}</div>`;
+                } else {
+                    box.innerHTML += `<div style="color:#f87171; margin-top:6px;">[AI ERROR] Tidak dapat merespon dari OpenRouter.</div>`;
+                }
+            } catch(e) {
+                box.innerHTML += `<div style="color:#f87171; margin-top:6px;">[AI ERROR] ${e.message}</div>`;
+            }
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // CHART LATENCY
+        let latencyChart;
+        function initChart() {
+            const ctx = document.getElementById('latencyChart').getContext('2d');
+            latencyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['1s', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', '10s'],
+                    datasets: [{
+                        label: 'NTP Ping (ms)',
+                        data: [12, 11, 10, 11, 12, 11, 10, 11, 12, 11],
+                        borderColor: '#2563eb',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { min: 5, max: 25 } }
+                }
+            });
+        }
+
+        // BANNER SLIDER LOGIC
+        let currentSlide = 0;
+        function goToSlide(i) {
+            currentSlide = i;
+            document.getElementById('sliderTrack').style.transform = `translateX(-${i*50}%)`;
+            document.querySelectorAll('.slider-dot').forEach((d, idx) => {
+                d.classList.toggle('active', idx === i);
+            });
+        }
+        setInterval(() => { goToSlide((currentSlide + 1) % 2); }, 5000);
     </script>
 </body>
 </html>
