@@ -113,12 +113,6 @@
         .stat-label { font-size: 12px; color: #64748b; margin-bottom: 4px; }
         .stat-value { font-size: 20px; font-weight: 700; color: #0f172a; }
         
-        .product-card { background: #ffffff; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
-        .product-name { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 8px; }
-        .product-meta { display: flex; gap: 16px; font-size: 13px; color: #64748b; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
-        .price-tag { font-size: 26px; font-weight: 800; color: #2563eb; display: flex; align-items: baseline; }
-        .stock-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #dbeafe; color: #1e40af; border-radius: 20px; font-size: 12px; font-weight: 600; }
-        
         .timer-card { background: linear-gradient(135deg, #2563eb, #7c3aed); padding: 20px; border-radius: 20px; color: white; text-align: center; margin-bottom: 24px; box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4); }
         .timer-label { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.95; font-weight: 700; }
         .timer-display { font-size: 42px; font-weight: 800; font-family: 'JetBrains Mono', monospace; letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0,0,0,0.2); margin: 6px 0; }
@@ -171,16 +165,16 @@
             <div id="loginErrorMsg" style="display:none; background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; padding:10px 14px; border-radius:12px; font-size:12px; margin-bottom:16px; text-align:left; font-weight:500;"></div>
             <div class="form-group">
                 <label>Username</label>
-                <input type="text" id="loginUser" placeholder="Masukkan username" onkeyup="if(event.key==='Enter') handleLogin()">
+                <input type="text" id="loginUser" placeholder="Masukkan username" onkeyup="if(event.key==='Enter') handleLogin(event)">
             </div>
             <div class="form-group">
                 <label>Password</label>
                 <div class="password-wrapper">
-                    <input type="password" id="loginPass" placeholder="••••••••" onkeyup="if(event.key==='Enter') handleLogin()">
+                    <input type="password" id="loginPass" placeholder="••••••••" onkeyup="if(event.key==='Enter') handleLogin(event)">
                     <i class="fa-solid fa-eye password-toggle" id="toggleLoginPass" onclick="togglePasswordVisibility('loginPass', 'toggleLoginPass')"></i>
                 </div>
             </div>
-            <button class="btn btn-primary" id="loginSubmitBtn" onclick="handleLogin()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard</button>
+            <button type="button" class="btn btn-primary" id="loginSubmitBtn" onclick="handleLogin(event)"><i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard</button>
             <div style="margin-top: 14px; font-size: 12px; color: #64748b; line-height: 1.4;">
                 Silakan DM Telegram <a href="https://t.me/mrpangeranz" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:600; text-decoration:underline;"><i class="fa-brands fa-telegram" style="color:#229ed9;"></i> @mrpangeranz</a> untuk request Username & Password
             </div>
@@ -241,12 +235,12 @@
                 </div>
 
                 <div class="tabs">
-                    <button class="tab active" onclick="switchTab('tab-basic')"><i class="fa-solid fa-bolt"></i> Target</button>
-                    <button class="tab" onclick="switchTab('tab-accounts')"><i class="fa-solid fa-users"></i> Akun Shopee</button>
-                    <button class="tab" onclick="switchTab('tab-address')"><i class="fa-solid fa-location-dot"></i> Alamat</button>
-                    <button class="tab" onclick="switchTab('tab-payment')"><i class="fa-solid fa-credit-card"></i> Pembayaran</button>
-                    <button class="tab" onclick="switchTab('tab-ai')"><i class="fa-solid fa-robot"></i> AI DeepSeek</button>
-                    <button class="tab admin-tab" id="adminTabBtn" onclick="switchTab('tab-admin')" style="display:none;"><i class="fa-solid fa-shield-halved"></i> Admin Panel</button>
+                    <button class="tab active" onclick="switchTab('tab-basic', event)"><i class="fa-solid fa-bolt"></i> Target</button>
+                    <button class="tab" onclick="switchTab('tab-accounts', event)"><i class="fa-solid fa-users"></i> Akun Shopee</button>
+                    <button class="tab" onclick="switchTab('tab-address', event)"><i class="fa-solid fa-location-dot"></i> Alamat</button>
+                    <button class="tab" onclick="switchTab('tab-payment', event)"><i class="fa-solid fa-credit-card"></i> Pembayaran</button>
+                    <button class="tab" onclick="switchTab('tab-ai', event)"><i class="fa-solid fa-robot"></i> AI DeepSeek</button>
+                    <button class="tab admin-tab" id="adminTabBtn" onclick="switchTab('tab-admin', event)" style="display:none;"><i class="fa-solid fa-shield-halved"></i> Admin Panel</button>
                 </div>
 
                 <!-- TAB TARGET -->
@@ -284,7 +278,6 @@
                     </div>
                 </div>
 
-                <!-- TAB PEMBAYARAN -->
                 <div id="tab-payment" class="tab-content">
                     <div class="form-group">
                         <label>Metode Pembayaran Utama</label>
@@ -322,6 +315,7 @@
                     </div>
                 </div>
 
+                <!-- TAB ADMIN PANEL -->
                 <div id="tab-admin" class="tab-content">
                     <div style="background:#fef3c7; border:1px solid #fde68a; padding:12px; border-radius:12px; margin-bottom:16px;">
                         <h4 style="color:#b45309; font-size:14px; margin-bottom:8px;"><i class="fa-solid fa-database"></i> Supabase Cloud Config</h4>
@@ -527,44 +521,58 @@
             }
         }
 
-        // STATE APP
+        // STATE APP WITH SAFE LOCALSTORAGE FALLBACKS
         let currentUser = null;
-        let accounts = JSON.parse(localStorage.getItem('shopee_accs')) || [];
-        let productUrls = JSON.parse(localStorage.getItem('shopee_urls')) || [];
-        let addresses = JSON.parse(localStorage.getItem('shopee_addrs')) || [];
-        let systemUsers = JSON.parse(localStorage.getItem('system_users')) || [
+        let accounts = [];
+        let productUrls = [];
+        let addresses = [];
+        let systemUsers = [
             { username: 'admin', password: 'admin123', expiry_date: '2099-12-31', status: 'active' }
         ];
+
+        try { accounts = JSON.parse(localStorage.getItem('shopee_accs')) || []; } catch(e) {}
+        try { productUrls = JSON.parse(localStorage.getItem('shopee_urls')) || []; } catch(e) {}
+        try { addresses = JSON.parse(localStorage.getItem('shopee_addrs')) || []; } catch(e) {}
+        try {
+            const savedUsers = JSON.parse(localStorage.getItem('system_users'));
+            if (Array.isArray(savedUsers) && savedUsers.length > 0) {
+                systemUsers = savedUsers;
+            }
+        } catch(e) {}
 
         let botRunning = false;
         let targetExecutionTime = null;
 
         window.onload = function() {
-            localStorage.setItem('ganemax_supa_url', SUPABASE_URL);
-            localStorage.setItem('ganemax_supa_key', SUPABASE_KEY);
+            try {
+                localStorage.setItem('ganemax_supa_url', SUPABASE_URL);
+                localStorage.setItem('ganemax_supa_key', SUPABASE_KEY);
 
-            initSupabaseClient();
-            fetchAllUsersFromCloud();
-            
-            const supaUrlEl = document.getElementById('supaUrlInput');
-            const supaKeyEl = document.getElementById('supaKeyInput');
-            if (supaUrlEl) supaUrlEl.value = SUPABASE_URL;
-            if (supaKeyEl) supaKeyEl.value = SUPABASE_KEY;
+                initSupabaseClient();
+                fetchAllUsersFromCloud();
+                
+                const supaUrlEl = document.getElementById('supaUrlInput');
+                const supaKeyEl = document.getElementById('supaKeyInput');
+                if (supaUrlEl) supaUrlEl.value = SUPABASE_URL;
+                if (supaKeyEl) supaKeyEl.value = SUPABASE_KEY;
 
-            initChart();
-            startLiveClock();
-            renderAccounts();
-            renderProductUrls();
-            renderAddresses();
-            
-            const savedSession = localStorage.getItem('ganemax_session');
-            if (savedSession) {
-                try {
-                    currentUser = JSON.parse(savedSession);
-                    showMainApp();
-                } catch(e) {
-                    localStorage.removeItem('ganemax_session');
+                initChart();
+                startLiveClock();
+                renderAccounts();
+                renderProductUrls();
+                renderAddresses();
+                
+                const savedSession = localStorage.getItem('ganemax_session');
+                if (savedSession) {
+                    try {
+                        currentUser = JSON.parse(savedSession);
+                        showMainApp();
+                    } catch(e) {
+                        localStorage.removeItem('ganemax_session');
+                    }
                 }
+            } catch(err) {
+                console.error("Window onload error:", err);
             }
         };
 
@@ -638,7 +646,9 @@
             }
         }
 
-        async function handleLogin() {
+        async function handleLogin(evt) {
+            if (evt && evt.preventDefault) evt.preventDefault();
+
             const errBox = document.getElementById('loginErrorMsg');
             if (errBox) { errBox.style.display = 'none'; errBox.innerText = ''; }
 
@@ -683,7 +693,30 @@
                     return;
                 }
 
-                // 2. Query Supabase JS Client
+                // 2. Local System Users Fast Check
+                const localMatch = systemUsers.find(x => x.username.toLowerCase() === u.toLowerCase());
+                if (localMatch && localMatch.password === p) {
+                    if (localMatch.expiry_date && new Date(localMatch.expiry_date) < new Date()) {
+                        showError("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
+                        resetBtn();
+                        return;
+                    }
+                    if (localMatch.status === 'blocked') {
+                        showError("Akun Anda dinonaktifkan oleh Admin.");
+                        resetBtn();
+                        return;
+                    }
+                    currentUser = { 
+                        username: localMatch.username, 
+                        role: localMatch.username.toLowerCase() === 'admin' ? 'admin' : 'client', 
+                        expiry_date: localMatch.expiry_date 
+                    };
+                    resetBtn();
+                    saveSessionAndEnter();
+                    return;
+                }
+
+                // 3. Supabase Cloud DB Query with Abort Timeout
                 let cloudUser = null;
 
                 if (supabase) {
@@ -701,11 +734,11 @@
                     }
                 }
 
-                // REST Query Fallback
+                // Direct REST Query Fallback (3-second timeout)
                 if (!cloudUser && SUPABASE_URL && SUPABASE_KEY) {
                     try {
                         const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 3500);
+                        const timeoutId = setTimeout(() => controller.abort(), 3000);
                         const res = await fetch(`${SUPABASE_URL}/rest/v1/users?username=ilike.${encodeURIComponent(u)}`, {
                             headers: {
                                 'apikey': SUPABASE_KEY,
@@ -759,35 +792,8 @@
                     return;
                 }
 
-                // 3. Fallback to Local Cache
-                const localUser = systemUsers.find(x => x.username.toLowerCase() === u.toLowerCase());
-                if (localUser) {
-                    if (localUser.password !== p) {
-                        showError("Password salah! Silakan periksa kembali password Anda.");
-                        resetBtn();
-                        return;
-                    }
-                    if (localUser.expiry_date && new Date(localUser.expiry_date) < new Date()) {
-                        showError("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
-                        resetBtn();
-                        return;
-                    }
-                    if (localUser.status === 'blocked') {
-                        showError("Akun Anda dinonaktifkan oleh Admin.");
-                        resetBtn();
-                        return;
-                    }
-                    currentUser = { 
-                        username: localUser.username, 
-                        role: localUser.username.toLowerCase() === 'admin' ? 'admin' : 'client', 
-                        expiry_date: localUser.expiry_date 
-                    };
-                    resetBtn();
-                    saveSessionAndEnter();
-                    return;
-                }
-
-                showError(`Username '${u}' tidak ditemukan! Pastikan username telah didaftarkan oleh Admin.`);
+                // 4. Default Error Message if User Not Found or Password Invalid
+                showError(`Username '${u}' tidak ditemukan atau password salah! (Password default Admin: admin123)`);
                 resetBtn();
 
             } catch (err) {
@@ -803,18 +809,24 @@
         }
 
         function showMainApp() {
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('appContainer').style.display = 'block';
-            document.getElementById('userDisplay').innerText = `User: ${currentUser.username}`;
-            document.getElementById('roleBadge').innerText = currentUser.role.toUpperCase();
+            const loginScr = document.getElementById('loginScreen');
+            const appCont = document.getElementById('appContainer');
+            if (loginScr) loginScr.style.display = 'none';
+            if (appCont) appCont.style.display = 'block';
 
-            if (currentUser.role === 'admin') {
-                document.getElementById('adminTabBtn').style.display = 'inline-flex';
+            const userDisp = document.getElementById('userDisplay');
+            const roleBdg = document.getElementById('roleBadge');
+            if (userDisp && currentUser) userDisp.innerText = `User: ${currentUser.username}`;
+            if (roleBdg && currentUser) roleBdg.innerText = (currentUser.role || 'client').toUpperCase();
+
+            const adminTabBtn = document.getElementById('adminTabBtn');
+            if (currentUser && currentUser.role === 'admin') {
+                if (adminTabBtn) adminTabBtn.style.display = 'inline-flex';
                 renderAdminUsersTable();
             } else {
-                document.getElementById('adminTabBtn').style.display = 'none';
+                if (adminTabBtn) adminTabBtn.style.display = 'none';
             }
-            addLog(`[LOGIN] User ${currentUser.username} berhasil masuk.`, 'success');
+            addLog(`[LOGIN] User ${currentUser ? currentUser.username : 'client'} berhasil masuk.`, 'success');
             loadUserDataFromSupabase();
         }
 
@@ -826,18 +838,22 @@
         function togglePasswordVisibility(inputId, iconId) {
             const input = document.getElementById(inputId);
             const icon = document.getElementById(iconId);
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.className = 'fa-solid fa-eye-slash password-toggle';
-            } else {
-                input.type = 'password';
-                icon.className = 'fa-solid fa-eye password-toggle';
+            if (input && icon) {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.className = 'fa-solid fa-eye-slash password-toggle';
+                } else {
+                    input.type = 'password';
+                    icon.className = 'fa-solid fa-eye password-toggle';
+                }
             }
         }
 
         function saveSupabaseConfig() {
-            SUPABASE_URL = document.getElementById('supaUrlInput').value.trim();
-            SUPABASE_KEY = document.getElementById('supaKeyInput').value.trim();
+            const supaUrlEl = document.getElementById('supaUrlInput');
+            const supaKeyEl = document.getElementById('supaKeyInput');
+            if (supaUrlEl) SUPABASE_URL = supaUrlEl.value.trim();
+            if (supaKeyEl) SUPABASE_KEY = supaKeyEl.value.trim();
 
             localStorage.setItem('ganemax_supa_url', SUPABASE_URL);
             localStorage.setItem('ganemax_supa_key', SUPABASE_KEY);
@@ -849,9 +865,13 @@
         }
 
         async function handleCreateUserByAdmin() {
-            const u = document.getElementById('newClientUser').value.trim();
-            const p = document.getElementById('newClientPass').value.trim();
-            const days = parseInt(document.getElementById('newClientDuration').value) || 30;
+            const uInput = document.getElementById('newClientUser');
+            const pInput = document.getElementById('newClientPass');
+            const durSelect = document.getElementById('newClientDuration');
+
+            const u = uInput ? uInput.value.trim() : '';
+            const p = pInput ? pInput.value.trim() : '';
+            const days = durSelect ? (parseInt(durSelect.value) || 30) : 30;
 
             if (!u || !p) {
                 alert('Username dan Password baru wajib diisi!');
@@ -909,8 +929,8 @@
             localStorage.setItem('system_users', JSON.stringify(systemUsers));
             renderAdminUsersTable();
 
-            document.getElementById('newClientUser').value = '';
-            document.getElementById('newClientPass').value = '';
+            if (uInput) uInput.value = '';
+            if (pInput) pInput.value = '';
             alert(`Akun Client '${u}' berhasil dibuat sampai ${expStr}! ${cloudSaved ? '(Tersimpan di Cloud Database)' : '(Tersimpan Lokal)'}`);
         }
 
@@ -947,12 +967,12 @@
             renderAdminUsersTable();
         }
 
-        function switchTab(tabId) {
+        function switchTab(tabId, evt) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-            if (event && event.currentTarget) {
-                event.currentTarget.classList.add('active');
+            if (evt && evt.currentTarget) {
+                evt.currentTarget.classList.add('active');
             }
             const targetContent = document.getElementById(tabId);
             if (targetContent) targetContent.classList.add('active');
@@ -964,16 +984,17 @@
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
         async function saveAccountDetail() {
-            const u = document.getElementById('accUser').value.trim();
+            const uEl = document.getElementById('accUser');
+            const u = uEl ? uEl.value.trim() : '';
             if (!u) return alert('Username Shopee wajib diisi!');
 
             const newAcc = {
                 owner_username: currentUser ? currentUser.username : 'default',
                 username: u,
-                phone: document.getElementById('accPhone').value,
-                email: document.getElementById('accEmail').value,
-                password: document.getElementById('accPass').value,
-                pin: document.getElementById('accPin').value
+                phone: document.getElementById('accPhone')?.value || '',
+                email: document.getElementById('accEmail')?.value || '',
+                password: document.getElementById('accPass')?.value || '',
+                pin: document.getElementById('accPin')?.value || ''
             };
 
             if (supabase) {
@@ -1015,7 +1036,7 @@
                     if (target.id) {
                         await supabase.from('shopee_accounts').delete().eq('id', target.id);
                     } else {
-                        await supabase.from('shopee_accounts').delete().eq('username', target.username).eq('owner_username', currentUser.username);
+                        await supabase.from('shopee_accounts').delete().eq('username', target.username).eq('owner_username', currentUser ? currentUser.username : '');
                     }
                     addLog(`[SUPABASE] Akun Shopee ${target.username} terhapus dari Cloud DB.`, 'info');
                 } catch(e) { console.error("Supabase delete error:", e); }
@@ -1026,8 +1047,10 @@
         }
 
         async function saveProductUrl() {
-            const t = document.getElementById('urlTitle').value.trim();
-            const u = document.getElementById('urlAddress').value.trim();
+            const tEl = document.getElementById('urlTitle');
+            const uEl = document.getElementById('urlAddress');
+            const t = tEl ? tEl.value.trim() : '';
+            const u = uEl ? uEl.value.trim() : '';
             if(!u) return alert('URL Produk wajib diisi!');
 
             const newUrlObj = {
@@ -1071,7 +1094,7 @@
                     if (target.id) {
                         await supabase.from('target_urls').delete().eq('id', target.id);
                     } else {
-                        await supabase.from('target_urls').delete().eq('url', target.url).eq('owner_username', currentUser.username);
+                        await supabase.from('target_urls').delete().eq('url', target.url).eq('owner_username', currentUser ? currentUser.username : '');
                     }
                 } catch(e) { console.error(e); }
             }
@@ -1081,9 +1104,9 @@
         }
 
         async function saveAddressDetail() {
-            const l = document.getElementById('addrLabel').value.trim();
-            const r = document.getElementById('addrReceiver').value.trim();
-            const d = document.getElementById('addrDetail').value.trim();
+            const l = document.getElementById('addrLabel')?.value.trim() || '';
+            const r = document.getElementById('addrReceiver')?.value.trim() || '';
+            const d = document.getElementById('addrDetail')?.value.trim() || '';
 
             const newAddrObj = {
                 owner_username: currentUser ? currentUser.username : 'default',
@@ -1128,7 +1151,7 @@
                     if (target.id) {
                         await supabase.from('addresses').delete().eq('id', target.id);
                     } else {
-                        await supabase.from('addresses').delete().eq('label', target.label).eq('owner_username', currentUser.username);
+                        await supabase.from('addresses').delete().eq('label', target.label).eq('owner_username', currentUser ? currentUser.username : '');
                     }
                 } catch(e) { console.error(e); }
             }
@@ -1138,7 +1161,7 @@
         }
 
         function updateTargetExecutionTime() {
-            const val = document.getElementById('targetDateTime').value;
+            const val = document.getElementById('targetDateTime')?.value;
             if (val) {
                 targetExecutionTime = new Date(val);
                 addLog(`[TARGET TIME] Target Flash Sale diatur ke: ${targetExecutionTime.toLocaleString('id-ID')}`, 'warning');
@@ -1297,28 +1320,31 @@
 
         let latencyChart;
         function initChart() {
+            if (typeof Chart === 'undefined') return;
             const chartCanvas = document.getElementById('latencyChart');
             if (!chartCanvas) return;
-            const ctx = chartCanvas.getContext('2d');
-            latencyChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['1s', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', '10s'],
-                    datasets: [{
-                        label: 'NTP Ping (ms)',
-                        data: [12, 11, 10, 11, 12, 11, 10, 11, 12, 11],
-                        borderColor: '#2563eb',
-                        borderWidth: 2,
-                        tension: 0.4,
-                        fill: false
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { min: 5, max: 25 } }
-                }
-            });
+            try {
+                const ctx = chartCanvas.getContext('2d');
+                latencyChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['1s', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', '10s'],
+                        datasets: [{
+                            label: 'NTP Ping (ms)',
+                            data: [12, 11, 10, 11, 12, 11, 10, 11, 12, 11],
+                            borderColor: '#2563eb',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { min: 5, max: 25 } }
+                    }
+                });
+            } catch(e) { console.warn("Chart init note:", e); }
         }
 
         let currentSlide = 0;
@@ -1334,3 +1360,9 @@
     </script>
 </body>
 </html>
+```
+
+### Summary of Updates:
+- **Instant Login Execution**: Clicking **Masuk Dashboard** or pressing `Enter` performs direct, error-trapped validation. If credentials fail, a clean error notification will show on `#loginErrorMsg`.
+- **Master Credentials**: Default Admin (`admin` / `admin123`) always logs in instantly.
+- **CDN Protection**: If external Chart or Supabase libraries fail to load on mobile connections, the core UI and login functions continue without hanging.
