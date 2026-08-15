@@ -16,7 +16,6 @@
         body { background: #f8fafc; color: #1e293b; min-height: 100vh; padding: 24px; transition: background-color 0.3s ease, color 0.3s ease; }
         .container { max-width: 1440px; margin: 0 auto; }
 
-        /* DARK THEME STYLES */
         body.dark-theme { background: #0b1120; color: #f1f5f9; }
         body.dark-theme header,
         body.dark-theme .panel,
@@ -113,6 +112,12 @@
         .stat-label { font-size: 12px; color: #64748b; margin-bottom: 4px; }
         .stat-value { font-size: 20px; font-weight: 700; color: #0f172a; }
         
+        .product-card { background: #ffffff; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
+        .product-name { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 8px; }
+        .product-meta { display: flex; gap: 16px; font-size: 13px; color: #64748b; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+        .price-tag { font-size: 26px; font-weight: 800; color: #2563eb; display: flex; align-items: baseline; }
+        .stock-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #dbeafe; color: #1e40af; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        
         .timer-card { background: linear-gradient(135deg, #2563eb, #7c3aed); padding: 20px; border-radius: 20px; color: white; text-align: center; margin-bottom: 24px; box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4); }
         .timer-label { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.95; font-weight: 700; }
         .timer-display { font-size: 42px; font-weight: 800; font-family: 'JetBrains Mono', monospace; letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0,0,0,0.2); margin: 6px 0; }
@@ -161,37 +166,22 @@
     <div id="loginScreen">
         <div class="login-card">
             <div class="login-title">⚡ Enterprise Control Login</div>
-            <div class="login-subtitle">Masukkan akun Anda atau buat akun baru untuk terhubung ke Dashboard</div>
-            
-            <!-- TAB SAKELAR MASUK VS REGISTRASI CLIENT -->
-            <div class="tabs" style="display:flex; background:#f1f5f9; padding:4px; border-radius:12px; margin-bottom:20px;">
-                <button type="button" id="tabModeLogin" class="tab active" style="flex:1; justify-content:center;" onclick="switchLoginAuthMode('login')"><i class="fa-solid fa-key"></i> Masuk Akun</button>
-                <button type="button" id="tabModeRegister" class="tab" style="flex:1; justify-content:center;" onclick="switchLoginAuthMode('register')"><i class="fa-solid fa-user-plus"></i> Buat Akun Client Baru</button>
-            </div>
-
+            <div class="login-subtitle">Masukkan akun Anda untuk terhubung ke Supabase Cloud DB</div>
             <div id="loginErrorMsg" style="display:none; background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; padding:10px 14px; border-radius:12px; font-size:12px; margin-bottom:16px; text-align:left; font-weight:500;"></div>
-            
             <div class="form-group">
-                <label id="lblUser">Username</label>
-                <input type="text" id="loginUser" placeholder="Masukkan username (contoh: admin)" onkeyup="if(event.key==='Enter') executeAuthAction(event)">
+                <label>Username</label>
+                <input type="text" id="loginUser" placeholder="Masukkan username" onkeyup="if(event.key==='Enter') handleLogin()">
             </div>
             <div class="form-group">
-                <label id="lblPass">Password</label>
+                <label>Password</label>
                 <div class="password-wrapper">
-                    <input type="password" id="loginPass" placeholder="•••••••• (contoh: admin123)" onkeyup="if(event.key==='Enter') executeAuthAction(event)">
+                    <input type="password" id="loginPass" placeholder="••••••••" onkeyup="if(event.key==='Enter') handleLogin()">
                     <i class="fa-solid fa-eye password-toggle" id="toggleLoginPass" onclick="togglePasswordVisibility('loginPass', 'toggleLoginPass')"></i>
                 </div>
             </div>
-
-            <button type="button" class="btn btn-primary" id="loginSubmitBtn" onclick="executeAuthAction(event)"><i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard</button>
-            
-            <button type="button" class="btn btn-outline btn-sm mt-2" style="width:100%; justify-content:center; background:#f0fdf4; border-color:#bbf7d0; color:#166534; font-weight:700;" onclick="loginAsDemo()">
-                <i class="fa-solid fa-bolt text-emerald-600"></i> Masuk Instan Tanpa Login (Mode Client/Demo)
-            </button>
-
+            <button class="btn btn-primary" id="loginSubmitBtn" onclick="handleLogin()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard</button>
             <div style="margin-top: 14px; font-size: 12px; color: #64748b; line-height: 1.4;">
-                Sudah bayar via QRIS? Buka tab <strong>Buat Akun Client Baru</strong> atau gunakan <strong>Masuk Instan</strong> di atas.<br>
-                DM Telegram <a href="https://t.me/mrpangeranz" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:600; text-decoration:underline;"><i class="fa-brands fa-telegram" style="color:#229ed9;"></i> @mrpangeranz</a> untuk bantuan.
+                Silakan DM Telegram <a href="https://t.me/mrpangeranz" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:600; text-decoration:underline;"><i class="fa-brands fa-telegram" style="color:#229ed9;"></i> @mrpangeranz</a> untuk request Username & Password
             </div>
         </div>
     </div>
@@ -227,7 +217,6 @@
             </div>
         </header>
 
-        <!-- BANNER SLIDER PROMO -->
         <div class="banner-slider" id="bannerSlider">
             <div class="slider-track" id="sliderTrack">
                 <div class="slider-slide">
@@ -250,15 +239,14 @@
                 </div>
 
                 <div class="tabs">
-                    <button class="tab active" onclick="switchTab('tab-basic', event)"><i class="fa-solid fa-bolt"></i> Target</button>
-                    <button class="tab" onclick="switchTab('tab-accounts', event)"><i class="fa-solid fa-users"></i> Akun Shopee</button>
-                    <button class="tab" onclick="switchTab('tab-address', event)"><i class="fa-solid fa-location-dot"></i> Alamat</button>
-                    <button class="tab" onclick="switchTab('tab-payment', event)"><i class="fa-solid fa-credit-card"></i> Pembayaran</button>
-                    <button class="tab" onclick="switchTab('tab-ai', event)"><i class="fa-solid fa-robot"></i> AI DeepSeek</button>
-                    <button class="tab admin-tab" id="adminTabBtn" onclick="switchTab('tab-admin', event)" style="display:none;"><i class="fa-solid fa-shield-halved"></i> Admin Panel</button>
+                    <button class="tab active" onclick="switchTab('tab-basic')"><i class="fa-solid fa-bolt"></i> Target</button>
+                    <button class="tab" onclick="switchTab('tab-accounts')"><i class="fa-solid fa-users"></i> Akun Shopee</button>
+                    <button class="tab" onclick="switchTab('tab-address')"><i class="fa-solid fa-location-dot"></i> Alamat</button>
+                    <button class="tab" onclick="switchTab('tab-payment')"><i class="fa-solid fa-credit-card"></i> Pembayaran</button>
+                    <button class="tab" onclick="switchTab('tab-ai')"><i class="fa-solid fa-robot"></i> AI DeepSeek</button>
+                    <button class="tab admin-tab" id="adminTabBtn" onclick="switchTab('tab-admin')" style="display:none;"><i class="fa-solid fa-shield-halved"></i> Admin Panel</button>
                 </div>
 
-                <!-- TAB TARGET -->
                 <div id="tab-basic" class="tab-content active">
                     <div class="form-group">
                         <label>Atur Tanggal & Jam Target Flash Sale (Real-Time Execution)</label>
@@ -275,7 +263,6 @@
                     </div>
                 </div>
 
-                <!-- TAB AKUN SHOPEE -->
                 <div id="tab-accounts" class="tab-content">
                     <div class="form-group">
                         <label>Daftar Akun Shopee Aktif</label>
@@ -284,7 +271,6 @@
                     </div>
                 </div>
 
-                <!-- TAB ALAMAT -->
                 <div id="tab-address" class="tab-content">
                     <div class="form-group">
                         <label>Daftar Alamat Pengiriman</label>
@@ -316,7 +302,6 @@
                     <button class="btn btn-outline btn-sm" onclick="runPinDryRunTest()"><i class="fa-solid fa-vial"></i> Tes Synchronize & Enkripsi PIN ShopeePay</button>
                 </div>
 
-                <!-- TAB AI DEEPSEEK -->
                 <div id="tab-ai" class="tab-content">
                     <div class="form-group">
                         <label>Asisten Optimasi AI DeepSeek V3 (OpenRouter API)</label>
@@ -330,7 +315,6 @@
                     </div>
                 </div>
 
-                <!-- TAB ADMIN PANEL -->
                 <div id="tab-admin" class="tab-content">
                     <div style="background:#fef3c7; border:1px solid #fde68a; padding:12px; border-radius:12px; margin-bottom:16px;">
                         <h4 style="color:#b45309; font-size:14px; margin-bottom:8px;"><i class="fa-solid fa-database"></i> Supabase Cloud Config</h4>
@@ -519,145 +503,149 @@
 
     <script>
         const OPENROUTER_API_KEY = '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';
-        
-        let authMode = 'login'; // 'login' atau 'register'
 
-        function switchLoginAuthMode(mode) {
-            authMode = mode;
-            const tabLog = document.getElementById('tabModeLogin');
-            const tabReg = document.getElementById('tabModeRegister');
-            const btnSubmit = document.getElementById('loginSubmitBtn');
-            const errBox = document.getElementById('loginErrorMsg');
+        // SUPABASE CLIENT INITIALIZATION WITH HARDCODED DEFAULTS
+        let SUPABASE_URL = 'https://cswmedoxexxomrnoogow.supabase.co';
+        let SUPABASE_KEY = 'sb_publishable_Re3d4-fdICJzWnTYXomCXQ_1-XQlPAQ';
+        let supabase = null;
 
-            if (errBox) { errBox.style.display = 'none'; errBox.innerHTML = ''; }
-
-            if (mode === 'register') {
-                if (tabLog) tabLog.classList.remove('active');
-                if (tabReg) tabReg.classList.add('active');
-                if (btnSubmit) btnSubmit.innerHTML = '<i class="fa-solid fa-user-plus"></i> Buat Akun & Masuk Dashboard';
-            } else {
-                if (tabReg) tabReg.classList.remove('active');
-                if (tabLog) tabLog.classList.add('active');
-                if (btnSubmit) btnSubmit.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
-            }
-        }
-
-        function executeAuthAction(evt) {
-            if (evt && evt.preventDefault) evt.preventDefault();
-            if (authMode === 'register') {
-                handleSelfRegister();
-            } else {
-                handleLogin(evt);
-            }
-        }
-
-        async function handleSelfRegister() {
-            const errBox = document.getElementById('loginErrorMsg');
-            if (errBox) { errBox.style.display = 'none'; errBox.innerHTML = ''; }
-
-            const uInput = document.getElementById('loginUser');
-            const pInput = document.getElementById('loginPass');
-            const u = uInput ? uInput.value.trim() : '';
-            const p = pInput ? pInput.value.trim() : '';
-
-            if (!u || !p) {
-                if (errBox) {
-                    errBox.innerText = 'Isi Username dan Password untuk mendaftar akun!';
-                    errBox.style.display = 'block';
+        function initSupabaseClient() {
+            if (window.supabase && SUPABASE_URL && SUPABASE_KEY) {
+                try {
+                    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    console.log("Supabase Client initialized successfully with URL:", SUPABASE_URL);
+                } catch(e) {
+                    console.error("Supabase Init Failed:", e);
                 }
-                return;
             }
+        }
 
-            const btn = document.getElementById('loginSubmitBtn');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses Pendaftaran...';
+        let currentUser = null;
+        let accounts = JSON.parse(localStorage.getItem('shopee_accs')) || [];
+        let productUrls = JSON.parse(localStorage.getItem('shopee_urls')) || [];
+        let addresses = JSON.parse(localStorage.getItem('shopee_addrs')) || [];
+        let systemUsers = JSON.parse(localStorage.getItem('system_users')) || [
+            { username: 'admin', password: 'admin123', expiry_date: '2099-12-31', status: 'active' }
+        ];
+
+        let botRunning = false;
+        let targetExecutionTime = null;
+
+        window.onload = function() {
+            localStorage.setItem('ganemax_supa_url', SUPABASE_URL);
+            localStorage.setItem('ganemax_supa_key', SUPABASE_KEY);
+
+            initSupabaseClient();
+            fetchAllUsersFromCloud();
+            
+            const supaUrlEl = document.getElementById('supaUrlInput');
+            const supaKeyEl = document.getElementById('supaKeyInput');
+            if (supaUrlEl) supaUrlEl.value = SUPABASE_URL;
+            if (supaKeyEl) supaKeyEl.value = SUPABASE_KEY;
+
+            initChart();
+            startLiveClock();
+            renderAccounts();
+            renderProductUrls();
+            renderAddresses();
+            
+            const savedSession = localStorage.getItem('ganemax_session');
+            if (savedSession) {
+                try {
+                    currentUser = JSON.parse(savedSession);
+                    showMainApp();
+                } catch(e) {
+                    localStorage.removeItem('ganemax_session');
+                }
             }
+        };
 
+        async function fetchAllUsersFromCloud() {
             try {
-                await quickRegisterFromLogin(u, p);
-            } catch(e) {
-                console.error("Registration error:", e);
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Buat Akun & Masuk Dashboard';
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/users?select=*`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                if (response.ok) {
+                    const cloudUsers = await response.json();
+                    if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+                        cloudUsers.forEach(cu => {
+                            const idx = systemUsers.findIndex(x => x.username.toLowerCase() === cu.username.toLowerCase());
+                            if (idx >= 0) systemUsers[idx] = cu;
+                            else systemUsers.push(cu);
+                        });
+                        localStorage.setItem('system_users', JSON.stringify(systemUsers));
+                        if (currentUser && currentUser.role === 'admin') {
+                            renderAdminUsersTable();
+                        }
+                    }
                 }
+            } catch(e) {
+                console.warn("Direct REST User Sync Note:", e);
             }
         }
 
-        async function quickRegisterFromLogin(u, p) {
-            const expDate = new Date();
-            expDate.setDate(expDate.getDate() + 60); // 60 Hari aktif
-            const expStr = expDate.toISOString().split('T')[0];
-            const newUserObj = { username: u, password: p, expiry_date: expStr, status: 'active' };
-
-            // Upsert ke Supabase
-            if (supabase) {
-                try {
-                    await supabase.from('users').upsert([newUserObj], { onConflict: 'username' });
-                } catch(e){ console.warn("Cloud reg note:", e); }
-            } else if (SUPABASE_URL && SUPABASE_KEY) {
-                try {
-                    await fetch(`${SUPABASE_URL}/rest/v1/users?on_conflict=username`, {
-                        method: 'POST',
-                        headers: {
-                            'apikey': SUPABASE_KEY,
-                            'Authorization': `Bearer ${SUPABASE_KEY}`,
-                            'Content-Type': 'application/json',
-                            'Prefer': 'resolution=merge-duplicates'
-                        },
-                        body: JSON.stringify(newUserObj)
-                    });
-                } catch(e){}
+        async function loadUserDataFromSupabase() {
+            if (!supabase && window.supabase && SUPABASE_URL && SUPABASE_KEY) {
+                initSupabaseClient();
             }
+            if (!currentUser) return;
+            
+            try {
+                if (supabase) {
+                    const { data: accData } = await supabase
+                        .from('shopee_accounts')
+                        .select('*')
+                        .eq('owner_username', currentUser.username);
+                    if (accData && accData.length > 0) {
+                        accounts = accData;
+                        localStorage.setItem('shopee_accs', JSON.stringify(accounts));
+                        renderAccounts();
+                    }
 
-            const idx = systemUsers.findIndex(x => x.username.toLowerCase() === u.toLowerCase());
-            if (idx >= 0) systemUsers[idx] = newUserObj;
-            else systemUsers.push(newUserObj);
+                    const { data: urlData } = await supabase
+                        .from('target_urls')
+                        .select('*')
+                        .eq('owner_username', currentUser.username);
+                    if (urlData && urlData.length > 0) {
+                        productUrls = urlData;
+                        localStorage.setItem('shopee_urls', JSON.stringify(productUrls));
+                        renderProductUrls();
+                    }
 
-            localStorage.setItem('system_users', JSON.stringify(systemUsers));
-            currentUser = { username: u, role: 'client', expiry_date: expStr };
-            saveSessionAndEnter();
+                    const { data: addrData } = await supabase
+                        .from('addresses')
+                        .select('*')
+                        .eq('owner_username', currentUser.username);
+                    if (addrData && addrData.length > 0) {
+                        addresses = addrData;
+                        localStorage.setItem('shopee_addrs', JSON.stringify(addresses));
+                        renderAddresses();
+                    }
+                }
+            } catch(e) {
+                console.warn("Cloud sync note:", e);
+            }
         }
 
-        async function handleLogin(evt) {
-            if (evt && evt.preventDefault) evt.preventDefault();
-
+        async function handleLogin() {
             const errBox = document.getElementById('loginErrorMsg');
-            if (errBox) { errBox.style.display = 'none'; errBox.innerHTML = ''; }
+            if (errBox) { errBox.style.display = 'none'; errBox.innerText = ''; }
 
             const uInput = document.getElementById('loginUser');
             const pInput = document.getElementById('loginPass');
             const u = uInput ? uInput.value.trim() : '';
             const p = pInput ? pInput.value.trim() : '';
 
-            function showError(msg, showQuickReg = false) {
+            function showError(msg) {
                 if (errBox) {
+                    errBox.innerText = msg;
                     errBox.style.display = 'block';
-                    if (showQuickReg && u && p) {
-                        errBox.innerHTML = `${msg}<br><button type="button" class="btn btn-success btn-sm mt-2" style="width:100%; font-weight:700;" onclick="quickRegisterFromLogin('${u}', '${p}')"><i class="fa-solid fa-user-plus"></i> Daftarkan Username '${u}' Sekarang & Masuk</button>`;
-                    } else {
-                        errBox.innerText = msg;
-                    }
                 } else {
                     alert(msg);
                 }
-            }
-
-            const btn = document.getElementById('loginSubmitBtn');
-            function resetBtn() {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = (authMode === 'register') ? 
-                        '<i class="fa-solid fa-user-plus"></i> Buat Akun & Masuk Dashboard' : 
-                        '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
-                }
-            }
-
-            if (!u && !p) {
-                loginAsDemo();
-                return;
             }
 
             if (!u || !p) {
@@ -665,49 +653,51 @@
                 return;
             }
 
+            const btn = document.getElementById('loginSubmitBtn');
             if (btn) {
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa Database...';
             }
 
+            function resetBtn() {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard';
+                }
+            }
+
             try {
-                // 1. Cek Master Admin
+                // 1. Master Admin Hardcoded Check
                 if (u.toLowerCase() === 'admin' && p === 'admin123') {
                     currentUser = { username: 'admin', role: 'admin' };
+                    resetBtn();
                     saveSessionAndEnter();
                     return;
                 }
 
-                // 2. Cek Cache Lokal
-                const localMatch = systemUsers.find(x => x.username.toLowerCase() === u.toLowerCase());
-                if (localMatch) {
-                    if (localMatch.password !== p) {
-                        showError("Password salah! Periksa kembali password Anda.");
-                        return;
-                    }
-                    if (localMatch.expiry_date && new Date(localMatch.expiry_date) < new Date()) {
-                        showError("Masa aktif akun Anda telah kadaluarsa! Hubungi Telegram @mrpangeranz.");
-                        return;
-                    }
-                    if (localMatch.status === 'blocked') {
-                        showError("Akun Anda dinonaktifkan oleh Admin.");
-                        return;
-                    }
-                    currentUser = { 
-                        username: localMatch.username, 
-                        role: (localMatch.username.toLowerCase() === 'admin' || localMatch.role === 'admin') ? 'admin' : 'client', 
-                        expiry_date: localMatch.expiry_date 
-                    };
-                    saveSessionAndEnter();
-                    return;
-                }
-
-                // 3. Cek Supabase Cloud
+                // 2. Query Supabase JS Client
                 let cloudUser = null;
-                if (SUPABASE_URL && SUPABASE_KEY) {
+
+                if (supabase) {
+                    try {
+                        const { data, error } = await supabase
+                            .from('users')
+                            .select('*')
+                            .ilike('username', u)
+                            .maybeSingle();
+                        if (!error && data) {
+                            cloudUser = data;
+                        }
+                    } catch(e) {
+                        console.warn("Supabase SDK query note:", e);
+                    }
+                }
+
+                // REST Query Fallback
+                if (!cloudUser && SUPABASE_URL && SUPABASE_KEY) {
                     try {
                         const controller = new AbortController();
-                        const timer = setTimeout(() => controller.abort(), 2000);
+                        const timeoutId = setTimeout(() => controller.abort(), 3500);
                         const res = await fetch(`${SUPABASE_URL}/rest/v1/users?username=ilike.${encodeURIComponent(u)}`, {
                             headers: {
                                 'apikey': SUPABASE_KEY,
@@ -715,7 +705,7 @@
                             },
                             signal: controller.signal
                         });
-                        clearTimeout(timer);
+                        clearTimeout(timeoutId);
                         if (res.ok) {
                             const arr = await res.json();
                             if (Array.isArray(arr) && arr.length > 0) {
@@ -723,21 +713,25 @@
                             }
                         }
                     } catch(e) {
-                        console.warn("Cloud query note:", e);
+                        console.warn("REST query note:", e);
                     }
                 }
 
+                // Evaluate Cloud User if found
                 if (cloudUser) {
                     if (cloudUser.password !== p) {
-                        showError("Password salah! Periksa kembali password Anda.");
+                        showError("Password salah! Silakan periksa kembali password Anda.");
+                        resetBtn();
                         return;
                     }
                     if (cloudUser.expiry_date && new Date(cloudUser.expiry_date) < new Date()) {
-                        showError("Masa aktif akun Anda telah kadaluarsa!");
+                        showError("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
+                        resetBtn();
                         return;
                     }
                     if (cloudUser.status === 'blocked') {
                         showError("Akun Anda dinonaktifkan oleh Admin.");
+                        resetBtn();
                         return;
                     }
 
@@ -752,17 +746,45 @@
                     else systemUsers.push(cloudUser);
                     localStorage.setItem('system_users', JSON.stringify(systemUsers));
 
+                    resetBtn();
                     saveSessionAndEnter();
                     return;
                 }
 
-                // 4. Jika Username Tidak Ditemukan -> Tawarkan Daftarkan Sekarang
-                showError(`Username '${u}' belum terdaftar.`, true);
+                // 3. Fallback to Local Cache
+                const localUser = systemUsers.find(x => x.username.toLowerCase() === u.toLowerCase());
+                if (localUser) {
+                    if (localUser.password !== p) {
+                        showError("Password salah! Silakan periksa kembali password Anda.");
+                        resetBtn();
+                        return;
+                    }
+                    if (localUser.expiry_date && new Date(localUser.expiry_date) < new Date()) {
+                        showError("Masa aktif akun Anda telah kadaluarsa! Silakan hubungi Admin Telegram @mrpangeranz.");
+                        resetBtn();
+                        return;
+                    }
+                    if (localUser.status === 'blocked') {
+                        showError("Akun Anda dinonaktifkan oleh Admin.");
+                        resetBtn();
+                        return;
+                    }
+                    currentUser = { 
+                        username: localUser.username, 
+                        role: localUser.username.toLowerCase() === 'admin' ? 'admin' : 'client', 
+                        expiry_date: localUser.expiry_date 
+                    };
+                    resetBtn();
+                    saveSessionAndEnter();
+                    return;
+                }
+
+                showError(`Username '${u}' tidak ditemukan! Pastikan username telah didaftarkan oleh Admin.`);
+                resetBtn();
 
             } catch (err) {
                 console.error("Login exception:", err);
-                showError("Gagal koneksi database cloud. Anda dapat masuk instan.", true);
-            } finally {
+                showError("Gagal terhubung ke database cloud: " + (err.message || err));
                 resetBtn();
             }
         }
@@ -773,25 +795,16 @@
         }
 
         function showMainApp() {
-            const loginScr = document.getElementById('loginScreen');
-            const appCont = document.getElementById('appContainer');
-            if (loginScr) loginScr.style.display = 'none';
-            if (appCont) appCont.style.display = 'block';
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'block';
+            document.getElementById('userDisplay').innerText = `User: ${currentUser.username}`;
+            document.getElementById('roleBadge').innerText = currentUser.role.toUpperCase();
 
-            if (!currentUser) currentUser = { username: 'client', role: 'client' };
-            const roleStr = (currentUser.role || 'client').toUpperCase();
-
-            const userDisp = document.getElementById('userDisplay');
-            const roleBdg = document.getElementById('roleBadge');
-            if (userDisp) userDisp.innerText = `User: ${currentUser.username}`;
-            if (roleBdg) roleBdg.innerText = roleStr;
-
-            const adminTabBtn = document.getElementById('adminTabBtn');
             if (currentUser.role === 'admin') {
-                if (adminTabBtn) adminTabBtn.style.display = 'inline-flex';
+                document.getElementById('adminTabBtn').style.display = 'inline-flex';
                 renderAdminUsersTable();
             } else {
-                if (adminTabBtn) adminTabBtn.style.display = 'none';
+                document.getElementById('adminTabBtn').style.display = 'none';
             }
             addLog(`[LOGIN] User ${currentUser.username} berhasil masuk.`, 'success');
             loadUserDataFromSupabase();
@@ -805,22 +818,18 @@
         function togglePasswordVisibility(inputId, iconId) {
             const input = document.getElementById(inputId);
             const icon = document.getElementById(iconId);
-            if (input && icon) {
-                if (input.type === 'password') {
-                    input.type = 'text';
-                    icon.className = 'fa-solid fa-eye-slash password-toggle';
-                } else {
-                    input.type = 'password';
-                    icon.className = 'fa-solid fa-eye password-toggle';
-                }
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash password-toggle';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-solid fa-eye password-toggle';
             }
         }
 
         function saveSupabaseConfig() {
-            const supaUrlEl = document.getElementById('supaUrlInput');
-            const supaKeyEl = document.getElementById('supaKeyInput');
-            if (supaUrlEl) SUPABASE_URL = supaUrlEl.value.trim();
-            if (supaKeyEl) SUPABASE_KEY = supaKeyEl.value.trim();
+            SUPABASE_URL = document.getElementById('supaUrlInput').value.trim();
+            SUPABASE_KEY = document.getElementById('supaKeyInput').value.trim();
 
             localStorage.setItem('ganemax_supa_url', SUPABASE_URL);
             localStorage.setItem('ganemax_supa_key', SUPABASE_KEY);
@@ -832,13 +841,9 @@
         }
 
         async function handleCreateUserByAdmin() {
-            const uInput = document.getElementById('newClientUser');
-            const pInput = document.getElementById('newClientPass');
-            const durSelect = document.getElementById('newClientDuration');
-
-            const u = uInput ? uInput.value.trim() : '';
-            const p = pInput ? pInput.value.trim() : '';
-            const days = durSelect ? (parseInt(durSelect.value) || 30) : 30;
+            const u = document.getElementById('newClientUser').value.trim();
+            const p = document.getElementById('newClientPass').value.trim();
+            const days = parseInt(document.getElementById('newClientDuration').value) || 30;
 
             if (!u || !p) {
                 alert('Username dan Password baru wajib diisi!');
@@ -896,8 +901,8 @@
             localStorage.setItem('system_users', JSON.stringify(systemUsers));
             renderAdminUsersTable();
 
-            if (uInput) uInput.value = '';
-            if (pInput) pInput.value = '';
+            document.getElementById('newClientUser').value = '';
+            document.getElementById('newClientPass').value = '';
             alert(`Akun Client '${u}' berhasil dibuat sampai ${expStr}! ${cloudSaved ? '(Tersimpan di Cloud Database)' : '(Tersimpan Lokal)'}`);
         }
 
@@ -934,12 +939,12 @@
             renderAdminUsersTable();
         }
 
-        function switchTab(tabId, evt) {
+        function switchTab(tabId) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
-            if (evt && evt.currentTarget) {
-                evt.currentTarget.classList.add('active');
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('active');
             }
             const targetContent = document.getElementById(tabId);
             if (targetContent) targetContent.classList.add('active');
@@ -951,17 +956,16 @@
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
         async function saveAccountDetail() {
-            const uEl = document.getElementById('accUser');
-            const u = uEl ? uEl.value.trim() : '';
+            const u = document.getElementById('accUser').value.trim();
             if (!u) return alert('Username Shopee wajib diisi!');
 
             const newAcc = {
                 owner_username: currentUser ? currentUser.username : 'default',
                 username: u,
-                phone: document.getElementById('accPhone')?.value || '',
-                email: document.getElementById('accEmail')?.value || '',
-                password: document.getElementById('accPass')?.value || '',
-                pin: document.getElementById('accPin')?.value || ''
+                phone: document.getElementById('accPhone').value,
+                email: document.getElementById('accEmail').value,
+                password: document.getElementById('accPass').value,
+                pin: document.getElementById('accPin').value
             };
 
             if (supabase) {
@@ -1003,7 +1007,7 @@
                     if (target.id) {
                         await supabase.from('shopee_accounts').delete().eq('id', target.id);
                     } else {
-                        await supabase.from('shopee_accounts').delete().eq('username', target.username).eq('owner_username', currentUser ? currentUser.username : '');
+                        await supabase.from('shopee_accounts').delete().eq('username', target.username).eq('owner_username', currentUser.username);
                     }
                     addLog(`[SUPABASE] Akun Shopee ${target.username} terhapus dari Cloud DB.`, 'info');
                 } catch(e) { console.error("Supabase delete error:", e); }
@@ -1014,10 +1018,8 @@
         }
 
         async function saveProductUrl() {
-            const tEl = document.getElementById('urlTitle');
-            const uEl = document.getElementById('urlAddress');
-            const t = tEl ? tEl.value.trim() : '';
-            const u = uEl ? uEl.value.trim() : '';
+            const t = document.getElementById('urlTitle').value.trim();
+            const u = document.getElementById('urlAddress').value.trim();
             if(!u) return alert('URL Produk wajib diisi!');
 
             const newUrlObj = {
@@ -1061,7 +1063,7 @@
                     if (target.id) {
                         await supabase.from('target_urls').delete().eq('id', target.id);
                     } else {
-                        await supabase.from('target_urls').delete().eq('url', target.url).eq('owner_username', currentUser ? currentUser.username : '');
+                        await supabase.from('target_urls').delete().eq('url', target.url).eq('owner_username', currentUser.username);
                     }
                 } catch(e) { console.error(e); }
             }
@@ -1071,9 +1073,9 @@
         }
 
         async function saveAddressDetail() {
-            const l = document.getElementById('addrLabel')?.value.trim() || '';
-            const r = document.getElementById('addrReceiver')?.value.trim() || '';
-            const d = document.getElementById('addrDetail')?.value.trim() || '';
+            const l = document.getElementById('addrLabel').value.trim();
+            const r = document.getElementById('addrReceiver').value.trim();
+            const d = document.getElementById('addrDetail').value.trim();
 
             const newAddrObj = {
                 owner_username: currentUser ? currentUser.username : 'default',
@@ -1118,7 +1120,7 @@
                     if (target.id) {
                         await supabase.from('addresses').delete().eq('id', target.id);
                     } else {
-                        await supabase.from('addresses').delete().eq('label', target.label).eq('owner_username', currentUser ? currentUser.username : '');
+                        await supabase.from('addresses').delete().eq('label', target.label).eq('owner_username', currentUser.username);
                     }
                 } catch(e) { console.error(e); }
             }
@@ -1128,7 +1130,7 @@
         }
 
         function updateTargetExecutionTime() {
-            const val = document.getElementById('targetDateTime')?.value;
+            const val = document.getElementById('targetDateTime').value;
             if (val) {
                 targetExecutionTime = new Date(val);
                 addLog(`[TARGET TIME] Target Flash Sale diatur ke: ${targetExecutionTime.toLocaleString('id-ID')}`, 'warning');
@@ -1287,31 +1289,28 @@
 
         let latencyChart;
         function initChart() {
-            if (typeof Chart === 'undefined') return;
             const chartCanvas = document.getElementById('latencyChart');
             if (!chartCanvas) return;
-            try {
-                const ctx = chartCanvas.getContext('2d');
-                latencyChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: ['1s', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', '10s'],
-                        datasets: [{
-                            label: 'NTP Ping (ms)',
-                            data: [12, 11, 10, 11, 12, 11, 10, 11, 12, 11],
-                            borderColor: '#2563eb',
-                            borderWidth: 2,
-                            tension: 0.4,
-                            fill: false
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: { legend: { display: false } },
-                        scales: { y: { min: 5, max: 25 } }
-                    }
-                });
-            } catch(e) { console.warn("Chart init note:", e); }
+            const ctx = chartCanvas.getContext('2d');
+            latencyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['1s', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s', '10s'],
+                    datasets: [{
+                        label: 'NTP Ping (ms)',
+                        data: [12, 11, 10, 11, 12, 11, 10, 11, 12, 11],
+                        borderColor: '#2563eb',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { min: 5, max: 25 } }
+                }
+            });
         }
 
         let currentSlide = 0;
@@ -1327,6 +1326,3 @@
     </script>
 </body>
 </html>
-```
-
-Sekarang Anda dapat menguji kembali dengan memasukkan **`admin` / `admin123`**, atau cukup mengklik tombol **"Masuk Instan (Mode Demo / Client)"** untuk membuka Dashboard tanpa kendala.
