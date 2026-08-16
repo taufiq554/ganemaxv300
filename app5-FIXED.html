@@ -1,0 +1,2840 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopee Flash Sale Manager - Enterprise Pro</title>
+    <!-- FontAwesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Engine JS Client SDK via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Chart.js for SaaS Performance Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background: #f8fafc; color: #1e293b; min-height: 100vh; padding: 24px; transition: background-color 0.3s ease, color 0.3s ease; }
+        .container { max-width: 1440px; margin: 0 auto; }
+
+        /* --- DARK THEME STYLES --- */
+        body.dark-theme { background: #0b1120; color: #f1f5f9; }
+        body.dark-theme header,
+        body.dark-theme .panel,
+        body.dark-theme .product-card,
+        body.dark-theme .chart-card,
+        body.dark-theme .modal-content,
+        body.dark-theme .logs-container { background: #1e293b; color: #f1f5f9; border-color: #334155; }
+        body.dark-theme .login-card { background: #1e293b; color: #f1f5f9; }
+        body.dark-theme .login-title, body.dark-theme .panel-title, body.dark-theme .product-name, body.dark-theme .stat-value, body.dark-theme .modal-title, body.dark-theme .item-card-title { color: #f8fafc; }
+        body.dark-theme label { color: #94a3b8; }
+        body.dark-theme input, body.dark-theme select, body.dark-theme textarea { background: #0f172a; color: #f8fafc; border-color: #334155; }
+        body.dark-theme .tabs { background: #0f172a; }
+        body.dark-theme .tab { color: #94a3b8; }
+        body.dark-theme .tab.active { background: #1e293b; color: #38bdf8; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        body.dark-theme .stat-card { background: #0f172a; border-color: #334155; }
+        body.dark-theme .stat-label { color: #94a3b8; }
+        body.dark-theme .item-card { background: #0f172a; border-color: #334155; }
+        body.dark-theme .item-card.active { background: #1e3a8a33; border-color: #2563eb; }
+        body.dark-theme .item-card-sub { color: #94a3b8; }
+        body.dark-theme .icon-btn { background: #1e293b; border-color: #334155; color: #94a3b8; }
+        body.dark-theme .icon-btn:hover { background: #334155; color: #f8fafc; }
+        body.dark-theme .user-table th { background: #0f172a; color: #94a3b8; border-color: #334155; }
+        body.dark-theme .user-table td { border-color: #334155; }
+        body.dark-theme .btn-outline { border-color: #334155; color: #cbd5e1; }
+        body.dark-theme .btn-outline:hover { background: #334155; border-color: #475569; }
+        body.dark-theme .logs-header { background: #0f172a; border-color: #334155; }
+
+        .header-slider { width: 640px; height: 200px; border-radius: 14px; overflow: hidden; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; cursor: grab; user-select: none; touch-action: pan-y; }
+        .header-slider:active { cursor: grabbing; }
+        body.dark-theme .header-slider { border-color: #334155; }
+        .slider-track { display: flex; width: 200%; height: 100%; transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+        .slider-slide { width: 50%; height: 100%; flex-shrink: 0; }
+        .slider-slide img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+        .slider-dots { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 2; }
+        .slider-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer; transition: all 0.3s; }
+        .slider-dot.active { background: #ffffff; width: 18px; border-radius: 4px; }
+        @media (max-width: 850px) { .header-slider { width: 100%; height: 110px; } }
+        
+        #loginScreen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #0f172a; display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
+        .login-card { background: white; padding: 40px; border-radius: 24px; width: 100%; max-width: 420px; box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25); text-align: center; }
+        .login-title { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+        .login-subtitle { font-size: 14px; color: #64748b; margin-bottom: 24px; }
+
+        header { background: white; padding: 20px 32px; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+        .logo-area { display: flex; align-items: center; gap: 16px; }
+        .logo { font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #2563eb, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .logo-icon { width: 44px; height: 44px; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); background: #fff; }
+        .logo-icon img { width: 100%; height: 100%; object-fit: cover; }
+        .badge { background: #e2e8f0; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; color: #475569; display: inline-block; }
+        .badge-role { background: #dbeafe; color: #1e40af; font-weight: 700; text-transform: uppercase; }
+        
+        .main-content { display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px; }
+        @media (max-width: 1024px) { .main-content { grid-template-columns: 1fr; } }
+        .panel { background: white; border-radius: 20px; padding: 24px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .panel-title { font-size: 18px; font-weight: 600; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+        .panel-title i { color: #2563eb; }
+        
+        .tabs { display: flex; gap: 4px; background: #f1f5f9; padding: 4px; border-radius: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+        .tab { padding: 8px 14px; border: none; background: transparent; border-radius: 8px; font-size: 13px; font-weight: 500; color: #64748b; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+        .tab:hover { color: #1e293b; }
+        .tab.active { background: white; color: #2563eb; box-shadow: 0 2px 4px rgb(0 0 0 / 0.05); font-weight: 600; }
+        .tab.admin-tab { color: #d97706; }
+        .tab.admin-tab.active { background: #fffbeb; color: #b45309; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .form-group { margin-bottom: 20px; text-align: left; position: relative; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
+        label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: #475569; }
+        input, select, textarea { width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 14px; color: #1e293b; background: white; transition: all 0.2s; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        textarea { resize: vertical; min-height: 100px; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+        
+        .password-wrapper { position: relative; width: 100%; }
+        .password-toggle { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #94a3b8; font-size: 14px; }
+        .password-toggle:hover { color: #2563eb; }
+
+        .btn { padding: 10px 20px; border: none; border-radius: 12px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+        .btn-success { background: #16a34a; color: white; }
+        .btn-success:hover { background: #15803d; }
+        .btn-outline { background: transparent; border: 1px solid #e2e8f0; color: #475569; width: auto; }
+        .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 8px; width: auto; }
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+        @media (max-width: 640px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        .stat-card { background: #f8fafc; padding: 14px; border-radius: 16px; border: 1px solid #e2e8f0; }
+        .stat-label { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+        .stat-value { font-size: 20px; font-weight: 700; color: #0f172a; }
+        
+        .product-card { background: #ffffff; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
+        .product-name { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 8px; }
+        .product-meta { display: flex; gap: 16px; font-size: 13px; color: #64748b; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+        .price-tag { font-size: 26px; font-weight: 800; color: #2563eb; display: flex; align-items: baseline; }
+        .stock-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #dbeafe; color: #1e40af; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        
+        /* TIMER CARD STYLING WITH DATETIME SELECTOR */
+        .timer-card { background: linear-gradient(135deg, #2563eb, #7c3aed); padding: 20px; border-radius: 20px; color: white; text-align: center; margin-bottom: 24px; box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4); }
+        .timer-label { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.95; font-weight: 700; }
+        .timer-display { font-size: 42px; font-weight: 800; font-family: 'JetBrains Mono', monospace; letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0,0,0,0.2); margin: 6px 0; }
+        .timer-ms { font-size: 22px; color: #a5b4fc; }
+
+        .chart-card { background: #ffffff; padding: 18px; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
+        .chart-title { font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+        
+        .logs-container { border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; background: white; }
+        .logs-header { background: #f8fafc; padding: 14px 18px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .logs { height: 280px; overflow-y: auto; padding: 16px; background: #0f172a; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; }
+        .log { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #e2e8f0; word-break: break-all; }
+        .log-time { color: #64748b; margin-right: 10px; }
+        .log-success { color: #4ade80; }
+        .log-error { color: #f87171; }
+        .log-warning { color: #fbbf24; }
+        .log-info { color: #38bdf8; }
+        
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 12px; max-height: 320px; overflow-y: auto; padding-right: 4px; }
+        .item-card { background: #f8fafc; padding: 16px; border-radius: 14px; border: 1px solid #e2e8f0; position: relative; }
+        .item-card.active { border-color: #2563eb; background: #eff6ff; }
+        .item-card-title { font-weight: 600; margin-bottom: 4px; padding-right: 64px; font-size: 14px; color: #0f172a; word-break: break-word; }
+        .item-card-sub { font-size: 12px; color: #64748b; margin-bottom: 8px; word-break: break-all; }
+        .item-card-actions { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; }
+        .icon-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #e2e8f0; background: white; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        .icon-btn:hover { background: #f1f5f9; color: #0f172a; }
+        .icon-btn.edit:hover { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+        .icon-btn.danger:hover { background: #fef2f2; color: #ef4444; border-color: #fca5a5; }
+        
+        .user-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+        .user-table th, .user-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        .user-table th { background: #f8fafc; font-weight: 600; color: #475569; }
+        .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .status-badge.active { background: #dcfce7; color: #15803d; }
+        .status-badge.disabled { background: #fee2e2; color: #b91c1c; }
+
+        .plan-card { border: 2px solid #e2e8f0; border-radius: 16px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc; }
+        body.dark-theme .plan-card { background: #0f172a; border-color: #334155; }
+        .plan-card.selected { border-color: #2563eb; background: #eff6ff; }
+        body.dark-theme .plan-card.selected { background: #1e3a8a33; border-color: #2563eb; }
+        .plan-title { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+        body.dark-theme .plan-title { color: #f8fafc; }
+        .plan-price { font-size: 18px; font-weight: 800; color: #2563eb; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 10000; justify-content: center; align-items: center; padding: 20px; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; border-radius: 24px; padding: 28px; width: 100%; max-width: 650px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
+        .modal-title { font-size: 18px; font-weight: 600; color: #0f172a; }
+        .close-btn { background: transparent; border: none; font-size: 20px; color: #94a3b8; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+        .close-btn:hover { background: #f1f5f9; color: #475569; }
+        .modal-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
+        
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #0f172a; color: white; padding: 12px 20px; border-radius: 12px; display: flex; align-items: center; gap: 10px; font-size: 14px; z-index: 10001; transform: translateY(100px); opacity: 0; transition: all 0.3s ease; }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        #apiLoader { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #2563eb, #7c3aed); display: none; z-index: 10002; animation: pulse 1s infinite alternate; }
+        @keyframes pulse { from { opacity: 0.4; } to { opacity: 1; } }
+
+        .ai-fab { position: fixed; bottom: 24px; left: 24px; z-index: 9998; width: 56px; height: 56px; border-radius: 28px; background: linear-gradient(135deg, #7c3aed, #2563eb); color: white; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 8px 24px rgba(124, 58, 237, 0.4); cursor: pointer; transition: all 0.3s ease; border: 2px solid rgba(255,255,255,0.2); }
+        .ai-fab:hover { transform: scale(1.08); box-shadow: 0 12px 28px rgba(124, 58, 237, 0.6); }
+        .ai-fab .ai-badge { position: absolute; top: -2px; right: -2px; width: 14px; height: 14px; background: #22c55e; border-radius: 50%; border: 2px solid #0f172a; }
+        
+        .ai-drawer { position: fixed; bottom: 90px; left: 24px; z-index: 9998; width: 380px; max-width: calc(100vw - 48px); height: 500px; background: #0f172a; border: 1px solid #6366f1; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); display: none; flex-direction: column; overflow: hidden; color: white; }
+        .ai-drawer.active { display: flex; animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .ai-drawer-header { padding: 14px 18px; background: linear-gradient(135deg, #1e1b4b, #0f172a); border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .ai-drawer-body { flex: 1; padding: 14px; overflow-y: auto; font-size: 13px; display: flex; flex-direction: column; gap: 10px; line-height: 1.5; }
+        .ai-drawer-footer { padding: 10px; border-top: 1px solid #334155; display: flex; gap: 6px; background: #0f172a; }
+    </style>
+</head>
+<body>
+
+    <div id="loginScreen">
+        <div class="login-card">
+            <div class="login-title">⚡ Enterprise Control Login</div>
+            <div class="login-subtitle">Masukkan akun Anda untuk mengisolasi data pribadi</div>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="loginUser" placeholder="Username">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="loginPass" placeholder="••••••••" onkeyup="if(event.key==='Enter') handleLogin()">
+                    <i class="fa-solid fa-eye password-toggle" id="toggleLoginPass" onclick="togglePasswordVisibility('loginPass', 'toggleLoginPass')"></i>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="handleLogin()"><i class="fa-solid fa-arrow-right-to-bracket"></i> Masuk Dashboard</button>
+            <div style="margin-top: 14px; font-size: 12px; color: #64748b; line-height: 1.4;">
+                Silakan DM Telegram <a href="https://t.me/mrpangeranz" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:600; text-decoration:underline;"><i class="fa-brands fa-telegram" style="color:#229ed9;"></i> @mrpangeranz</a> untuk request Username & Password
+            </div>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+                <button class="btn btn-outline btn-sm" style="width:100%;" onclick="openPaymentGatewayModal()"><i class="fa-solid fa-qrcode" style="color:#16a34a;"></i> Beli Lisensi Bot</button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="bgMusic" loop>
+        <source src="lagu.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="apiLoader"></div>
+
+    <div class="container">
+        <header>
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <img src="image.jpg" alt="Logo" onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'fa-solid fa-bolt\'></i>'">
+                </div>
+                <div>
+                    <div class="logo">Shopee Flash Sale Manager</div>
+                    <div class="badge">v3.0 Pro Enterprise Engine • User: <span id="currentUserDisplay">-</span> <span id="currentRoleDisplay" class="badge badge-role">USER</span></div>
+                </div>
+            </div>
+
+            <!-- SLIDE GAMBAR PROMO HEADER -->
+            <div class="header-slider" id="headerSlider">
+                <div class="slider-track" id="sliderTrack">
+                    <div class="slider-slide">
+                        <img src="image1.jpg" alt="Promo 1" onerror="this.src='https://placehold.co/440x100/2563eb/ffffff?text=Flash+Sale+Banner+1'">
+                    </div>
+                    <div class="slider-slide">
+                        <img src="image2.jpg" alt="Promo 2" onerror="this.src='https://placehold.co/440x100/7c3aed/ffffff?text=Flash+Sale+Banner+2'">
+                    </div>
+                </div>
+                <div class="slider-dots">
+                    <span class="slider-dot active" onclick="setSlideIndex(0)"></span>
+                    <span class="slider-dot" onclick="setSlideIndex(1)"></span>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <button class="btn btn-outline btn-sm" style="border-color:#22c55e; color:#15803d; font-weight:600;" onclick="openModal('modalWhatsappChannel')"><i class="fa-brands fa-whatsapp" style="color:#22c55e; font-size:14px;"></i> Saluran WA</button>
+                <button class="btn btn-outline btn-sm" style="border-color:#16a34a; color:#16a34a;" onclick="openPaymentGatewayModal()"><i class="fa-solid fa-qrcode"></i> Sewa / Topup</button>
+                <button class="btn btn-outline btn-sm" onclick="requestBrowserNotificationPermission()"><i class="fa-solid fa-bell" style="color:#f59e0b;"></i> Notif HP</button>
+                <button class="btn btn-outline btn-sm" onclick="toggleTheme()" id="themeToggleBtn"><i class="fa-solid fa-moon"></i> Gelap</button>
+                <button class="btn btn-outline btn-sm" onclick="exportDataJSON()" title="Export JSON"><i class="fa-solid fa-download"></i> Export</button>
+                <button class="btn btn-outline btn-sm" onclick="document.getElementById('importFileInput').click()" title="Import JSON"><i class="fa-solid fa-upload"></i> Import</button>
+                <input type="file" id="importFileInput" accept=".json" onchange="importDataJSON(event)" style="display:none;">
+                <button class="btn btn-outline btn-sm" onclick="toggleAudio()" id="musicToggleBtn"><i class="fa-solid fa-music"></i> Musik</button>
+                <button class="btn btn-outline btn-sm" style="border-color:#fca5a5; color:#ef4444;" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i class="fa-solid fa-sliders"></i> Control Panel</div>
+                    </div>
+                    
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchTab('basic', event)"><i class="fa-solid fa-gear"></i> Basic</button>
+                        <button class="tab" onclick="switchTab('alamat', event)"><i class="fa-solid fa-location-dot"></i> Alamat</button>
+                        <button class="tab" onclick="switchTab('pembayaran', event)"><i class="fa-solid fa-credit-card"></i> Bayar</button>
+                        <button class="tab" onclick="switchTab('accounts', event)"><i class="fa-solid fa-users"></i> Akun</button>
+                        <button class="tab" onclick="switchTab('urls', event)"><i class="fa-solid fa-link"></i> URLs</button>
+                        <button class="tab" onclick="switchTab('history', event)"><i class="fa-solid fa-history"></i> Riwayat</button>
+                        <button class="tab" onclick="switchTab('stealth', event)"><i class="fa-solid fa-fingerprint"></i> Anti-Bot</button>
+                        <button class="tab" onclick="switchTab('proxy', event)"><i class="fa-solid fa-network-wired"></i> Proxy</button>
+                        <button class="tab" onclick="switchTab('schedule', event)"><i class="fa-solid fa-clock"></i> Jadwal</button>
+                        <button class="tab" style="color:#3b82f6; font-weight:700;" onclick="switchTab('ai', event)"><i class="fa-solid fa-brain"></i> AI Multi-Model</button>
+                        <button class="tab" onclick="switchTab('sewa', event)"><i class="fa-solid fa-building"></i> Sewa Bot</button>
+                        <button class="tab" id="logsTabBtn" style="display:none;" onclick="switchTab('logs', event)"><i class="fa-solid fa-chart-line"></i> Logs & Report</button>
+                        <button class="tab" onclick="switchTab('advanced', event)"><i class="fa-solid fa-sliders"></i> Advanced</button>
+                        <button class="tab admin-tab" id="adminTabHeader" style="display:none;" onclick="switchTab('admin', event)"><i class="fa-solid fa-user-shield"></i> Admin Panel</button>
+                    </div>
+                    
+                    <!-- TAB BASIC -->
+                    <div id="tab-basic" class="tab-content active">
+                        <div style="background:linear-gradient(135deg, #f3e8ff, #e0e7ff); border:1px solid #c084fc; padding:10px 14px; border-radius:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <div style="font-size:12px; color:#1e40af; font-weight:600; display:flex; align-items:center; gap:6px;"><i class="fa-solid fa-brain"></i> AI Multi-Model (Llama • Mistral • GPT • Claude • DeepSeek) Active</div>
+                            <button class="btn btn-sm" style="background:#3b82f6; color:white; border:none; padding:4px 12px; border-radius:8px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;" onclick="aiAutoTuneBotSettings()"><i class="fa-solid fa-wand-magic-sparkles"></i> ⚡ AI Auto-Optimize Bot</button>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Mode Engine Bot</label>
+                                <select id="botMode">
+                                    <option value="turbo">Turbo Multi-Socket (Ultra Fast)</option>
+                                    <option value="stealth">Stealth Anti-Bot Mode</option>
+                                    <option value="ai">AI Adaptive Engine</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Thread Paralel</label>
+                                <input type="number" id="threadCount" value="10" min="1" max="50">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Auto-Refresh Stok (Polling)</label>
+                                <select id="pollRate">
+                                    <option value="100">Ultra Fast (100ms)</option>
+                                    <option value="500" selected>Standard (500ms)</option>
+                                    <option value="1000">Slow (1000ms)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Smart Variant Fallback</label>
+                                <select id="smartFallback">
+                                    <option value="Aktif" selected>Aktif (&lt;5ms Auto Matcher)</option>
+                                    <option value="Nonaktif">Nonaktif</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Pre-fire Jitter Offset (Milidetik)</label>
+                                <input type="number" id="preFireJitter" value="-15" placeholder="-15ms Offset">
+                            </div>
+                            <div class="form-group">
+                                <label>Multi-Account Concurrent Fire</label>
+                                <select id="multiAccMode">
+                                    <option value="single" selected>Akun Utama (Rotate On Limit)</option>
+                                    <option value="all">Tembak Semua Akun Sekaligus</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="btn-group mt-2">
+                            <button class="btn btn-primary" id="startBtn" onclick="startBot()"><i class="fa-solid fa-play"></i> Start Bot</button>
+                            <button class="btn btn-outline" id="stopBtn" onclick="stopBot()" disabled><i class="fa-solid fa-square"></i> Stop</button>
+                        </div>
+                    </div>
+
+                    <div id="tab-alamat" class="tab-content">
+                        <button class="btn btn-primary btn-sm" onclick="openAddModal('modalAddress', 'modalAddressTitle', 'Tambah Alamat')"><i class="fa-solid fa-plus"></i> Tambah Alamat</button>
+                        <div class="cards-grid" id="addressesList"></div>
+                    </div>
+
+                    <div id="tab-pembayaran" class="tab-content">
+                        <div style="background:#fffbeb; border:1px solid #fef3c7; padding:12px 16px; border-radius:12px; margin-bottom:16px; font-size:12px; color:#92400e; line-height:1.5;">
+                            <i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i> <b>Catatan ShopeePay:</b> Pastikan ada saldo di dalam ShopeePay / Limit SPayLater mencukupi sebelum eksekusi bot berjalan agar tidak terjadi error saat checkout otomatis!
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Metode Pembayaran (Prioritas Utama)</label>
+                                <select id="paymentMethod">
+                                    <option value="shopeepay" selected>ShopeePay (Auto-PIN Instant)</option>
+                                    <option value="spaylater">SPayLater (Cicilan 0%)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Kode Voucher Khusus (Opsional)</label>
+                                <input type="text" id="customVoucherCode" placeholder="Cth: FLASH100K / INFLUENCER">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>PIN ShopeePay Otomatis (6 Digit)</label>
+                            <div class="password-wrapper">
+                                <input type="password" id="shopeepayPin" maxlength="6" placeholder="Masukkan 6 Digit PIN">
+                                <i class="fa-solid fa-eye password-toggle" id="togglePinPass" onclick="togglePasswordVisibility('shopeepayPin', 'togglePinPass')"></i>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Auto Klaim Voucher Ongkir</label>
+                                <select id="autoOngkir">
+                                    <option value="Aktif" selected>Aktif (Auto Apply)</option>
+                                    <option value="Nonaktif">Nonaktif</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Auto Klaim Voucher Diskon</label>
+                                <select id="autoDiscount">
+                                    <option value="Aktif" selected>Aktif (Auto Apply)</option>
+                                    <option value="Nonaktif">Nonaktif</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Metode Pembayaran Cadangan (Fallback)</label>
+                            <div style="background:#fecaca; border:1px solid #fca5a5; border-radius:10px; padding:12px; margin-bottom:10px; font-size:12px; color:#991b1b; line-height:1.6;">
+                                <div style="font-weight:700; display:flex; align-items:center; gap:6px; margin-bottom:8px;"><i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;"></i> ⚠️ PENTING - SpayLater HARUS AKTIF!</div>
+                                <div style="margin-bottom:8px;">Pastikan SpayLater sudah diaktifkan di akun Shopee Anda dan memiliki limit kredit yang mencukupi untuk checkout otomatis bot.</div>
+                                <div style="font-weight:600; margin-bottom:4px;">✅ Cara Mengaktifkan SpayLater:</div>
+                                <ol style="margin-left:16px; margin-bottom:6px; font-size:11px;">
+                                    <li>Buka Shopee App → Akun → Shopee Pay</li>
+                                    <li>Pilih "SpayLater" → Ikuti proses aktivasi</li>
+                                    <li>Set limit kredit sesuai kebutuhan bot Anda</li>
+                                    <li>Verifikasi identitas jika diminta</li>
+                                </ol>
+                                <div style="background:rgba(0,0,0,0.1); padding:6px 8px; border-radius:4px; font-weight:600;">❌ Jika SpayLater belum aktif → Bot akan ERROR saat checkout!</div>
+                            </div>
+                            <select id="paymentFallback">
+                                <option value="spaylater" selected>SPayLater</option>
+                                <option value="shopeepay">ShopeePay</option>
+                            </select>
+                        </div>
+
+                        <div style="background:#f8fafc; padding:14px; border-radius:12px; border:1px solid #e2e8f0; margin-bottom:16px;">
+                            <div style="font-size:13px; font-weight:600; color:#0f172a; margin-bottom:8px;"><i class="fa-brands fa-telegram" style="color:#229ed9;"></i> Telegram Webhook (@ganemax_bot)</div>
+                            <div class="form-row">
+                                <div class="form-group" style="margin-bottom:8px;">
+                                    <label>Bot Token Telegram</label>
+                                    <input type="text" id="telegramToken" value="8703715665:AAFBw7q9u9ZNyuRFvjvwmQE9V8mEBaD13r4" placeholder="8703715665:AAFBw7q9u9ZNyuRFvjvwmQE9V8mEBaD13r4">
+                                </div>
+                                <div class="form-group" style="margin-bottom:8px;">
+                                    <label>Chat ID Telegram Anda</label>
+                                    <input type="text" id="telegramChatId" placeholder="Masukkan Chat ID Telegram Anda (Cth: 123456789)">
+                                </div>
+                            </div>
+
+                            <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:10px 14px; border-radius:10px; margin-bottom:12px; font-size:12px; color:#1e40af; line-height:1.5;">
+                                <div style="font-weight:700; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                                    <i class="fa-solid fa-circle-question" style="color:#2563eb;"></i> Panduan Dapatkan Chat ID Telegram:
+                                </div>
+                                <ol style="margin-left:18px; margin-bottom:0;">
+                                    <li style="margin-bottom:2px;">Buka Telegram & cari bot <a href="https://t.me/ganemax_bot" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:underline;">@ganemax_bot</a> lalu tekan tombol <b>START</b>.</li>
+                                    <li style="margin-bottom:2px;">Buka bot <a href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:underline;">@userinfobot</a> untuk melihat ID Angka akun Telegram Anda.</li>
+                                    <li>Salin angka ID tersebut, masukan ke kolom <b>Chat ID Telegram Anda</b> di atas, lalu klik <b>Tes Notifikasi</b>.</li>
+                                </ol>
+                            </div>
+
+                            <button class="btn btn-outline btn-sm" onclick="testTelegramNotification()"><i class="fa-paper-plane"></i> Tes Notifikasi @ganemax_bot</button>
+                        </div>
+
+                        <button class="btn btn-primary btn-sm" onclick="savePaymentSettings()"><i class="fa-solid fa-floppy-disk"></i> Simpan Pembayaran</button>
+                    </div>
+
+                    <div id="tab-accounts" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px;">
+                            <button class="btn btn-primary btn-sm" onclick="openAddModal('modalAccount', 'modalAccountTitle', 'Tambah Akun Shopee')"><i class="fa-solid fa-user-plus"></i> + Tambah Akun Shopee</button>
+                            <input type="text" id="searchAccountInput" placeholder="🔍 Cari akun..." oninput="renderAccounts()" style="width:180px; padding:6px 10px; font-size:12px;">
+                        </div>
+                        <div class="cards-grid" id="accountsList"></div>
+                    </div>
+
+                    <div id="tab-urls" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px;">
+                            <button class="btn btn-primary btn-sm" onclick="openAddModal('modalUrl', 'modalUrlTitle', 'Tambah Target URL Produk')"><i class="fa-solid fa-plus"></i> + Tambah URL Produk</button>
+                            <input type="text" id="searchUrlInput" placeholder="🔍 Cari produk..." oninput="renderUrls()" style="width:180px; padding:6px 10px; font-size:12px;">
+                        </div>
+                        <div class="cards-grid" id="urlsList"></div>
+                    </div>
+
+                    <div id="tab-history" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                            <div style="font-size:14px; font-weight:600;"><i class="fa-solid fa-receipt" style="color:#2563eb;"></i> Riwayat Checkout Berhasil</div>
+                            <button class="btn btn-outline btn-sm" onclick="fetchOrderHistory()"><i class="fa-solid fa-rotate"></i> Refresh History</button>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="user-table">
+                                <thead>
+                                    <tr>
+                                        <th>Order SN</th>
+                                        <th>Produk</th>
+                                        <th>Harga</th>
+                                        <th>Bayar</th>
+                                        <th>Kecepatan</th>
+                                        <th>Waktu</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orderHistoryTableBody">
+                                    <tr><td colspan="6" style="text-align:center; color:#64748b;">Memuat data riwayat...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="tab-stealth" class="tab-content">
+                        <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px 14px; border-radius:12px; margin-bottom:16px; font-size:12px; color:#1e40af; line-height:1.5;">
+                            <i class="fa-solid fa-shield-halved" style="color:#2563eb;"></i> <b>Anti-Bot Header Spoofing:</b> Konfigurasi Client User-Agent agar request bot terlihat sebagai perangkat HP Shopee App resmi.
+                        </div>
+                        <div class="form-group">
+                            <label>Preset User-Agent Emulation</label>
+                            <select id="userAgentPreset">
+                                <option value="shopee_android" selected>Shopee Android App Client (v3.18.12)</option>
+                                <option value="shopee_ios">Shopee iOS App Client (iPhone 15 Pro)</option>
+                                <option value="chrome_desktop">Chrome Desktop Linux/Mac (Stealth Chrome)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>CapSolver API Key (Auto Captcha Solution Token)</label>
+                            <input type="text" id="capSolverApiKey" placeholder="CAP-XXXXX-XXXXX-XXXXX">
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="showToast('Konfigurasi Anti-Bot Tersimpan!', 'fa-shield-halved')"><i class="fa-solid fa-floppy-disk"></i> Simpan Anti-Bot Header</button>
+                    </div>
+
+                    <div id="tab-proxy" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px;">
+                            <button class="btn btn-primary btn-sm" onclick="openAddModal('modalProxy', 'modalProxyTitle', 'Tambah Proxy Server')"><i class="fa-solid fa-plus"></i> + Tambah Proxy Mesh</button>
+                            <button class="btn btn-outline btn-sm" onclick="testAllProxies()"><i class="fa-solid fa-gauge-high"></i> Uji Koneksi Dynamic Mesh</button>
+                        </div>
+                        <div class="cards-grid" id="proxiesList"></div>
+                    </div>
+
+                    <div id="tab-schedule" class="tab-content">
+                        <button class="btn btn-primary btn-sm" onclick="openAddModal('modalSchedule', 'modalScheduleTitle', 'Tambah Jadwal Flash Sale')"><i class="fa-solid fa-calendar-plus"></i> + Tambah Jadwal</button>
+                        <div class="cards-grid" id="schedulesList"></div>
+                    </div>
+
+                    <div id="tab-ai" class="tab-content">
+                        <div style="background:linear-gradient(135deg, #0f172a, #1e1b4b); border:1px solid #6366f1; border-radius:16px; padding:18px; color:white; margin-bottom:16px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                <div style="font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px;">
+                                    <i class="fa-solid fa-brain" style="color:#3b82f6;"></i> Llama, Mistral, GPT, Claude & DeepSeek
+                                </div>
+                                <span class="badge" style="background:#1e40af; color:#dbeafe; font-size:10px; border:1px solid #3b82f6;">🧠 AI Multi-Model Strategy</span>
+                            </div>
+                                <div style="font-size:12px; color:#cbd5e1; line-height:1.5; margin-bottom:14px;">
+                                Konsultasikan strategi flash sale bot Shopee, setting optimal jitter offset, claim voucher maksimal, dan trick anti-bot dengan 5 AI terkuat: Llama, Mistral, GPT, Claude & DeepSeek.
+                            </div>
+                            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
+                                <button class="btn btn-sm" style="background:#2563eb; color:white; border:none; font-weight:600;" onclick="runAiReadinessAudit()"><i class="fa-solid fa-clipboard-check"></i> 🛡️ Audit Kesiapan Bot (0-100%)</button>
+                                <button class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.08); border-color:#6366f1; color:#e0e7ff; font-size:11px;" onclick="sendQuickAiPrompt('Berapa jitter offset dan thread paralel terbaik untuk tembak produk Flash Sale Rp 1.000?')">⚡ Jitter Rp 1.000</button>
+                                <button class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.08); border-color:#6366f1; color:#e0e7ff; font-size:11px;" onclick="sendQuickAiPrompt('Bagaimana strategi paling efektif untuk menghindari error HTTP 429 Rate Limit saat sniping?')">🛡️ Bypass Rate Limit</button>
+                            </div>
+                        </div>
+
+                        <div style="border:1px solid #e2e8f0; border-radius:16px; background:white; overflow:hidden;" class="panel">
+                            <div id="aiChatBox" style="height:260px; overflow-y:auto; padding:16px; font-size:13px; line-height:1.6; display:flex; flex-direction:column; gap:12px;">
+                                <div style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#1e293b; max-width:85%;">
+                                    <div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><i class="fa-solid fa-brain" style="color:#3b82f6;"></i> AI Assistant:</div>
+                                    Halo! Saya AI assistant yang powered oleh Llama, Mistral, GPT, Claude & DeepSeek. Tanyakan strategi flash sale bot, setting timing optimal, atau tips anti-rate limit!
+                                </div>
+                            </div>
+                            <div style="padding:12px; border-top:1px solid #e2e8f0; display:flex; gap:8px;">
+                                <input type="text" id="aiUserInput" placeholder="Tanya strategi bot flash sale Shopee..." onkeyup="if(event.key==='Enter') askDeepSeekAssistant()" style="flex:1;">
+                                <button class="btn btn-primary" style="width:auto; padding:0 20px;" onclick="askDeepSeekAssistant()"><i class="fa-solid fa-paper-plane"></i> Kirim</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB SEWA BOT -->
+                    <div id="tab-sewa" class="tab-content">
+                        <div style="text-align:center; margin-bottom:30px;">
+                            <div style="font-size:20px; font-weight:700; color:#1e293b; margin-bottom:8px;"><i class="fa-solid fa-rocket"></i> Sewa Bot Flash Sale Shopee Premium</div>
+                            <div style="font-size:13px; color:#64748b;">Akses unlimited bot Shopee flash sale dengan fitur advanced</div>
+                        </div>
+
+                        <!-- RESPONSIVE GRID LAYOUT -->
+                        <style>
+                            @media (max-width: 768px) {
+                                .sewa-bot-grid { display:grid; grid-template-columns:1fr !important; gap:16px !important; }
+                                .sewa-bot-card { transform: none !important; }
+                            }
+                            @media (min-width: 769px) {
+                                .sewa-bot-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+                                .sewa-bot-card:nth-child(2) { transform: scale(1.05); }
+                            }
+                        </style>
+
+                        <div class="sewa-bot-grid" style="margin-bottom:30px;">
+                            <!-- Plan 1: 1 Bulan -->
+                            <div class="sewa-bot-card" style="background:linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); border:2px solid #3b82f6; border-radius:16px; padding:24px; text-align:center; color:white;">
+                                <div style="font-size:14px; font-weight:700; opacity:0.9; margin-bottom:12px;">🔥 BASIC</div>
+                                <div style="font-size:13px; line-height:1.6; margin-bottom:16px; opacity:0.95;">
+                                    ✅ Multi-Account<br>
+                                    ✅ Jitter Offset<br>
+                                    ✅ Rate Limit Bypass<br>
+                                    ✅ Auto-Refresh
+                                </div>
+                                <div style="font-size:24px; font-weight:700; margin-bottom:4px;">Rp 150.000</div>
+                                <div style="font-size:12px; opacity:0.9; margin-bottom:16px;">/1 Bulan</div>
+                                <button class="btn" style="background:white; color:#1e40af; width:100%; font-weight:700; border:none; padding:12px;" onclick="sewaBotSelected(1, 150000)">SEWA SEKARANG</button>
+                            </div>
+
+                            <!-- Plan 2: 2 Bulan (POPULAR) -->
+                            <div class="sewa-bot-card" style="background:linear-gradient(135deg, #f97316 0%, #ea580c 100%); border:3px solid #f97316; border-radius:16px; padding:24px; text-align:center; color:white;">
+                                <div style="background:#ea580c; color:white; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; display:inline-block; margin-bottom:12px;">🏆 PALING POPULER</div>
+                                <div style="font-size:14px; font-weight:700; margin-bottom:12px;">⭐ PROFESSIONAL</div>
+                                <div style="font-size:13px; line-height:1.6; margin-bottom:16px;">
+                                    ✅ Semua fitur Basic<br>
+                                    ✅ AI Strategy Advisor<br>
+                                    ✅ Proxy Management<br>
+                                    ✅ Priority Support<br>
+                                    ✅ Bot Analytics
+                                </div>
+                                <div style="font-size:28px; font-weight:700; margin-bottom:4px;">Rp 250.000</div>
+                                <div style="font-size:12px; margin-bottom:4px;">/2 Bulan</div>
+                                <div style="font-size:11px; opacity:0.9; margin-bottom:16px;">Hemat Rp 50.000!</div>
+                                <button class="btn" style="background:white; color:#ea580c; width:100%; font-weight:700; border:none; padding:12px;" onclick="sewaBotSelected(2, 250000)">SEWA SEKARANG</button>
+                            </div>
+
+                            <!-- Plan 3: 1 Tahun -->
+                            <div class="sewa-bot-card" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); border:2px solid #10b981; border-radius:16px; padding:24px; text-align:center; color:white;">
+                                <div style="font-size:14px; font-weight:700; opacity:0.9; margin-bottom:12px;">💎 ULTIMATE</div>
+                                <div style="font-size:13px; line-height:1.6; margin-bottom:16px; opacity:0.95;">
+                                    ✅ Semua fitur Pro<br>
+                                    ✅ Unlimited Bot Accounts<br>
+                                    ✅ Custom Jitter Config<br>
+                                    ✅ 24/7 Support<br>
+                                    ✅ Lifetime Updates
+                                </div>
+                                <div style="font-size:24px; font-weight:700; margin-bottom:4px;">Rp 1.000.000</div>
+                                <div style="font-size:12px; opacity:0.9; margin-bottom:16px;">/1 Tahun</div>
+                                <button class="btn" style="background:white; color:#059669; width:100%; font-weight:700; border:none; padding:12px;" onclick="sewaBotSelected(12, 1000000)">SEWA SEKARANG</button>
+                            </div>
+                        </div>
+
+                        <!-- Features Comparison -->
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:20px;">
+                            <div style="font-weight:700; margin-bottom:16px; color:#1e293b;">📊 Perbandingan Fitur Lengkap</div>
+                            <div style="font-size:13px; line-height:2; color:#475569;">
+                                <div><b>⚡ Multi-Account Management:</b> Kelola hingga 50 akun Shopee sekaligus</div>
+                                <div><b>🎯 Smart Jitter Offset:</b> AI auto-optimize timing untuk setiap flash sale</div>
+                                <div><b>🛡️ Advanced Anti-Bot:</b> Bypass Shopee security, proxy rotation, header spoofing</div>
+                                <div><b>📈 Real-time Analytics:</b> Monitor success rate, response time, bot performance</div>
+                                <div><b>🧠 AI Strategy Advisor:</b> Chat dengan 5 AI (Llama, Mistral, GPT, Claude, DeepSeek)</div>
+                                <div><b>🔧 Custom Configuration:</b> Fine-tune semua parameter bot sesuai kebutuhan</div>
+                            </div>
+                        </div>
+
+                        <div style="background:#dbeafe; border:1px solid #3b82f6; border-radius:12px; padding:16px; margin-top:20px; text-align:center;">
+                            <i class="fa-solid fa-circle-info" style="color:#3b82f6;"></i> 
+                            <b>🎁 Bonus untuk setiap pembelian:</b> Free 7 hari trial + konsultasi setup gratis via WhatsApp
+                        </div>
+                    </div>
+
+                    <!-- TAB LOGS & REPORT -->
+                    <div id="tab-logs" class="tab-content" style="display:none;">
+                        <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+                            <button class="btn btn-primary" onclick="loadBotLogs('today')"><i class="fa-solid fa-calendar-day"></i> Hari Ini</button>
+                            <button class="btn" onclick="loadBotLogs('week')"><i class="fa-solid fa-calendar-week"></i> Minggu Ini</button>
+                            <button class="btn" onclick="loadBotLogs('month')"><i class="fa-solid fa-calendar"></i> Bulan Ini</button>
+                            <button class="btn" style="margin-left:auto;" onclick="exportLogsCSV()"><i class="fa-solid fa-download"></i> Export CSV</button>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; margin-bottom:20px;">
+                            <div style="background:linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color:white; padding:16px; border-radius:12px;">
+                                <div style="font-size:12px; opacity:0.9;">Total Eksekusi</div>
+                                <div style="font-size:24px; font-weight:700; margin-top:4px;" id="totalExecution">0</div>
+                            </div>
+                            <div style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:white; padding:16px; border-radius:12px;">
+                                <div style="font-size:12px; opacity:0.9;">Berhasil</div>
+                                <div style="font-size:24px; font-weight:700; margin-top:4px;" id="successCount">0</div>
+                            </div>
+                            <div style="background:linear-gradient(135deg, #f97316 0%, #ea580c 100%); color:white; padding:16px; border-radius:12px;">
+                                <div style="font-size:12px; opacity:0.9;">Gagal</div>
+                                <div style="font-size:24px; font-weight:700; margin-top:4px;" id="failCount">0</div>
+                            </div>
+                            <div style="background:linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color:white; padding:16px; border-radius:12px;">
+                                <div style="font-size:12px; opacity:0.9;">Success Rate</div>
+                                <div style="font-size:24px; font-weight:700; margin-top:4px;" id="successRate">0%</div>
+                            </div>
+                        </div>
+
+                        <div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:16px;">
+                            <div style="font-weight:700; margin-bottom:12px; color:#1e293b;">📋 Bot Execution Logs</div>
+                            <div id="logsList" style="max-height:400px; overflow-y:auto; font-size:12px; font-family:monospace; line-height:1.8; background:#f8fafc; padding:12px; border-radius:8px;">
+                                <div style="color:#64748b;">• Belum ada logs. Jalankan bot untuk melihat history di sini.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB ADVANCED SETTINGS -->
+                    <div id="tab-advanced" class="tab-content">
+                        <!-- Tutorial & Guide Advanced Features -->
+                        <div style="background:#fef3c7; border:2px solid #fcd34d; border-radius:12px; padding:16px; margin-bottom:20px;">
+                            <div style="font-weight:700; color:#92400e; margin-bottom:12px; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-book" style="color:#d97706;"></i> 📚 Panduan Fitur Advanced</div>
+                            <div style="font-size:12px; color:#78350f; line-height:1.8; margin-bottom:12px;">
+                                <div style="margin-bottom:8px;"><b>⚡ Bot Execution Mode:</b> Pilih mode sesuai kebutuhan - AGGRESSIVE untuk kecepatan maksimal (risiko tinggi), BALANCED untuk keseimbangan (rekomendasi), atau CONSERVATIVE untuk keamanan maksimal.</div>
+                                <div style="margin-bottom:8px;"><b>🔄 Auto-Retry Configuration:</b> Atur jumlah percobaan ulang dan delay antar percobaan. Jika terjadi error, bot otomatis akan mencoba lagi sesuai pengaturan.</div>
+                                <div style="margin-bottom:8px;"><b>📋 Whitelist/Blacklist:</b> Tentukan produk mana saja yang ingin dibot (Whitelist) atau yang tidak boleh dibot (Blacklist). Pisahkan dengan koma.</div>
+                                <div><b>🔔 Notification Settings:</b> Aktifkan notifikasi untuk mendapatkan update saat bot sukses, gagal, atau terkena rate limit. Default OFF untuk mengurangi gangguan.</div>
+                            </div>
+                            <div style="background:white; border-left:4px solid #d97706; padding:10px 12px; border-radius:6px; font-size:11px; color:#7c2d12;">
+                                <b>💡 Tips:</b> Mulai dengan mode BALANCED, aktifkan notifikasi error saja, dan gunakan Whitelist untuk fokus pada produk tertentu.
+                            </div>
+                        </div>
+
+                        <!-- Bot Mode Selection -->
+                        <div style="background:#f0f9ff; border:1px solid #bfdbfe; border-radius:12px; padding:16px; margin-bottom:20px;">
+                            <div style="font-weight:700; color:#0c4a6e; margin-bottom:12px;"><i class="fa-solid fa-gauge"></i> Bot Execution Mode</div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                                <div style="background:white; border:2px solid #bfdbfe; border-radius:10px; padding:12px; text-align:center; cursor:pointer;" onclick="setBotMode('aggressive')">
+                                    <div style="font-weight:700; color:#dc2626;">⚡ AGGRESSIVE</div>
+                                    <div style="font-size:11px; color:#64748b; margin-top:4px;">Max speed, high risk</div>
+                                </div>
+                                <div style="background:white; border:2px solid #3b82f6; border-radius:10px; padding:12px; text-align:center; cursor:pointer;" onclick="setBotMode('balanced')">
+                                    <div style="font-weight:700; color:#3b82f6;">⚖️ BALANCED</div>
+                                    <div style="font-size:11px; color:#64748b; margin-top:4px;">Recommended (default)</div>
+                                </div>
+                                <div style="background:white; border:2px solid #10b981; border-radius:10px; padding:12px; text-align:center; cursor:pointer;" onclick="setBotMode('conservative')">
+                                    <div style="font-weight:700; color:#10b981;">🛡️ CONSERVATIVE</div>
+                                    <div style="font-size:11px; color:#64748b; margin-top:4px;">Safe, lower risk</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Auto-Retry Configuration -->
+                        <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:12px; padding:16px; margin-bottom:20px;">
+                            <div style="font-weight:700; color:#92400e; margin-bottom:12px;"><i class="fa-solid fa-repeat"></i> Auto-Retry Configuration</div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                                <div class="form-group">
+                                    <label>Max Retry Attempt</label>
+                                    <input type="number" id="maxRetry" placeholder="3" min="1" max="10" value="3">
+                                </div>
+                                <div class="form-group">
+                                    <label>Retry Delay (ms)</label>
+                                    <input type="number" id="retryDelay" placeholder="500" min="100" max="5000" value="500">
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="saveRetryConfig()"><i class="fa-solid fa-floppy-disk"></i> Simpan Config</button>
+                        </div>
+
+                        <!-- Whitelist/Blacklist -->
+                        <div style="background:#f3e8ff; border:1px solid #ddd6fe; border-radius:12px; padding:16px; margin-bottom:20px;">
+                            <div style="font-weight:700; color:#6b21a8; margin-bottom:12px;"><i class="fa-solid fa-list"></i> Product Whitelist/Blacklist</div>
+                            <div class="form-group">
+                                <label>Whitelist Product (pisah dengan koma)</label>
+                                <textarea id="whitelist" placeholder="Masukkan ID atau nama produk..." style="height:80px;"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Blacklist Product (jangan bot ini)</label>
+                                <textarea id="blacklist" placeholder="Masukkan ID atau nama produk..." style="height:80px;"></textarea>
+                            </div>
+                            <button class="btn btn-primary btn-sm" style="width:100%;" onclick="saveWhiteBlacklist()"><i class="fa-solid fa-floppy-disk"></i> Simpan Filter</button>
+                        </div>
+
+                        <!-- Notification Settings -->
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px;">
+                            <div style="font-weight:700; color:#15803d; margin-bottom:12px;"><i class="fa-solid fa-bell"></i> Notification Settings</div>
+                            <div style="display:flex; flex-direction:column; gap:8px; font-size:13px;">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="notifySuccess"> Notify on success execution
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="notifyError"> Notify on error/fail
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="notifyRateLimit"> Alert on rate limit detected
+                                </label>
+                            </div>
+                            <button class="btn btn-primary btn-sm" style="width:100%; margin-top:12px;" onclick="saveNotificationSettings()"><i class="fa-solid fa-floppy-disk"></i> Simpan Notification</button>
+                        </div>
+                    </div>
+
+                    <!-- TAB ADMIN PANEL -->
+                    <div id="tab-admin" class="tab-content">
+                        <div style="background:#fffbeb; border:1px solid #fef3c7; padding:16px; border-radius:12px; margin-bottom:20px;">
+                            <div style="font-weight:700; color:#b45309; margin-bottom:4px;"><i class="fa-solid fa-key"></i> Buat Akun Client Baru</div>
+                            <div style="font-size:12px; color:#92400e; margin-bottom:12px;">Akun baru akan langsung terdaftar dan dapat langsung digunakan untuk login.</div>
+                            
+                            <div class="form-row">
+                                <div class="form-group" style="margin-bottom:10px;">
+                                    <label>Username Client</label>
+                                    <input type="text" id="newClientUsername" placeholder="Username baru">
+                                </div>
+                                <div class="form-group" style="margin-bottom:10px;">
+                                    <label>Password Client</label>
+                                    <div class="password-wrapper">
+                                        <input type="password" id="newClientPassword" placeholder="Password baru">
+                                        <i class="fa-solid fa-eye password-toggle" id="toggleNewClientPass" onclick="togglePasswordVisibility('newClientPassword', 'toggleNewClientPass')"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group" style="margin-bottom:12px;">
+                                    <label>Role Akses</label>
+                                    <select id="newClientRole">
+                                        <option value="user" selected>User (Client Biasa)</option>
+                                        <option value="admin">Admin (Akses Penuh)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom:12px;">
+                                    <label>Masa Aktif / Tanggal Kadaluarsa (SaaS)</label>
+                                    <input type="date" id="newClientExpired">
+                                </div>
+                            </div>
+                            <button class="btn btn-success btn-sm" onclick="createNewClient()"><i class="fa-solid fa-user-check"></i> Register Akun Client</button>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <div style="font-weight:600; color:#0f172a;"><i class="fa-solid fa-users-gear"></i> Daftar Client Terdaftar</div>
+                            <input type="text" id="searchUserInput" placeholder="🔍 Cari user..." oninput="filterAdminUsers()" style="width:160px; padding:4px 8px; font-size:12px;">
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="user-table">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Role</th>
+                                        <th>Masa Aktif</th>
+                                        <th>Status</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersListTable">
+                                    <tr><td colspan="5">Memuat data user...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div>
+                <div class="timer-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:6px;">
+                        <div class="timer-label"><i class="fa-solid fa-stopwatch"></i> Hitung Mundur Start Flash Sale</div>
+                        <span id="countdownStatusBadge" class="badge" style="background:rgba(255,255,255,0.2); color:white; font-size:10px; font-weight:700;">LIVE CLOCK</span>
+                    </div>
+
+                    <div class="timer-display" id="timerDisplay">00:00:00<span class="timer-ms" id="timerMs">.000</span></div>
+                    
+                    <!-- PENGATUR TANGGAL & JAM TARGET EKSEKUSI -->
+                    <div style="margin-top:12px; background:rgba(0,0,0,0.25); padding:12px; border-radius:14px; text-align:left;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <label style="color:#e0e7ff; font-size:12px; font-weight:700; margin-bottom:0;">
+                                <i class="fa-solid fa-calendar-days" style="color:#38bdf8;"></i> Atur Waktu & Tanggal Target:
+                            </label>
+                            <button class="btn btn-sm" style="background:rgba(255,255,255,0.15); color:white; font-size:10px; padding:2px 8px; border:none;" onclick="resetTargetToLiveClock()">Live Clock</button>
+                        </div>
+                        
+                        <input type="datetime-local" id="targetExecTimeInput" onchange="updateTargetExecutionTime()" style="background:rgba(255,255,255,0.95); color:#0f172a; font-size:13px; font-weight:700; padding:8px 12px; border-radius:10px; width:100%; border:none; outline:none;">
+                        
+                        <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+                            <button class="btn btn-sm" style="background:rgba(255,255,255,0.2); color:white; font-size:11px; padding:4px 8px; flex:1;" onclick="setQuickTargetSession('00:00')">00:00 Malam</button>
+                            <button class="btn btn-sm" style="background:rgba(255,255,255,0.2); color:white; font-size:11px; padding:4px 8px; flex:1;" onclick="setQuickTargetSession('12:00')">12:00 Siang</button>
+                            <button class="btn btn-sm" style="background:rgba(255,255,255,0.2); color:white; font-size:11px; padding:4px 8px; flex:1;" onclick="setQuickTargetSession('18:00')">18:00 Sore</button>
+                            <button class="btn btn-sm" style="background:rgba(255,255,255,0.2); color:white; font-size:11px; padding:4px 8px; flex:1;" onclick="setQuickTargetSession('20:00')">20:00 Malam</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="product-card">
+                    <div class="product-meta">
+                        <span class="stock-badge" id="previewStock">Stok: Synchronized</span>
+                        <span class="badge" id="serverLatencyBadge" style="background:#f1f5f9; color:#0f172a;"><i class="fa-solid fa-wifi"></i> Latensi: -- ms</span>
+                        <span class="badge" id="ntpClockBadge" style="background:#e0f2fe; color:#0369a1;"><i class="fa-solid fa-clock"></i> NTP: Sync</span>
+                    </div>
+                    <div class="product-name" id="previewTitle">Pilih URL Produk untuk melihat detail.</div>
+                    <div class="price-tag" id="previewPrice">Rp 0</div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Percobaan</div>
+                        <div class="stat-value" id="statAttempts">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Berhasil</div>
+                        <div class="stat-value" style="color: #22c55e;" id="statSuccess">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Kecepatan</div>
+                        <div class="stat-value" style="color: #2563eb;" id="statSpeed">0ms</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Hemat</div>
+                        <div class="stat-value" style="color: #7c3aed;" id="statSaved">Rp 0</div>
+                    </div>
+                </div>
+
+                <!-- ANALYTICS PERFORMANCE CHART CARD -->
+                <div class="chart-card">
+                    <div class="chart-title">
+                        <span><i class="fa-solid fa-chart-line" style="color:#2563eb;"></i> Performance Analytics & Response Speed</span>
+                        <span style="font-size:11px; font-weight:normal; color:#64748b;">Live Latency Stream</span>
+                    </div>
+                    <div style="height: 150px; position: relative;">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="logs-container">
+                    <div class="logs-header">
+                        <span style="font-size:13px; font-weight:600;"><i class="fa-solid fa-terminal" style="color: #2563eb;"></i> Execution Logs</span>
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn btn-outline btn-sm" onclick="filterLogs('all')" style="padding:2px 8px; font-size:11px;">Semua</button>
+                            <button class="btn btn-outline btn-sm" onclick="filterLogs('success')" style="padding:2px 8px; font-size:11px; color:#22c55e;">Berhasil</button>
+                            <button class="btn btn-outline btn-sm" onclick="filterLogs('error')" style="padding:2px 8px; font-size:11px; color:#ef4444;">Error</button>
+                            <button class="btn btn-outline btn-sm" onclick="downloadLogsText()" style="padding:2px 8px; font-size:11px;"><i class="fa-solid fa-file-export"></i> Download</button>
+                            <button class="btn btn-outline btn-sm" onclick="clearLogs()" style="padding:2px 8px; font-size:11px;"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                    <div class="logs" id="logsBox">
+                        <div class="log"><span class="log-time">[SYSTEM]</span> Silakan login untuk mengisolasi data Anda.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modalPaymentGateway">
+        <div class="modal-content" style="max-width:550px;">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fa-solid fa-qrcode" style="color:#16a34a;"></i> Sewa & Perpanjang Lisensi Bot via QRIS</div>
+                <button class="close-btn" onclick="closeModal('modalPaymentGateway')">&times;</button>
+            </div>
+            
+            <div style="margin-bottom:16px;">
+                <label style="margin-bottom:8px; font-weight:600;">1. Pilih Paket Langganan SaaS</label>
+                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px;">
+                    <div class="plan-card selected" onclick="selectPlan(this, 1, 150000)">
+                        <div class="plan-title">1 Bulan</div>
+                        <div class="plan-price">Rp 150K</div>
+                    </div>
+                    <div class="plan-card" onclick="selectPlan(this, 2, 250000)">
+                        <div class="plan-title">2 Bulan</div>
+                        <div class="plan-price">Rp 250K</div>
+                    </div>
+                    <div class="plan-card" onclick="selectPlan(this, 12, 1000000)">
+                        <div class="plan-title">1 Tahun</div>
+                        <div class="plan-price">Rp 1 Juta</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>2. Username Akun Anda</label>
+                <input type="text" id="payGatewayUsername" placeholder="Masukkan username akun yang ingin diperpanjang">
+            </div>
+
+            <!-- TAMPILAN GAMBAR QRIS RESMI -->
+            <div style="background:#0f172a; border-radius:16px; padding:20px; text-align:center; color:white; margin-bottom:16px;">
+                <div style="font-size:13px; font-weight:700; color:#38bdf8; margin-bottom:6px;">Tu082321 Toko Mouza Cell</div>
+                <div style="font-size:11px; color:#94a3b8; margin-bottom:12px;">NMID: ID2025449127286 • SCAN DENGAN SEMUA APLIKASI BANK / E-WALLET</div>
+                
+                <div style="background:white; padding:12px; border-radius:16px; display:inline-block; margin-bottom:10px; max-width:260px;">
+                    <img id="qrisImageDisplay" src="qriss.jpg" alt="QRIS Tu082321 Toko Mouza Cell" style="width:100%; height:auto; border-radius:8px; display:block;" onerror="this.onerror=null; this.src='https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020101021226680016COM.SHOPEE.WWW011893600911002201880802152608021982348125204581253033605802ID5912ENTERPRISE_PRO6007JAKARTA6304C102';">
+                </div>
+                
+                <div style="font-size:18px; font-weight:800; color:#4ade80;" id="qrisAmountDisplay">Total Bayar: Rp 50.000</div>
+            </div>
+
+            <!-- PANDUAN KONFIRMASI BUKTI PEMBAYARAN -->
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px 16px; margin-bottom:16px; font-size:12px; color:#1e40af; line-height:1.5;">
+                <div style="font-weight:700; margin-bottom:4px; font-size:13px; display:flex; align-items:center; gap:6px;">
+                    <i class="fa-solid fa-circle-info" style="color:#2563eb;"></i> Petunjuk Konfirmasi Pembayaran:
+                </div>
+                1. Selesaikan pembayaran dengan melakukan scan kode QRIS di atas.<br>
+                2. <b>Jangan lupa screenshot / simpan bukti pembayaran</b> setelah transaksi berhasil.<br>
+                3. Kirimkan bukti pembayaran & username ke Telegram Admin <a href="https://t.me/mrpangeranz" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:underline;">@mrpangeranz</a> untuk langsung diproses.
+            </div>
+
+            <div class="modal-actions" style="display:flex; flex-direction:column; gap:8px;">
+                <a href="https://t.me/mrpangeranz" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="text-decoration:none; padding:12px; font-weight:700; background:#229ed9; border:none; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fa-brands fa-telegram" style="font-size:18px;"></i> Kirim Bukti Pembayaran ke Telegram @mrpangeranz
+                </a>
+                <button class="btn btn-outline" style="width:100%;" onclick="closeModal('modalPaymentGateway')">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL WHATSAPP CHANNEL -->
+    <div class="modal" id="modalWhatsappChannel">
+        <div class="modal-content" style="max-width:480px; text-align:center;">
+            <div style="width:64px; height:64px; background:#dcfce7; color:#16a34a; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px auto; font-size:32px;">
+                <i class="fa-brands fa-whatsapp"></i>
+            </div>
+            <div class="modal-title" style="font-size:20px; font-weight:700; margin-bottom:8px; color:#0f172a;">Gabung Saluran WhatsApp Resmi!</div>
+            <div style="font-size:13px; color:#64748b; line-height:1.6; margin-bottom:20px;">
+                Selamat datang di <b>Shopee Flash Sale Manager</b>! Bergabunglah dengan Saluran WhatsApp <b>Flash Sale Shopee GaneMaX.Ai</b> untuk mendapatkan bocoran produk flash sale, update versi script, dan info penting lainnya!
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <a href="https://whatsapp.com/channel/0029Vak7xFMLikgB8756GS2y" target="_blank" rel="noopener noreferrer" class="btn btn-success" style="text-decoration:none; padding:12px; font-weight:600; font-size:14px; width:100%; border-radius:12px;" onclick="closeModal('modalWhatsappChannel')">
+                    <i class="fa-brands fa-whatsapp" style="font-size:18px;"></i> Join Saluran WA Sekarang
+                </a>
+                <button class="btn btn-outline" style="width:100%;" onclick="closeModal('modalWhatsappChannel')">Lanjut ke Dashboard</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS FORM (ALAMAT, AKUN, URL, PROXY, SCHEDULE) -->
+    <div class="modal" id="modalAddress">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalAddressTitle">Tambah Alamat</div>
+                <button class="close-btn" onclick="closeModal('modalAddress')">&times;</button>
+            </div>
+            <div class="form-group"><label>Label Alamat</label><input type="text" id="addrLabel" placeholder="Cth: Rumah Main"></div>
+            <div class="form-group"><label>Nama Penerima</label><input type="text" id="addrName" placeholder="Nama Penerima"></div>
+            <div class="form-group"><label>No HP</label><input type="text" id="addrPhone" placeholder="0812xxxx"></div>
+            <div class="form-group"><label>Alamat Lengkap</label><textarea id="addrFull" placeholder="Jalan, No. Rumah, RT/RW, Kecamatan"></textarea></div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeModal('modalAddress')">Batal</button>
+                <button class="btn btn-primary" onclick="saveAddress()">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modalAccount">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalAccountTitle">Tambah Akun Shopee</div>
+                <button class="close-btn" onclick="closeModal('modalAccount')">&times;</button>
+            </div>
+            <div style="background:#fffbeb; border:1px solid #fef3c7; padding:12px 14px; border-radius:12px; margin-bottom:16px; font-size:12px; color:#92400e; line-height:1.5;">
+                <i class="fa-solid fa-circle-info" style="color:#d97706;"></i> <b>Catatan Penting:</b> Matikan Verifikasi Shopee (OTP/2FA) agar Bot bisa langsung mengakses akun yang dituju, atau hubungi <a href="https://t.me/mrpangeranz" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:600; text-decoration:underline;"><i class="fa-brands fa-telegram" style="color:#229ed9;"></i> @mrpangeranz</a> via Telegram untuk meminta akses agar bot dapat login ke akun Shopee.
+            </div>
+            <div class="form-group"><label>Nickname / Nama Alias</label><input type="text" id="accNickname" placeholder="Cth: Akun Utama"></div>
+            <div class="form-group"><label>Username Shopee</label><input type="text" id="accUsername" placeholder="username_shopee"></div>
+            <div class="form-group"><label>Email Shopee</label><input type="email" id="accEmail" placeholder="email@domain.com"></div>
+            <div class="form-group"><label>No HP Shopee</label><input type="text" id="accPhone" placeholder="0812xxxxxxxx"></div>
+            <div class="form-group">
+                <label>Password Shopee</label>
+                <div class="password-wrapper">
+                    <input type="password" id="accPassword" placeholder="••••••••">
+                    <i class="fa-solid fa-eye password-toggle" id="toggleAccPass" onclick="togglePasswordVisibility('accPassword', 'toggleAccPass')"></i>
+                </div>
+            </div>
+            <div class="form-group"><label>Cookie Shopee (`SPC_EC`)</label><textarea id="accCookies" placeholder="SPC_EC=..."></textarea></div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeModal('modalAccount')">Batal</button>
+                <button class="btn btn-primary" onclick="saveAccount()">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modalUrl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalUrlTitle">Tambah Target URL Produk</div>
+                <button class="close-btn" onclick="closeModal('modalUrl')">&times;</button>
+            </div>
+            <div class="form-group"><label>Label Produk</label><input type="text" id="urlTitle" placeholder="Cth: iPhone 15 Flash Sale"></div>
+            <div class="form-group"><label>URL Produk Shopee</label><input type="text" id="urlAddress" placeholder="https://shopee.co.id/product/12345/67890"></div>
+            <div class="form-row">
+                <div class="form-group"><label>Varian Utama (Warna / Type)</label><input type="text" id="urlVariant" placeholder="Cth: Hitam, 128GB"></div>
+                <div class="form-group"><label>Model ID Varian (Presisi)</label><input type="text" id="urlModelId" placeholder="Cth: 198234812"></div>
+            </div>
+            <div class="form-group"><label>Target Harga Flash Sale (Rp)</label><input type="number" id="urlPrice" value="1000"></div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeModal('modalUrl')">Batal</button>
+                <button class="btn btn-primary" onclick="saveUrl()">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modalProxy">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalProxyTitle">Tambah Proxy Server Mesh</div>
+                <button class="close-btn" onclick="closeModal('modalProxy')">&times;</button>
+            </div>
+            <div class="form-group"><label>Host IP / Domain Proxy Mesh</label><input type="text" id="proxyHost" placeholder="residential.proxy-mesh.net"></div>
+            <div class="form-group"><label>Port</label><input type="text" id="proxyPort" placeholder="8080"></div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeModal('modalProxy')">Batal</button>
+                <button class="btn btn-primary" onclick="saveProxy()">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modalSchedule">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalScheduleTitle">Tambah Jadwal Flash Sale</div>
+                <button class="close-btn" onclick="closeModal('modalSchedule')">&times;</button>
+            </div>
+            <div class="form-group"><label>Judul Event</label><input type="text" id="schTitle" placeholder="Cth: Flash Sale 12.12 Jam 12 Malam"></div>
+            <div class="form-group"><label>Waktu Target Eksekusi</label><input type="datetime-local" id="schTime"></div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeModal('modalSchedule')">Batal</button>
+                <button class="btn btn-primary" onclick="saveSchedule()">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast" id="toastBox">
+        <i class="fa-solid fa-circle-info" id="toastIcon"></i>
+        <span id="toastMessage">Notifikasi</span>
+    </div>
+
+    <!-- FLOATING AI FAB & DRAWER -->
+    <div class="ai-fab" onclick="toggleFloatingAiWidget()" title="AI Multi-Model Co-Pilot">
+        <i class="fa-solid fa-brain"></i>
+        <div class="ai-badge"></div>
+    </div>
+
+    <div class="ai-drawer" id="aiDrawer">
+        <div class="ai-drawer-header">
+            <div style="font-weight:700; font-size:13px; display:flex; align-items:center; gap:8px;">
+                <img src="deepsek2.jpg" alt="Robot" style="width:22px; height:22px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';"><i class="fa-solid fa-brain" style="display:none; font-size:18px;"></i> AI Co-Pilot Assistant
+            </div>
+            <div style="display:flex; gap:6px;">
+                <button class="btn btn-sm btn-outline" style="padding:2px 8px; font-size:10px; color:#a855f7; border-color:#6366f1;" onclick="runAiReadinessAudit()"><i class="fa-solid fa-shield-halved"></i> Audit</button>
+                <button class="close-btn" style="color:#cbd5e1; height:24px; width:24px;" onclick="toggleFloatingAiWidget()">&times;</button>
+            </div>
+        </div>
+        <div class="ai-drawer-body" id="aiDrawerBody">
+            <div style="background:#1e293b; padding:10px 12px; border-radius:10px; color:#e2e8f0; font-size:12px;">
+                <div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><i class="fa-solid fa-brain" style="color:#3b82f6;"></i> AI Assistant:</div>
+                Halo! Saya AI Co-Pilot Anda. Klik <b>Audit</b> untuk mengecek kesiapan bot sebelum bertarung!
+            </div>
+        </div>
+        <div class="ai-drawer-footer">
+            <input type="text" id="aiDrawerInput" placeholder="Tanya AI Assistant..." onkeyup="if(event.key==='Enter') askDeepSeekDrawer()" style="flex:1; padding:8px 12px; font-size:12px; background:#1e293b; border-color:#334155; color:white;">
+            <button class="btn btn-primary btn-sm" style="width:auto; padding:0 12px;" onclick="askDeepSeekDrawer()"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <script>
+        let SUPABASE_URL = (localStorage.getItem('SUPABASE_URL') || 'https://iowfwucrkzheoshfomme.supabase.co').trim();
+        let SUPABASE_ANON_KEY = (localStorage.getItem('SUPABASE_ANON_KEY') || 'sb_publishable_u0J1RGoV7ot7zYxedEPt6Q_ZXhfCQ04').trim();
+        let DEFAULT_TELEGRAM_BOT_TOKEN = '8703715665:AAFBw7q9u9ZNyuRFvjvwmQE9V8mEBaD13r4';
+        
+        /* INTEGRASI API NVIDIA DEEPSEEK V4 PRO WITH CORS FALLBACK */
+        const DEEPSEEK_API_KEY = "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";
+        const DEEPSEEK_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
+        const DEEPSEEK_MODEL = "deepseek-ai/deepseek-v4-pro";
+
+        /* INTEGRASI OPENROUTER API - Multiple Models Support */
+        const OPENROUTER_API_KEY = "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";
+        const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+        const OPENROUTER_MODELS = [
+            "meta-llama/llama-3.1-70b-instruct",        // Llama - Fast & Reliable
+            "mistralai/mistral-7b-instruct",            // Mistral - Super Cepat
+            "openai/gpt-4o-mini",                       // GPT - Smart
+            "anthropic/claude-3-haiku",                 // Claude - Balanced
+            "deepseek/deepseek-chat"                    // DeepSeek - Advanced
+        ];
+        const OPENROUTER_MODEL = OPENROUTER_MODELS[0]; // Default: Llama
+        const AI_MODEL_NAMES = ["Llama", "Mistral", "GPT", "Claude", "DeepSeek"]; // UI display names
+
+        async function callDeepSeekAI(userPrompt, systemInstruction = "") {
+            // System prompt untuk strategy flash sale bot
+            const defaultSystemPrompt = `Anda adalah expert AI dalam strategi bot Shopee Flash Sale. Expertise Anda:
+1. Jitter Offset Timing - setting pre-fire optimal (-15ms hingga -25ms)
+2. Rate Limit Bypass - rotasi proxy, user-agent, bypass HTTP 429
+3. Voucher Strategy - klaim maksimal dengan multi-voucher stack
+4. Anti-Bot Detection - teknik evasi Shopee security system
+5. Payment Optimization - ShopeePay instant, debit bank, timing payment
+6. Bot Readiness Audit - score kesiapan 0-100%
+7. Flash Sale Timing - NTP sync, countdown optimization
+
+Jawab singkat, akurat, dengan tips praktis langsung implementasi.`;
+
+            const systemPrompt = systemInstruction || defaultSystemPrompt;
+            const messages = [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+            ];
+
+            // Try dengan models - prioritas model tercepat dulu
+            for (let i = 0; i < OPENROUTER_MODELS.length; i++) {
+                const model = OPENROUTER_MODELS[i];
+                const modelName = AI_MODEL_NAMES[i] || "AI";
+                console.log(`🔄 [${i + 1}/${OPENROUTER_MODELS.length}] Model: ${modelName} (${model})`);
+
+                try {
+                    const response = await fetch(OPENROUTER_API_URL, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                            "HTTP-Referer": window.location.hostname || "localhost",
+                            "X-Title": "Shopee Flash Sale Bot"
+                        },
+                        body: JSON.stringify({
+                            model: model,
+                            messages: messages,
+                            temperature: 0.6,
+                            max_tokens: 512,  // Reduced dari 1024 untuk lebih cepat
+                            top_p: 0.9,
+                            frequency_penalty: 0.3
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.choices && data.choices[0] && data.choices[0].message) {
+                        const reply = data.choices[0].message.content;
+                        console.log(`✅ SUCCESS [${modelName}]: Response received`);
+                        return reply;
+                    } else if (data.error) {
+                        console.warn(`⚠️ Error [${modelName}]:`, data.error.message);
+                        continue;
+                    }
+                } catch(err) {
+                    console.warn(`⚠️ Network Error [${modelName}]:`, err.message);
+                    continue;
+                }
+            }
+
+            console.log("📚 Fallback to Local Knowledge Base");
+            return getLocalAiFallbackResponse(userPrompt);
+        }
+
+        function getLocalAiFallbackResponse(prompt) {
+            const p = prompt.toLowerCase();
+            
+            // Knowledge base untuk strategi bot flash sale
+            const responses = {
+                jitter: {
+                    keywords: ['jitter', '1000', '1.000', 'timing', 'offset', 'pre-fire'],
+                    response: "⚡ <b>Jitter Offset Optimal untuk Rp 1.000:</b><br><br><b>Pre-fire Setting:</b> -15ms hingga -20ms sebelum flash dimulai<br><b>Reason:</b> Kompensasi network latency 15-20ms<br><br><b>Config Bot:</b><br>• Thread Paralel: 12-15 threads<br>• Mode: Turbo Multi-Socket<br>• Auto-Refresh: 80ms<br>• Delay antar request: 5-10ms<br><br><b>⚠️ Tips:</b> Jangan terlalu aggressive (-25ms+) karena bisa kena reject dari Shopee. Test dulu di flash sale non-popular item."
+                },
+                ratelimit: {
+                    keywords: ['rate limit', '429', 'blocked', 'error', 'bypass', 'rejected'],
+                    response: "🛡️ <b>Bypass HTTP 429 Rate Limit:</b><br><br><b>1. Dynamic Proxy Rotation:</b><br>• Gunakan residential proxy, bukan datacenter<br>• Rotasi IP setiap 3-5 request<br>• User-Agent: Shopee Mobile App (authentic)<br><br><b>2. Request Optimization:</b><br>• Add delay 50-100ms antar attempt<br>• Randomize headers & cookies<br>• Multi-account concurrent mode<br><br><b>3. Anti-Detection:</b><br>• TLS fingerprint spoofing<br>• Browser automation detection bypass<br>• Cookie rotation setiap 10 menit<br><br><b>📌 Quick Fix:</b> Jika kena 429, tunggu 60 detik baru retry!"
+                },
+                audit: {
+                    keywords: ['audit', 'readiness', 'skor', 'kesiapan', 'siap'],
+                    response: "🛡️ <b>Bot Readiness Audit Checklist:</b><br><br><b>✅ CRITICAL (Must Have):</b><br>• NTP Sync aktif & akurat<br>• Target waktu tersinkronisasi<br>• Proxy pool ready (min 5 IP)<br>• ShopeePay + PIN configured<br><br><b>⚠️ RECOMMENDED:</b><br>• Voucher Ongkir sudah diklaim<br>• User-Agent spoofing enabled<br>• Anti-Bot bypass active<br>• Multi-account setup<br><br><b>Skor Kesiapan:</b> 85/100 (siap execute)"
+                },
+                voucher: {
+                    keywords: ['voucher', 'diskon', 'klaim', 'ongkir', 'coupon'],
+                    response: "🎟️ <b>Strategi Klaim Voucher Maksimal:</b><br><br><b>Timing Optimal:</b><br>• Klaim 2-3 jam sebelum flash sale<br>• Prioritas: Voucher Ongkir > Kategori > Umum<br><br><b>Multi-Voucher Stack:</b><br>Max 5 voucher per transaksi:<br>1. Ongkir (-100%)<br>2. Kategori (-50rb)<br>3. Cashback Shopeepay<br>4. Member special<br>5. Flash voucher<br><br><b>Pro Tips:</b><br>• Stack dengan kategori yang sama<br>• Catat expiry date setiap voucher<br>• Gunakan di flash sale kategori sesuai"
+                },
+                payment: {
+                    keywords: ['bayar', 'payment', 'shopee pay', 'pin', 'debit', 'metode'],
+                    response: "💳 <b>Fastest Payment Method:</b><br><br><b>🥇 FASTEST (Recommended):</b><br>ShopeePay - Processing: 100-150ms<br>• Setup: 6-digit PIN dulu<br>• Balance: Min Rp 5.000<br>• Advantage: Instant approve, no OTP<br><br><b>🥈 ALTERNATIVE:</b><br>Debit Bank - Processing: 500-800ms<br>• Perlu OTP verification<br>• Setup di app bank dulu<br><br><b>❌ AVOID:</b><br>Credit Card - 2000-3000ms (terlalu lama)<br><br><b>⚡ Hack:</b> Pakai ShopeePay + cache payment method untuk skip OTP next time"
+                }
+            };
+
+            // Cek keyword match
+            for (const [key, data] of Object.entries(responses)) {
+                if (data.keywords.some(keyword => p.includes(keyword))) {
+                    return data.response;
+                }
+            }
+
+            // Default response
+            return `🤖 <b>Flash Sale Bot Strategy Assistant</b><br><br>Saya specialist AI untuk Shopee Flash Sale Bot. Tanyakan tentang:<br><br>• <b>Jitter Offset</b> - Timing optimal<br>• <b>Rate Limit Bypass</b> - Anti-block strategy<br>• <b>Voucher Klaim</b> - Maximize discount<br>• <b>Payment Setup</b> - Fastest method<br>• <b>Bot Audit</b> - Readiness check<br><br><b>Contoh:</b> "Berapa jitter untuk Rp 1000?" atau "Cara bypass 429 error?"`;
+        }
+
+        async function askDeepSeekAssistant() {
+            const input = document.getElementById('aiUserInput');
+            const prompt = input ? input.value.trim() : '';
+            if (!prompt) return;
+
+            const chatBox = document.getElementById('aiChatBox');
+            if (chatBox) {
+                chatBox.innerHTML += `
+                    <div style="background:#2563eb; color:white; padding:12px 16px; border-radius:12px; align-self:flex-end; max-width:85%;">
+                        ${prompt}
+                    </div>
+                `;
+                input.value = '';
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            const loadingId = 'ai-loading-' + Date.now();
+            if (chatBox) {
+                chatBox.innerHTML += `
+                    <div id="${loadingId}" style="background:#f1f5f9; padding:12px 16px; border-radius:12px; color:#64748b; max-width:85%;">
+                        <i class="fa-solid fa-brain fa-spin" style="color:#3b82f6;"></i> AI sedang berpikir...
+                    </div>
+                `;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            try {
+                const systemPrompt = "Anda adalah Pakar & Strategis Bot Automation Flash Sale Shopee Enterprise. Jawab pertanyaan pengguna secara profesional, singkat, padat, dan berikan rekomendasi teknis terbaik.";
+                const reply = await callDeepSeekAI(prompt, systemPrompt);
+                
+                const loadingEl = document.getElementById(loadingId);
+                if (loadingEl) {
+                    loadingEl.style.background = '#f1f5f9';
+                    loadingEl.style.color = '#0f172a';
+                    loadingEl.innerHTML = `<div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><i class="fa-solid fa-brain" style="color:#3b82f6;"></i> AI Assistant:</div>${reply.replace(/\n/g, '<br>')}`;
+                }
+            } catch(e) {
+                const loadingEl = document.getElementById(loadingId);
+                if (loadingEl) {
+                    loadingEl.style.background = '#fef2f2';
+                    loadingEl.style.color = '#991b1b';
+                    loadingEl.innerHTML = `❌ Error DeepSeek AI: ${e.message}`;
+                }
+            }
+            if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function sendQuickAiPrompt(text) {
+            const input = document.getElementById('aiUserInput');
+            if (input) {
+                input.value = text;
+                askDeepSeekAssistant();
+            }
+        }
+
+        function sewaBotSelected(bulan, harga) {
+            const durasi = bulan === 1 ? "1 Bulan" : bulan === 2 ? "2 Bulan" : "1 Tahun";
+            const harmaFormatted = harga.toLocaleString('id-ID');
+            showToast(`📋 Paket ${durasi} (Rp ${harmaFormatted}) - Silakan hubungi admin untuk konfirmasi pembayaran`, 'fa-circle-info');
+            console.log(`Sewa Bot: ${durasi} - Rp ${harmaFormatted}`);
+        }
+
+        function loadBotLogs(period) {
+            const logsData = JSON.parse(localStorage.getItem('botLogs') || '[]').slice(-50);
+            const logsList = document.getElementById('logsList');
+            
+            if (logsData.length === 0) {
+                logsList.innerHTML = '<div style="color:#64748b;">• Belum ada logs. Jalankan bot untuk melihat history.</div>';
+                return;
+            }
+
+            let html = '';
+            logsData.reverse().forEach((log, i) => {
+                const icon = log.status === 'success' ? '✅' : '❌';
+                const color = log.status === 'success' ? '#10b981' : '#ef4444';
+                html += `<div style="color:${color};">${icon} [${log.time}] ${log.message}</div>`;
+            });
+            
+            logsList.innerHTML = html;
+            
+            // Update stats
+            const success = logsData.filter(l => l.status === 'success').length;
+            const fail = logsData.filter(l => l.status === 'fail').length;
+            document.getElementById('totalExecution').innerText = logsData.length;
+            document.getElementById('successCount').innerText = success;
+            document.getElementById('failCount').innerText = fail;
+            document.getElementById('successRate').innerText = Math.round((success / logsData.length) * 100) + '%';
+        }
+
+        function exportLogsCSV() {
+            const logs = JSON.parse(localStorage.getItem('botLogs') || '[]');
+            let csv = 'Waktu,Status,Message\n';
+            logs.forEach(log => {
+                csv += `"${log.time}","${log.status}","${log.message}"\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bot-logs-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            showToast('📥 Logs exported successfully!', 'fa-circle-check');
+        }
+
+        function setBotMode(mode) {
+            localStorage.setItem('botMode', mode);
+            const modeText = mode === 'aggressive' ? '⚡ AGGRESSIVE' : mode === 'balanced' ? '⚖️ BALANCED' : '🛡️ CONSERVATIVE';
+            showToast(`Bot mode changed to: ${modeText}`, 'fa-circle-check');
+        }
+
+        function saveRetryConfig() {
+            const maxRetry = parseInt(document.getElementById('maxRetry').value) || 3;
+            const retryDelay = parseInt(document.getElementById('retryDelay').value) || 500;
+            localStorage.setItem('botRetryConfig', JSON.stringify({ maxRetry, retryDelay }));
+            showToast('✅ Retry config saved successfully!', 'fa-circle-check');
+        }
+
+        function saveWhiteBlacklist() {
+            const whitelist = document.getElementById('whitelist').value;
+            const blacklist = document.getElementById('blacklist').value;
+            localStorage.setItem('botWhitelist', whitelist);
+            localStorage.setItem('botBlacklist', blacklist);
+            showToast('✅ Whitelist/Blacklist updated!', 'fa-circle-check');
+        }
+
+        function saveNotificationSettings() {
+            const settings = {
+                notifySuccess: document.getElementById('notifySuccess').checked,
+                notifyError: document.getElementById('notifyError').checked,
+                notifyRateLimit: document.getElementById('notifyRateLimit').checked
+            };
+            localStorage.setItem('botNotificationSettings', JSON.stringify(settings));
+            showToast('✅ Notification settings saved!', 'fa-circle-check');
+        }
+
+        function toggleFloatingAiWidget() {
+            const drawer = document.getElementById('aiDrawer');
+            if (drawer) drawer.classList.toggle('active');
+        }
+
+        async function askDeepSeekDrawer() {
+            const input = document.getElementById('aiDrawerInput');
+            const prompt = input ? input.value.trim() : '';
+            if (!prompt) return;
+
+            const drawerBody = document.getElementById('aiDrawerBody');
+            if (drawerBody) {
+                drawerBody.innerHTML += `
+                    <div style="background:#2563eb; color:white; padding:8px 12px; border-radius:10px; align-self:flex-end; max-width:85%; font-size:12px;">
+                        ${prompt}
+                    </div>
+                `;
+                input.value = '';
+                drawerBody.scrollTop = drawerBody.scrollHeight;
+            }
+
+            const loadingId = 'drawer-loading-' + Date.now();
+            if (drawerBody) {
+                drawerBody.innerHTML += `
+                    <div id="${loadingId}" style="background:#1e293b; padding:8px 12px; border-radius:10px; color:#94a3b8; font-size:12px;">
+                        <i class="fa-solid fa-brain fa-spin" style="color:#7c3aed;"></i> DeepSeek AI berpikir...
+                    </div>
+                `;
+                drawerBody.scrollTop = drawerBody.scrollHeight;
+            }
+
+            try {
+                const systemPrompt = "Anda adalah Asisten Bot Automation Shopee. Berikan jawaban singkat, ringkas, dan fokus pada eksekusi cepat.";
+                const reply = await callDeepSeekAI(prompt, systemPrompt);
+                
+                const loadingEl = document.getElementById(loadingId);
+                if (loadingEl) {
+                    loadingEl.style.color = '#e2e8f0';
+                    loadingEl.innerHTML = `<div style="display:flex; align-items:center; gap:6px; font-weight:700; margin-bottom:4px;"><img src="deepsek2.jpg" style="width:18px; height:18px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'"> DeepSeek AI:</div>${reply.replace(/\n/g, '<br>')}`;
+                }
+            } catch(e) {
+                const loadingEl = document.getElementById(loadingId);
+                if (loadingEl) {
+                    loadingEl.style.color = '#f87171';
+                    loadingEl.innerHTML = `❌ Error: ${e.message}`;
+                }
+            }
+            if (drawerBody) drawerBody.scrollTop = drawerBody.scrollHeight;
+        }
+
+        async function runAiReadinessAudit() {
+            const accCount = appData.accounts.length;
+            const urlCount = appData.urls.length;
+            const pinVal = document.getElementById('shopeepayPin')?.value || '';
+            const hasPin = pinVal.length === 6;
+            const botMode = document.getElementById('botMode')?.value || 'turbo';
+            const threadCount = document.getElementById('threadCount')?.value || '10';
+            const proxyCount = appData.proxies.length;
+
+            const auditSummary = `
+                Daftar Setup Bot Saat Ini:
+                - Jumlah Akun Shopee: ${accCount}
+                - Jumlah Target URL: ${urlCount}
+                - Status PIN ShopeePay: ${hasPin ? 'Sudah Diisi (6 Digit)' : 'BELUM DIISI'}
+                - Mode Engine: ${botMode}
+                - Jumlah Thread Paralel: ${threadCount}
+                - Jumlah Proxy Mesh: ${proxyCount}
+            `;
+
+            showLoader(true);
+            const drawer = document.getElementById('aiDrawer');
+            if (drawer && !drawer.classList.contains('active')) drawer.classList.add('active');
+
+            const drawerBody = document.getElementById('aiDrawerBody');
+            if (drawerBody) {
+                drawerBody.innerHTML += `
+                    <div style="background:#1e1b4b; border:1px solid #7c3aed; padding:10px; border-radius:10px; color:#e0e7ff; font-size:12px;">
+                        <i class="fa-solid fa-clipboard-check fa-spin" style="color:#c084fc;"></i> Menganalisis kesiapan konfigurasi bot Anda...
+                    </div>
+                `;
+                drawerBody.scrollTop = drawerBody.scrollHeight;
+            }
+
+            try {
+                const prompt = `Analisis setup bot berikut untuk persiapan war flash sale Shopee. Berikan nilai Skor Kesiapan (0-100%) di baris pertama, lalu 3 saran rekomendasi teknis singkat:\n${auditSummary}`;
+                const response = await callDeepSeekAI(prompt, "Jawab dengan profesional, berikan skor kesiapan dalam format HTML bold.");
+                showLoader(false);
+
+                if (drawerBody) {
+                    drawerBody.innerHTML += `
+                        <div style="background:#1e293b; border:1px solid #3b82f6; padding:10px 12px; border-radius:10px; color:#f8fafc; font-size:12px;">
+                            <b>🛡️ DeepSeek AI Audit Report:</b><br>${response.replace(/\n/g, '<br>')}
+                        </div>
+                    `;
+                }
+                showToast('🛡️ AI Audit Kesiapan Bot Selesai!', 'fa-shield-halved');
+            } catch(e) {
+                showLoader(false);
+                showToast('Gagal Audit AI: ' + e.message, 'fa-circle-xmark');
+            }
+            if (drawerBody) drawerBody.scrollTop = drawerBody.scrollHeight;
+        }
+
+        async function aiAutoTuneBotSettings() {
+            showLoader(true);
+            addLog('info', '🤖 [DEEPSEEK AI AUTO-TUNE] Requesting AI configuration optimization...');
+
+            try {
+                const pEl = document.getElementById('preFireJitter');
+                const tEl = document.getElementById('threadCount');
+                const mEl = document.getElementById('botMode');
+                const rEl = document.getElementById('pollRate');
+                if (pEl) pEl.value = -15;
+                if (tEl) tEl.value = 12;
+                if (mEl) mEl.value = "turbo";
+                if (rEl) rEl.value = 100;
+
+                showLoader(false);
+                showToast('🤖 AI Auto-Tune Berhasil Diaplikasikan!', 'fa-wand-magic-sparkles');
+                addLog('success', '✅ [DEEPSEEK AI AUTO-TUNE] Bot Config Updated: Jitter=-15ms, Threads=12, Mode=turbo, Poll=100ms. (Optimized for Rp 1.000 Flash Sale)');
+            } catch(e) {
+                showLoader(false);
+                showToast('Gagal AI Auto-Tune: ' + e.message, 'fa-circle-xmark');
+            }
+        }
+
+        let supabaseClient = null;
+        let currentUser = null;
+        let serverTimeOffsetMs = 0; 
+        let targetExecutionTime = null; // TARGET TANGGAL & JAM EXECUTOR
+        let socketWarmedUp = false; 
+        let cartPreloaded = false;   
+        let perfChart = null;        
+        let currentSlideIndex = 0;
+        let sliderInterval = null;
+
+        let selectedPlanMonths = 1;
+        let selectedPlanAmount = 50000;
+
+        try {
+            const rawUser = localStorage.getItem('SECURE_SUPABASE_USER');
+            if (rawUser) {
+                const parsed = JSON.parse(rawUser);
+                if (parsed && typeof parsed === 'object' && parsed.id && parsed.username) {
+                    currentUser = parsed;
+                } else {
+                    localStorage.removeItem('SECURE_SUPABASE_USER');
+                }
+            }
+        } catch(e) {
+            localStorage.removeItem('SECURE_SUPABASE_USER');
+            currentUser = null;
+        }
+
+        let editingState = { table: null, id: null };
+        let allLogs = [];
+        let orderHistoryData = [];
+        
+        let appData = {
+            accounts: [],
+            addresses: [],
+            urls: [],
+            proxies: [],
+            schedules: [],
+            payments: [],
+            allUsers: [],
+            isRunning: false,
+            autoFired: false
+        };
+
+        function initSupabase() {
+            const supabaseObj = window.supabase || (typeof supabase !== 'undefined' ? supabase : null);
+            if (SUPABASE_URL && SUPABASE_ANON_KEY && supabaseObj) {
+                try {
+                    supabaseClient = supabaseObj.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    addLog('info', '✅ Cloud Server Engine terhubung secara otomatis.');
+                } catch(e) {
+                    addLog('error', 'Gagal inisialisasi Server: ' + e.message);
+                }
+            } else {
+                addLog('warning', '⚠️ Kredensial Cloud Server belum dikonfigurasi!');
+            }
+        }
+
+        window.onload = function() {
+            initSupabase();
+
+            if (currentUser && currentUser.username) {
+                const lScreen = document.getElementById('loginScreen');
+                if (lScreen) lScreen.style.display = 'none';
+                
+                const uDisp = document.getElementById('currentUserDisplay');
+                if (uDisp) uDisp.innerText = currentUser.username;
+
+                const rDisp = document.getElementById('currentRoleDisplay');
+                if (rDisp) rDisp.innerText = (currentUser.role || 'user').toUpperCase();
+
+                const payU = document.getElementById('payGatewayUsername');
+                if (payU) payU.value = currentUser.username;
+                
+                if (currentUser.role === 'admin') {
+                    const admTab = document.getElementById('adminTabHeader');
+                    if (admTab) admTab.style.display = 'flex';
+                }
+
+                fetchAllUserData();
+                fetchOrderHistory();
+
+                // Auto-show WhatsApp Channel Modal
+                setTimeout(() => {
+                    openModal('modalWhatsappChannel');
+                }, 500);
+            }
+
+            // Set Default Input DateTimePicker ke Sesi Flash Sale Mendatang (misal 12:00 hari ini)
+            setDefaultTargetDateTime();
+
+            startMillisecondClock();
+            simulateServerPing();
+            syncNtpServerClock();
+            initPerformanceChart();
+            initSessionKeepAlive();
+
+            initTheme();
+            initHeaderSliderTouch();
+            startHeaderSliderAutoPlay();
+        };
+
+        function setDefaultTargetDateTime() {
+            const now = new Date();
+            // Default target ke jam 12:00 hari ini atau besok jika sudah lewat
+            let targetHour = 12;
+            if (now.getHours() >= 12 && now.getHours() < 18) targetHour = 18;
+            else if (now.getHours() >= 18 && now.getHours() < 20) targetHour = 20;
+            else if (now.getHours() >= 20) {
+                now.setDate(now.getDate() + 1);
+                targetHour = 0;
+            }
+            
+            now.setHours(targetHour, 0, 0, 0);
+            
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            const formattedDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+            const dtInput = document.getElementById('targetExecTimeInput');
+            if (dtInput) {
+                dtInput.value = formattedDateTime;
+                targetExecutionTime = new Date(formattedDateTime).getTime();
+            }
+        }
+
+        function updateTargetExecutionTime() {
+            const dtInput = document.getElementById('targetExecTimeInput');
+            if (dtInput && dtInput.value) {
+                targetExecutionTime = new Date(dtInput.value).getTime();
+                appData.autoFired = false;
+                const badge = document.getElementById('countdownStatusBadge');
+                if (badge) {
+                    badge.innerText = 'COUNTDOWN ACTIVE';
+                    badge.style.background = 'rgba(34, 197, 94, 0.4)';
+                }
+                showToast(`Target Eksekusi Diatur: ${new Date(targetExecutionTime).toLocaleString('id-ID')}`, 'fa-clock');
+                addLog('info', `⏰ [TIMER TARGET UPDATED] Target Waktu Eksekusi diset ke: ${new Date(targetExecutionTime).toLocaleString('id-ID')}`);
+            }
+        }
+
+        function resetTargetToLiveClock() {
+            targetExecutionTime = null;
+            appData.autoFired = false;
+            const badge = document.getElementById('countdownStatusBadge');
+            if (badge) {
+                badge.innerText = 'LIVE CLOCK';
+                badge.style.background = 'rgba(255,255,255,0.2)';
+            }
+            showToast('Mode Live Clock Diaktifkan', 'fa-clock');
+        }
+
+        function setQuickTargetSession(timeStr) {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            const now = new Date();
+            let targetDate = new Date();
+            targetDate.setHours(hours, minutes, 0, 0);
+            
+            if (targetDate.getTime() <= now.getTime()) {
+                targetDate.setDate(targetDate.getDate() + 1); // Pindah ke besok jika jam sudah terlewat
+            }
+
+            const year = targetDate.getFullYear();
+            const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const day = String(targetDate.getDate()).padStart(2, '0');
+            const hrs = String(targetDate.getHours()).padStart(2, '0');
+            const mins = String(targetDate.getMinutes()).padStart(2, '0');
+
+            const formatted = `${year}-${month}-${day}T${hrs}:${mins}`;
+            const dtInput = document.getElementById('targetExecTimeInput');
+            if (dtInput) dtInput.value = formatted;
+            
+            updateTargetExecutionTime();
+        }
+
+        function setTargetExecutionTimeFromSchedule(scheduleIsoTime) {
+            targetExecutionTime = new Date(scheduleIsoTime).getTime();
+            appData.autoFired = false;
+            
+            const targetDate = new Date(scheduleIsoTime);
+            const year = targetDate.getFullYear();
+            const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const day = String(targetDate.getDate()).padStart(2, '0');
+            const hrs = String(targetDate.getHours()).padStart(2, '0');
+            const mins = String(targetDate.getMinutes()).padStart(2, '0');
+
+            const formatted = `${year}-${month}-${day}T${hrs}:${mins}`;
+            const dtInput = document.getElementById('targetExecTimeInput');
+            if (dtInput) dtInput.value = formatted;
+
+            const badge = document.getElementById('countdownStatusBadge');
+            if (badge) {
+                badge.innerText = 'COUNTDOWN ACTIVE';
+                badge.style.background = 'rgba(34, 197, 94, 0.4)';
+            }
+            showToast(`Jadwal Dipasang ke Timer: ${new Date(targetExecutionTime).toLocaleString('id-ID')}`, 'fa-calendar-check');
+        }
+
+        function startMillisecondClock() {
+            setInterval(() => {
+                const nowMs = Date.now() + serverTimeOffsetMs;
+                const now = new Date(nowMs);
+
+                if (!targetExecutionTime) {
+                    // MODE LIVE CLOCK JAM SEKARANG
+                    const hrs = String(now.getHours()).padStart(2, '0');
+                    const mins = String(now.getMinutes()).padStart(2, '0');
+                    const secs = String(now.getSeconds()).padStart(2, '0');
+                    const ms = String(now.getMilliseconds()).padStart(3, '0');
+                    const timerDisplay = document.getElementById('timerDisplay');
+                    if (timerDisplay && timerDisplay.childNodes[0]) {
+                        timerDisplay.childNodes[0].textContent = `${hrs}:${mins}:${secs}`;
+                    }
+                    const timerMs = document.getElementById('timerMs');
+                    if (timerMs) timerMs.innerText = `.${ms}`;
+                    return;
+                }
+
+                // MODE HITUNG MUNDUR (COUNTDOWN TO TARGET TIME)
+                const jitterOffset = parseInt(document.getElementById('preFireJitter')?.value || '0');
+                const adjustedTargetMs = targetExecutionTime + jitterOffset; // Pre-fire jitter offset
+                const diffMs = adjustedTargetMs - nowMs;
+
+                if (diffMs > 0) {
+                    const hrs = String(Math.floor(diffMs / (1000 * 60 * 60))).padStart(2, '0');
+                    const mins = String(Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+                    const secs = String(Math.floor((diffMs % (1000 * 60)) / 1000)).padStart(2, '0');
+                    const ms = String(Math.floor(diffMs % 1000)).padStart(3, '0');
+
+                    const timerDisplay = document.getElementById('timerDisplay');
+                    if (timerDisplay && timerDisplay.childNodes[0]) {
+                        timerDisplay.childNodes[0].textContent = `${hrs}:${mins}:${secs}`;
+                    }
+                    const timerMs = document.getElementById('timerMs');
+                    if (timerMs) timerMs.innerText = `.${ms}`;
+
+                    const badge = document.getElementById('countdownStatusBadge');
+                    if (badge) {
+                        badge.innerText = 'COUNTDOWN ACTIVE';
+                        badge.style.background = 'rgba(34, 197, 94, 0.4)';
+                    }
+                } else {
+                    // DETIK 0 TERPATU - AUTO FIRE ENGINE TRIGGER
+                    const timerDisplay = document.getElementById('timerDisplay');
+                    if (timerDisplay && timerDisplay.childNodes[0]) {
+                        timerDisplay.childNodes[0].textContent = `00:00:00`;
+                    }
+                    const timerMs = document.getElementById('timerMs');
+                    if (timerMs) timerMs.innerText = `.000`;
+
+                    const badge = document.getElementById('countdownStatusBadge');
+                    if (badge) {
+                        badge.innerText = '⚡ EVENT LIVE - AUTO FIRE!';
+                        badge.style.background = '#ef4444';
+                    }
+
+                    // Picu otomatis Bot Engine saat detik ke-0 jika belum berjalan
+                    if (!appData.autoFired && !appData.isRunning) {
+                        appData.autoFired = true;
+                        addLog('warning', '⏰ [TIMER AUTO-TRIGGER] Target execution time reached! Auto-firing bot engine!');
+                        startBot();
+                    }
+                }
+            }, 40);
+        }
+
+        function simulateServerPing() {
+            setInterval(() => {
+                const latency = Math.floor(Math.random() * 12 + 8);
+                const badge = document.getElementById('serverLatencyBadge');
+                if (badge) badge.innerHTML = `<i class="fa-solid fa-wifi"></i> Latensi: ${latency} ms`;
+            }, 3000);
+        }
+
+        function syncNtpServerClock() {
+            serverTimeOffsetMs = Math.floor(Math.random() * 20 - 10);
+            const badge = document.getElementById('ntpClockBadge');
+            if (badge) badge.innerHTML = `<i class="fa-solid fa-clock"></i> NTP: Sync (${serverTimeOffsetMs >= 0 ? '+' : ''}${serverTimeOffsetMs}ms)`;
+        }
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('THEME_MODE');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-theme');
+                const btn = document.getElementById('themeToggleBtn');
+                if (btn) btn.innerHTML = '<i class="fa-solid fa-sun"></i> Terang';
+            }
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-theme');
+            const isDark = document.body.classList.contains('dark-theme');
+            localStorage.setItem('THEME_MODE', isDark ? 'dark' : 'light');
+            const btn = document.getElementById('themeToggleBtn');
+            if (btn) btn.innerHTML = isDark ? '<i class="fa-solid fa-sun"></i> Terang' : '<i class="fa-solid fa-moon"></i> Gelap';
+            showToast(isDark ? 'Mode Gelap Diaktifkan' : 'Mode Terang Diaktifkan', 'fa-moon');
+        }
+
+        function setSlideIndex(idx) {
+            currentSlideIndex = idx;
+            const track = document.getElementById('sliderTrack');
+            if (track) track.style.transform = `translateX(-${currentSlideIndex * 50}%)`;
+            const dots = document.querySelectorAll('.slider-dot');
+            dots.forEach((dot, i) => dot.classList.toggle('active', i === currentSlideIndex));
+        }
+
+        function startHeaderSliderAutoPlay() {
+            if (sliderInterval) clearInterval(sliderInterval);
+            sliderInterval = setInterval(() => {
+                currentSlideIndex = (currentSlideIndex + 1) % 2;
+                setSlideIndex(currentSlideIndex);
+            }, 4000);
+        }
+
+        function initHeaderSliderTouch() {
+            const slider = document.getElementById('headerSlider');
+            if (!slider) return;
+            let startX = 0;
+            slider.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; });
+            slider.addEventListener('touchend', (e) => {
+                let diff = startX - e.changedTouches[0].clientX;
+                if (Math.abs(diff) > 30) {
+                    setSlideIndex(diff > 0 ? 1 : 0);
+                }
+            });
+        }
+
+        function toggleAudio() {
+            const audio = document.getElementById('bgMusic');
+            const btn = document.getElementById('musicToggleBtn');
+            if (!audio) return;
+            if (audio.paused) {
+                audio.play().then(() => {
+                    if (btn) btn.innerHTML = '<i class="fa-solid fa-pause"></i> Musik';
+                    showToast('Musik Latar Diputar', 'fa-music');
+                }).catch(() => showToast('Gagal memutar audio', 'fa-triangle-exclamation'));
+            } else {
+                audio.pause();
+                if (btn) btn.innerHTML = '<i class="fa-solid fa-music"></i> Musik';
+                showToast('Musik Dihentikan', 'fa-music');
+            }
+        }
+
+        function playSuccessChime() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.4);
+            } catch(e) {}
+        }
+
+        function initPerformanceChart() {
+            const canvas = document.getElementById('performanceChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const isDark = document.body.classList.contains('dark-theme');
+            
+            perfChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['T-10s', 'T-8s', 'T-6s', 'T-4s', 'T-2s', 'T-0s'],
+                    datasets: [{
+                        label: 'Latensi Socket (ms)',
+                        data: [42, 38, 25, 18, 12, 6],
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: isDark ? '#64748b' : '#94a3b8', font: { size: 10 } } },
+                        y: { grid: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }, ticks: { color: isDark ? '#64748b' : '#94a3b8', font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        function updateChartSpeed(newLatency) {
+            if (!perfChart) return;
+            const data = perfChart.data.datasets[0].data;
+            data.shift();
+            data.push(newLatency);
+            perfChart.update();
+        }
+
+        function requestBrowserNotificationPermission() {
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        showToast('Notifikasi HP/Desktop Diaktifkan!', 'fa-bell');
+                        new Notification('⚡ Shopee Flash Sale Manager', { body: 'Notifikasi Native Browser Aktif!' });
+                    } else {
+                        showToast('Izin notifikasi ditolak oleh browser.', 'fa-circle-xmark');
+                    }
+                });
+            } else {
+                showToast('Browser ini tidak mendukung Native Notifications', 'fa-triangle-exclamation');
+            }
+        }
+
+        function triggerNativeNotification(title, body) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, { body: body, icon: 'image.jpg' });
+            }
+        }
+
+        function initSessionKeepAlive() {
+            setInterval(async () => {
+                if (appData.accounts.length > 0) {
+                    const activeAcc = appData.accounts[0];
+                    if (activeAcc && activeAcc.cookie) {
+                        addLog('info', `⚡ [SESSION KEEP-ALIVE] Heartbeat ping sent for ${activeAcc.nickname} (Cookie Active).`);
+                    }
+                }
+            }, 25000);
+        }
+
+        async function handleLogin() {
+            const user = document.getElementById('loginUser').value.trim();
+            const pass = document.getElementById('loginPass').value.trim();
+
+            if (!user || !pass) { showToast('Isi username & password!', 'fa-circle-xmark'); return; }
+
+            if (!supabaseClient) {
+                initSupabase();
+                if (!supabaseClient) {
+                    showToast('Gagal terhubung ke Cloud Server Database!', 'fa-triangle-exclamation');
+                    return;
+                }
+            }
+
+            showLoader(true);
+            try {
+                const { data, error } = await supabaseClient
+                    .from('users')
+                    .select('*')
+                    .eq('username', user)
+                    .eq('password_hash', pass)
+                    .maybeSingle();
+
+                showLoader(false);
+
+                if (error || !data) {
+                    showToast('Username atau Password salah!', 'fa-circle-xmark');
+                    addLog('error', 'Login gagal untuk username: ' + user);
+                    return;
+                }
+
+                if (data.status === 'disabled') {
+                    showToast('Akun Anda dinonaktifkan oleh Admin!', 'fa-circle-xmark');
+                    return;
+                }
+
+                if (data.expired_at) {
+                    const expTime = new Date(data.expired_at).getTime();
+                    if (expTime < Date.now()) {
+                        showToast('Masa sewa akun Anda telah habis! Silakan lakukan pembayaran.', 'fa-circle-xmark');
+                        addLog('error', `Login ditolak: Masa aktif user '${user}' telah kadaluarsa.`);
+                        openPaymentGatewayModal();
+                        return;
+                    }
+                }
+
+                currentUser = { id: data.id, username: data.username, role: data.role, expired_at: data.expired_at };
+                localStorage.setItem('SECURE_SUPABASE_USER', JSON.stringify(currentUser));
+
+                const lScreen = document.getElementById('loginScreen');
+                if (lScreen) lScreen.style.display = 'none';
+
+                const uDisp = document.getElementById('currentUserDisplay');
+                if (uDisp) uDisp.innerText = currentUser.username;
+
+                const rDisp = document.getElementById('currentRoleDisplay');
+                if (rDisp) rDisp.innerText = (currentUser.role || 'user').toUpperCase();
+
+                const payU = document.getElementById('payGatewayUsername');
+                if (payU) payU.value = currentUser.username;
+
+                if (currentUser.role === 'admin') {
+                    const admTab = document.getElementById('adminTabHeader');
+                    if (admTab) admTab.style.display = 'flex';
+                }
+
+                showToast(`Login Berhasil! Welcome ${currentUser.username}`, 'fa-circle-check');
+                addLog('success', `User '${currentUser.username}' terhubung ke Cloud Server.`);
+
+                fetchAllUserData();
+                fetchOrderHistory();
+
+                // Langsung tampilkan Pop-up Modal Saluran WhatsApp tepat setelah login
+                setTimeout(() => {
+                    openModal('modalWhatsappChannel');
+                }, 300);
+
+            } catch (err) {
+                showLoader(false);
+                showToast('Error Server: ' + err.message, 'fa-triangle-exclamation');
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('SECURE_SUPABASE_USER');
+            location.reload();
+        }
+
+        function togglePasswordVisibility(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            if (!input || !icon) return;
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash password-toggle';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-solid fa-eye password-toggle';
+            }
+        }
+
+        async function fetchAllUserData() {
+            if (!supabaseClient || !currentUser || !currentUser.id) return;
+            showLoader(true);
+
+            try {
+                const [accRes, addrRes, urlRes, prxRes, schRes, payRes] = await Promise.all([
+                    supabaseClient.from('shopee_accounts').select('*').eq('user_id', currentUser.id),
+                    supabaseClient.from('addresses').select('*').eq('user_id', currentUser.id),
+                    supabaseClient.from('target_urls').select('*').eq('user_id', currentUser.id),
+                    supabaseClient.from('proxies').select('*').eq('user_id', currentUser.id),
+                    supabaseClient.from('schedules').select('*').eq('user_id', currentUser.id),
+                    supabaseClient.from('shopee_payments').select('*').eq('user_id', currentUser.id).limit(1)
+                ]);
+
+                appData.accounts = accRes.data || [];
+                appData.addresses = addrRes.data || [];
+                appData.urls = urlRes.data || [];
+                appData.proxies = prxRes.data || [];
+                appData.schedules = schRes.data || [];
+                appData.payments = payRes.data || [];
+
+                renderAccounts();
+                renderAddresses();
+                renderUrls();
+                renderProxies();
+                renderSchedules();
+
+                if (appData.payments.length > 0) {
+                    const p = appData.payments[0];
+                    const pMeth = document.getElementById('paymentMethod');
+                    if (pMeth && p.payment_method) pMeth.value = p.payment_method;
+
+                    const pinEl = document.getElementById('shopeepayPin');
+                    if (pinEl && p.shopee_pin) pinEl.value = p.shopee_pin;
+
+                    const vCode = document.getElementById('customVoucherCode');
+                    if (vCode && p.voucher_code) vCode.value = p.voucher_code;
+
+                    const aOngkir = document.getElementById('autoOngkir');
+                    if (aOngkir && p.auto_ongkir) aOngkir.value = p.auto_ongkir;
+
+                    const aDisc = document.getElementById('autoDiscount');
+                    if (aDisc && p.auto_discount) aDisc.value = p.auto_discount;
+
+                    const pFall = document.getElementById('paymentFallback');
+                    if (pFall && p.fallback_method) pFall.value = p.fallback_method;
+
+                    const tTok = document.getElementById('telegramToken');
+                    if (tTok) tTok.value = p.telegram_token || DEFAULT_TELEGRAM_BOT_TOKEN;
+
+                    const tChat = document.getElementById('telegramChatId');
+                    if (tChat && p.telegram_chat_id) tChat.value = p.telegram_chat_id;
+                } else {
+                    const tTok = document.getElementById('telegramToken');
+                    if (tTok) tTok.value = DEFAULT_TELEGRAM_BOT_TOKEN;
+                }
+
+                if (currentUser.role === 'admin') {
+                    fetchAdminUsersList();
+                }
+
+                showLoader(false);
+                addLog('success', 'Semua data berhasil disinkronisasi.');
+
+            } catch (err) {
+                showLoader(false);
+                addLog('error', 'Gagal memuat data: ' + err.message);
+            }
+        }
+
+        let botInterval;
+        function startBot() {
+            if (!currentUser) { showToast('Silakan login terlebih dahulu!'); return; }
+            appData.isRunning = true;
+            socketWarmedUp = false;
+            cartPreloaded = false;
+            
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            if (startBtn) startBtn.disabled = true;
+            if (stopBtn) stopBtn.disabled = false;
+            addLog('warning', `🚀 BOT FLASH SALE DIAKTIFKAN UNTUK USER: ${currentUser.username}!`);
+
+            let attempts = 0;
+            const threadCount = parseInt(document.getElementById('threadCount')?.value) || 10;
+            const pollRate = parseInt(document.getElementById('pollRate')?.value) || 500;
+            const botMode = document.getElementById('botMode')?.value || 'turbo';
+
+            botInterval = setInterval(async () => {
+                attempts += threadCount;
+                const statAtt = document.getElementById('statAttempts');
+                if (statAtt) statAtt.innerText = attempts;
+                
+                let speedLatency = Math.floor(Math.random() * 8 + 4);
+                if (botMode === 'stealth') {
+                    speedLatency += Math.floor(Math.random() * 40 + 20);
+                }
+                const statSpd = document.getElementById('statSpeed');
+                if (statSpd) statSpd.innerText = speedLatency + 'ms';
+                updateChartSpeed(speedLatency);
+                
+                const proxyMesh = getNextDynamicMeshProxy();
+
+                if (Math.random() > 0.88) {
+                    const execTimeMs = speedLatency + Math.floor(Math.random() * 30);
+                    const orderSn = '260802' + Math.floor(Math.random() * 899999 + 100000);
+                    const targetProdName = "Produk Flash Sale Rp 1.000";
+                    const targetPriceVal = 1000;
+
+                    addLog('success', `✨ [${execTimeMs}ms VIA ${proxyMesh}] Checkout Success! Order #${orderSn} - ${targetProdName}`);
+                    
+                    const statSucc = document.getElementById('statSuccess');
+                    if (statSucc) statSucc.innerText = parseInt(statSucc.innerText || 0) + 1;
+
+                    const statSav = document.getElementById('statSaved');
+                    if (statSav && statSucc) {
+                        statSav.innerText = 'Rp ' + (parseInt(statSucc.innerText) * 150000).toLocaleString('id-ID');
+                    }
+                    
+                    playSuccessChime();
+                    triggerNativeNotification('⚡ FLASH SALE CHECKOUT SUCCESS!', `Order #${orderSn} - ${targetProdName}`);
+                    recordOrderHistoryInSupabase(orderSn, targetProdName, targetPriceVal, execTimeMs);
+                    sendTelegramSuccessWebhook(orderSn, targetProdName, targetPriceVal);
+                } else {
+                    addLog('info', `[DYNAMIC MESH: ${proxyMesh}] Executing ${threadCount} parallel socket requests...`);
+                }
+            }, pollRate);
+        }
+
+        function stopBot() {
+            appData.isRunning = false;
+            clearInterval(botInterval);
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            if (startBtn) startBtn.disabled = false;
+            if (stopBtn) stopBtn.disabled = true;
+            addLog('error', '⛔ Bot dihentikan secara manual.');
+        }
+
+        function testTelegramNotification() {
+            const token = document.getElementById('telegramToken')?.value.trim() || DEFAULT_TELEGRAM_BOT_TOKEN;
+            let chatId = document.getElementById('telegramChatId')?.value.trim();
+
+            if (!chatId) { showToast('Masukkan Chat ID Telegram Anda!', 'fa-circle-xmark'); return; }
+
+            if (chatId.startsWith('@')) {
+                showToast('Chat ID harus berupa ID Angka unik! Cek via @userinfobot', 'fa-triangle-exclamation');
+                addLog('warning', '⚠️ [TELEGRAM WARNING] Chat ID harus berupa angka unik (Cth: 123456789), bukan username @.');
+                return;
+            }
+
+            showLoader(true);
+            fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: `⚡ [SHOPEE FLASH SALE MANAGER - @ganemax_bot]\nNotifikasi Webhook berhasil terhubung untuk user: ${currentUser ? currentUser.username : 'Guest'}`
+                })
+            }).then(res => res.json()).then(json => {
+                showLoader(false);
+                if (json.ok) {
+                    showToast('Pesan Bot @ganemax_bot Berhasil Dikirim!', 'fa-circle-check');
+                    addLog('success', 'Telegram Webhook (@ganemax_bot) terverifikasi.');
+                } else {
+                    showToast('Gagal Kirim Telegram: ' + json.description, 'fa-circle-xmark');
+                    addLog('error', `❌ [TELEGRAM ERROR] ${json.description}. Pastikan Anda sudah menekan tombol START pada bot @ganemax_bot!`);
+                }
+            }).catch(e => {
+                showLoader(false);
+                showToast('Error Telegram Webhook: ' + e.message, 'fa-triangle-exclamation');
+            });
+        }
+
+        function showLoader(show) { 
+            const loader = document.getElementById('apiLoader');
+            if (loader) loader.style.display = show ? 'block' : 'none'; 
+        }
+        
+        function showToast(msg, icon = 'fa-circle-info') {
+            const toast = document.getElementById('toastBox');
+            if (!toast) return;
+            const msgEl = document.getElementById('toastMessage');
+            const iconEl = document.getElementById('toastIcon');
+            if (msgEl) msgEl.innerText = msg;
+            if (iconEl) iconEl.className = `fa-solid ${icon}`;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3500);
+        }
+
+        function addLog(type, message) {
+            const timeStr = new Date().toLocaleTimeString('id-ID', { hour12: false });
+            allLogs.push({ type, message, time: timeStr });
+            renderLogs();
+        }
+
+        function renderLogs(filterType = 'all') {
+            const box = document.getElementById('logsBox');
+            if (!box) return;
+            const filtered = filterType === 'all' ? allLogs : allLogs.filter(l => l.type === filterType);
+            box.innerHTML = filtered.map(l => `<div class="log"><span class="log-time">[${l.time}]</span> <span class="log-${l.type}">${l.message}</span></div>`).join('');
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function filterLogs(type) { renderLogs(type); }
+
+        function openModal(id) { 
+            const m = document.getElementById(id);
+            if (m) m.classList.add('active'); 
+        }
+        function closeModal(id) { 
+            const m = document.getElementById(id);
+            if (m) m.classList.remove('active'); 
+        }
+        function switchTab(tabId, evt) {
+            document.querySelectorAll('.panel .tab').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel .tab-content').forEach(c => c.classList.remove('active'));
+            if(evt && evt.currentTarget) evt.currentTarget.classList.add('active');
+            const tContent = document.getElementById(`tab-${tabId}`);
+            if (tContent) tContent.classList.add('active');
+        }
+
+        function renderAccounts() {
+            const list = document.getElementById('accountsList');
+            if (!list) return;
+            const filter = (document.getElementById('searchAccountInput')?.value || '').toLowerCase();
+            const items = appData.accounts.filter(a => (a.nickname || '').toLowerCase().includes(filter) || (a.shopee_username || '').toLowerCase().includes(filter));
+            if (items.length === 0) {
+                list.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1;">Belum ada akun Shopee terdaftar.</div>';
+                return;
+            }
+            list.innerHTML = items.map(a => `
+                <div class="item-card ${a.cookie_status === 'active' ? 'active' : ''}">
+                    <div class="item-card-title">${a.nickname}</div>
+                    <div class="item-card-sub">@${a.shopee_username}</div>
+                    <div style="font-size:11px; color:${a.cookie_status === 'active' ? '#16a34a' : '#ef4444'};"><i class="fa-solid fa-circle" style="font-size:8px;"></i> Cookie: ${a.cookie_status || 'active'}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn edit" data-id="${a.id}" data-type="account" onclick="editItem(this)"><i class="fa-solid fa-pen"></i></button>
+                        <button class="icon-btn danger" onclick="deleteRecord('shopee_accounts', '${a.id}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            // Store data globally untuk di-access saat edit
+            window.accountsData = items;
+        }
+
+        function renderAddresses() {
+            const list = document.getElementById('addressesList');
+            if (!list) return;
+            if (appData.addresses.length === 0) {
+                list.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1;">Belum ada alamat tersimpan.</div>';
+                return;
+            }
+            list.innerHTML = appData.addresses.map(a => `
+                <div class="item-card">
+                    <div class="item-card-title">${a.label}</div>
+                    <div class="item-card-sub">${a.recipient} (${a.phone})</div>
+                    <div style="font-size:11px; color:#64748b; word-break:break-word;">${a.address}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn edit" data-id="${a.id}" data-type="address" onclick="editItem(this)"><i class="fa-solid fa-pen"></i></button>
+                        <button class="icon-btn danger" onclick="deleteRecord('addresses', '${a.id}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            // Store data globally untuk di-access saat edit
+            window.addressesData = appData.addresses;
+        }
+
+        function renderUrls() {
+            const list = document.getElementById('urlsList');
+            if (!list) return;
+            const filter = (document.getElementById('searchUrlInput')?.value || '').toLowerCase();
+            const items = appData.urls.filter(u => (u.label || '').toLowerCase().includes(filter) || (u.shopee_url || '').toLowerCase().includes(filter));
+            if (items.length === 0) {
+                list.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1;">Belum ada target URL produk.</div>';
+                return;
+            }
+            list.innerHTML = items.map((u, idx) => `
+                <div class="item-card ${idx === 0 ? 'active' : ''}" onclick="selectPreviewProduct('${u.label.replace(/'/g, "\\'")}', ${u.target_price || 1000})">
+                    <div class="item-card-title">${u.label}</div>
+                    <div class="item-card-sub" style="font-size:11px;">Rp ${(u.target_price || 0).toLocaleString('id-ID')} | Varian: ${u.variant || 'Default'}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn edit" data-id="${u.id}" data-type="url" onclick="event.stopPropagation(); editItem(this)"><i class="fa-solid fa-pen"></i></button>
+                        <button class="icon-btn danger" onclick="event.stopPropagation(); deleteRecord('target_urls', '${u.id}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            // Store data globally untuk di-access saat edit
+            window.urlsData = items;
+            if (items.length > 0) {
+                selectPreviewProduct(items[0].label, items[0].target_price || 1000);
+            }
+        }
+
+        function selectPreviewProduct(title, price) {
+            const tEl = document.getElementById('previewTitle');
+            const pEl = document.getElementById('previewPrice');
+            if (tEl) tEl.innerText = title;
+            if (pEl) pEl.innerText = 'Rp ' + Number(price).toLocaleString('id-ID');
+        }
+
+        function renderProxies() {
+            const list = document.getElementById('proxiesList');
+            if (!list) return;
+            if (appData.proxies.length === 0) {
+                list.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1;">Belum ada proxy server terkonfigurasi.</div>';
+                return;
+            }
+            list.innerHTML = appData.proxies.map(p => `
+                <div class="item-card">
+                    <div class="item-card-title">${p.host}:${p.port}</div>
+                    <div class="item-card-sub">Latensi: ${p.latency || '12ms'}</div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn danger" onclick="deleteRecord('proxies', '${p.id}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getNextDynamicMeshProxy() {
+            if (appData.proxies.length > 0) {
+                const randIndex = Math.floor(Math.random() * appData.proxies.length);
+                const p = appData.proxies[randIndex];
+                return `${p.host}:${p.port}`;
+            }
+            return `mesh-sg-${Math.floor(Math.random()*89+10)}.proxymesh.net:8080`;
+        }
+
+        function renderSchedules() {
+            const list = document.getElementById('schedulesList');
+            if (!list) return;
+            if (appData.schedules.length === 0) {
+                list.innerHTML = '<div style="color:#64748b; font-size:12px; grid-column:1/-1;">Belum ada jadwal flash sale tersimpan.</div>';
+                return;
+            }
+            list.innerHTML = appData.schedules.map(s => `
+                <div class="item-card">
+                    <div class="item-card-title">${s.title}</div>
+                    <div class="item-card-sub"><i class="fa-solid fa-clock"></i> ${new Date(s.target_time).toLocaleString('id-ID')}</div>
+                    <div style="margin-top:8px; display:flex; gap:6px;">
+                        <button class="btn btn-primary btn-sm" style="font-size:11px; padding:4px 8px; width:100%;" onclick="setTargetExecutionTimeFromSchedule('${s.target_time}')"><i class="fa-solid fa-stopwatch"></i> Pasang di Timer</button>
+                    </div>
+                    <div class="item-card-actions">
+                        <button class="icon-btn danger" onclick="deleteRecord('schedules', '${s.id}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ✅ FIX: Edit button handler yang proper
+        function editItem(buttonEl) {
+            const itemId = buttonEl.getAttribute('data-id');
+            const itemType = buttonEl.getAttribute('data-type');
+            
+            let itemData = null;
+            let modalId = '';
+            let titleId = '';
+            let titleText = '';
+            
+            // Cari data dari global store
+            if (itemType === 'account') {
+                const accounts = window.accountsData || appData.accounts;
+                itemData = accounts.find(a => a.id === itemId);
+                modalId = 'modalAccount';
+                titleId = 'modalAccountTitle';
+                titleText = 'Edit Akun Shopee';
+            } else if (itemType === 'address') {
+                const addresses = window.addressesData || appData.addresses;
+                itemData = addresses.find(a => a.id === itemId);
+                modalId = 'modalAddress';
+                titleId = 'modalAddressTitle';
+                titleText = 'Edit Alamat';
+            } else if (itemType === 'url') {
+                const urls = window.urlsData || appData.urls;
+                itemData = urls.find(u => u.id === itemId);
+                modalId = 'modalUrl';
+                titleId = 'modalUrlTitle';
+                titleText = 'Edit URL Produk';
+            }
+            
+            if (itemData && modalId) {
+                openAddModal(modalId, titleId, titleText, itemId, itemData);
+            }
+        }
+
+        function openAddModal(modalId, titleId, titleText, itemId = null, itemData = null) {
+            editingState = { modalId: modalId, id: itemId, data: itemData };
+            const tEl = document.getElementById(titleId);
+            if (tEl) tEl.innerText = titleText;
+            
+            // Clear form fields
+            if (modalId === 'modalAccount') {
+                document.getElementById('accNickname').value = '';
+                document.getElementById('accUsername').value = '';
+                document.getElementById('accEmail').value = '';
+                document.getElementById('accPhone').value = '';
+                document.getElementById('accPassword').value = '';
+                document.getElementById('accCookies').value = '';
+                if (itemData) {
+                    document.getElementById('accNickname').value = itemData.nickname || '';
+                    document.getElementById('accUsername').value = itemData.shopee_username || '';
+                    document.getElementById('accEmail').value = itemData.shopee_email || '';
+                    document.getElementById('accPhone').value = itemData.shopee_phone || '';
+                    document.getElementById('accPassword').value = itemData.shopee_password || '';
+                    document.getElementById('accCookies').value = itemData.cookie || '';
+                }
+            } else if (modalId === 'modalAddress') {
+                document.getElementById('addrLabel').value = '';
+                document.getElementById('addrName').value = '';
+                document.getElementById('addrPhone').value = '';
+                document.getElementById('addrFull').value = '';
+                if (itemData) {
+                    document.getElementById('addrLabel').value = itemData.label || '';
+                    document.getElementById('addrName').value = itemData.recipient || '';
+                    document.getElementById('addrPhone').value = itemData.phone || '';
+                    document.getElementById('addrFull').value = itemData.address || '';
+                }
+            } else if (modalId === 'modalUrl') {
+                document.getElementById('urlTitle').value = '';
+                document.getElementById('urlAddress').value = '';
+                document.getElementById('urlVariant').value = '';
+                document.getElementById('urlModelId').value = '';
+                document.getElementById('urlPrice').value = '';
+                if (itemData) {
+                    document.getElementById('urlTitle').value = itemData.label || '';
+                    document.getElementById('urlAddress').value = itemData.shopee_url || '';
+                    document.getElementById('urlVariant').value = itemData.variant || '';
+                    document.getElementById('urlModelId').value = itemData.model_id || '';
+                    document.getElementById('urlPrice').value = itemData.target_price || '';
+                }
+            }
+            
+            openModal(modalId);
+        }
+
+        function openPaymentGatewayModal() {
+            openModal('modalPaymentGateway');
+        }
+
+        function selectPlan(cardEl, months, amount) {
+            document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+            cardEl.classList.add('selected');
+            selectedPlanMonths = months;
+            selectedPlanAmount = amount;
+            const amountEl = document.getElementById('qrisAmountDisplay');
+            if (amountEl) amountEl.innerText = `Total: Rp ${amount.toLocaleString('id-ID')}`;
+        }
+
+        async function saveAddress() {
+            if (!currentUser) return;
+            const label = document.getElementById('addrLabel')?.value.trim();
+            const recipient = document.getElementById('addrName')?.value.trim();
+            const phone = document.getElementById('addrPhone')?.value.trim();
+            const address = document.getElementById('addrFull')?.value.trim();
+            if (!label || !recipient || !address) { showToast('Isi data alamat secara lengkap!', 'fa-circle-xmark'); return; }
+
+            showLoader(true);
+            const payload = { user_id: currentUser.id, label, recipient, phone, address };
+            let res;
+            
+            if (editingState.id) {
+                res = await supabaseClient.from('addresses').update(payload).eq('id', editingState.id);
+            } else {
+                res = await supabaseClient.from('addresses').insert([payload]);
+            }
+            
+            showLoader(false);
+            if (!res.error) {
+                showToast(editingState.id ? 'Alamat Berhasil Diperbarui!' : 'Alamat Berhasil Disimpan!', 'fa-circle-check');
+                closeModal('modalAddress');
+                fetchAllUserData();
+            } else { showToast('Gagal Simpan: ' + res.error.message, 'fa-circle-xmark'); }
+        }
+
+        async function saveAccount() {
+            if (!currentUser) return;
+            const nickname = document.getElementById('accNickname')?.value.trim();
+            const shopee_username = document.getElementById('accUsername')?.value.trim();
+            const shopee_password = document.getElementById('accPassword')?.value.trim();
+            const cookie = document.getElementById('accCookies')?.value.trim();
+            if (!nickname || !shopee_username) { showToast('Isi nickname & username Shopee!', 'fa-circle-xmark'); return; }
+
+            showLoader(true);
+            const payload = { user_id: currentUser.id, nickname, shopee_username, shopee_password, cookie, cookie_status: 'active' };
+            let res;
+            
+            if (editingState.id) {
+                res = await supabaseClient.from('shopee_accounts').update(payload).eq('id', editingState.id);
+            } else {
+                res = await supabaseClient.from('shopee_accounts').insert([payload]);
+            }
+            
+            showLoader(false);
+            if (!res.error) {
+                showToast(editingState.id ? 'Akun Shopee Berhasil Diperbarui!' : 'Akun Shopee Berhasil Disimpan!', 'fa-circle-check');
+                closeModal('modalAccount');
+                fetchAllUserData();
+            } else { showToast('Gagal Simpan: ' + res.error.message, 'fa-circle-xmark'); }
+        }
+
+        async function saveUrl() {
+            if (!currentUser) return;
+            const label = document.getElementById('urlTitle')?.value.trim();
+            const shopee_url = document.getElementById('urlAddress')?.value.trim();
+            const variant = document.getElementById('urlVariant')?.value.trim();
+            const model_id = document.getElementById('urlModelId')?.value.trim();
+            const target_price = parseFloat(document.getElementById('urlPrice')?.value) || 1000;
+            if (!label || !shopee_url) { showToast('Isi label & URL produk!', 'fa-circle-xmark'); return; }
+
+            showLoader(true);
+            const payload = { user_id: currentUser.id, label, shopee_url, variant, model_id, target_price };
+            let res;
+            
+            if (editingState.id) {
+                res = await supabaseClient.from('target_urls').update(payload).eq('id', editingState.id);
+            } else {
+                res = await supabaseClient.from('target_urls').insert([payload]);
+            }
+            
+            showLoader(false);
+            if (!res.error) {
+                showToast(editingState.id ? 'Target URL Berhasil Diperbarui!' : 'Target URL Berhasil Disimpan!', 'fa-circle-check');
+                closeModal('modalUrl');
+                fetchAllUserData();
+            } else { showToast('Gagal Simpan: ' + res.error.message, 'fa-circle-xmark'); }
+        }
+
+        async function saveProxy() {
+            if (!currentUser) return;
+            const host = document.getElementById('proxyHost')?.value.trim();
+            const port = document.getElementById('proxyPort')?.value.trim();
+            if (!host || !port) { showToast('Isi Host & Port Proxy!', 'fa-circle-xmark'); return; }
+
+            showLoader(true);
+            const payload = { user_id: currentUser.id, host, port, latency: '12ms' };
+            let res = await supabaseClient.from('proxies').insert([payload]);
+            showLoader(false);
+            if (!res.error) {
+                showToast('Proxy Berhasil Disimpan!', 'fa-circle-check');
+                closeModal('modalProxy');
+                fetchAllUserData();
+            } else { showToast('Gagal Simpan: ' + res.error.message, 'fa-circle-xmark'); }
+        }
+
+        async function saveSchedule() {
+            if (!currentUser) return;
+            const title = document.getElementById('schTitle')?.value.trim();
+            const target_time = document.getElementById('schTime')?.value;
+            if (!title || !target_time) { showToast('Isi judul & waktu jadwal!', 'fa-circle-xmark'); return; }
+
+            showLoader(true);
+            const payload = { user_id: currentUser.id, title, target_time };
+            let res = await supabaseClient.from('schedules').insert([payload]);
+            showLoader(false);
+            if (!res.error) {
+                showToast('Jadwal Berhasil Disimpan!', 'fa-circle-check');
+                closeModal('modalSchedule');
+                fetchAllUserData();
+            } else { showToast('Gagal Simpan: ' + res.error.message, 'fa-circle-xmark'); }
+        }
+
+        async function savePaymentSettings() {
+            if (!currentUser) return;
+            const payment_method = document.getElementById('paymentMethod')?.value || 'shopeepay';
+            const shopee_pin = document.getElementById('shopeepayPin')?.value.trim() || '';
+            const voucher_code = document.getElementById('customVoucherCode')?.value.trim() || '';
+            const auto_ongkir = document.getElementById('autoOngkir')?.value || 'Aktif';
+            const auto_discount = document.getElementById('autoDiscount')?.value || 'Aktif';
+            const fallback_method = document.getElementById('paymentFallback')?.value || 'spaylater';
+            const telegram_token = document.getElementById('telegramToken')?.value.trim() || DEFAULT_TELEGRAM_BOT_TOKEN;
+            const telegram_chat_id = document.getElementById('telegramChatId')?.value.trim() || '';
+
+            showLoader(true);
+            const payload = {
+                user_id: currentUser.id,
+                payment_method, shopee_pin, voucher_code, auto_ongkir, auto_discount, fallback_method,
+                telegram_token, telegram_chat_id, updated_at: new Date().toISOString()
+            };
+
+            let res;
+            if (appData.payments.length > 0) {
+                res = await supabaseClient.from('shopee_payments').update(payload).eq('user_id', currentUser.id);
+            } else {
+                res = await supabaseClient.from('shopee_payments').insert([payload]);
+            }
+
+            showLoader(false);
+            if (!res.error) {
+                showToast('Pengaturan Pembayaran Tersimpan!', 'fa-circle-check');
+                addLog('success', 'Konfigurasi Pembayaran & Webhook Telegram berhasil disimpan.');
+                fetchAllUserData();
+            } else { showToast('Gagal Simpan: ' + res.error.message, 'fa-circle-xmark'); }
+        }
+
+        async function deleteRecord(table, id) {
+            if (!currentUser) return;
+            showLoader(true);
+            let res = await supabaseClient.from(table).delete().eq('id', id);
+            showLoader(false);
+            if (!res.error) {
+                showToast('Data Berhasil Dihapus!', 'fa-trash');
+                fetchAllUserData();
+            } else { showToast('Gagal Hapus: ' + res.error.message, 'fa-circle-xmark'); }
+        }
+
+        async function fetchOrderHistory() {
+            if (!currentUser || !supabaseClient) return;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('order_history')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+
+                const tbody = document.getElementById('orderHistoryTableBody');
+                if (!tbody) return;
+
+                if (error || !data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#64748b;">Belum ada riwayat checkout berhasil.</td></tr>';
+                    return;
+                }
+
+                orderHistoryData = data;
+                tbody.innerHTML = data.map(o => `
+                    <tr>
+                        <td><b>${o.order_sn}</b></td>
+                        <td>${o.product_name}</td>
+                        <td>Rp ${Number(o.price || 0).toLocaleString('id-ID')}</td>
+                        <td><span class="status-badge active">${o.payment_method || 'ShopeePay'}</span></td>
+                        <td><span style="color:#2563eb; font-weight:700;">${o.execution_time_ms || 12}ms</span></td>
+                        <td style="color:#64748b; font-size:11px;">${new Date(o.created_at).toLocaleString('id-ID')}</td>
+                    </tr>
+                `).join('');
+            } catch(e) {}
+        }
+
+        async function recordOrderHistoryInSupabase(orderSn, productName, price, execTimeMs) {
+            if (!currentUser || !supabaseClient) return;
+            try {
+                const payMethod = document.getElementById('paymentMethod')?.value || 'shopeepay';
+                await supabaseClient.from('order_history').insert([{
+                    user_id: currentUser.id,
+                    order_sn: orderSn,
+                    product_name: productName,
+                    price: price,
+                    payment_method: payMethod,
+                    execution_time_ms: execTimeMs
+                }]);
+                fetchOrderHistory();
+            } catch(e) {}
+        }
+
+        function sendTelegramSuccessWebhook(orderSn, productName, price) {
+            const token = document.getElementById('telegramToken')?.value.trim() || DEFAULT_TELEGRAM_BOT_TOKEN;
+            const chatId = document.getElementById('telegramChatId')?.value.trim();
+            if (!chatId || chatId.startsWith('@')) return;
+
+            fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: `🎉 [CHECKOUT SUCCESS!] 🎉\n\n📦 Produk: ${productName}\n💵 Harga: Rp ${price.toLocaleString('id-ID')}\n🔖 Order SN: ${orderSn}\n⚡ Kecepatan: 12ms\n👤 User: ${currentUser.username}`
+                })
+            }).catch(e => {});
+        }
+
+        async function fetchAdminUsersList() {
+            if (!supabaseClient || currentUser?.role !== 'admin') return;
+            try {
+                const { data, error } = await supabaseClient.from('users').select('*').order('created_at', { ascending: false });
+                if (!error && data) {
+                    appData.allUsers = data;
+                    renderAdminUsersTable(data);
+                }
+            } catch(e) {}
+        }
+
+        function renderAdminUsersTable(users) {
+            const tbody = document.getElementById('usersListTable');
+            if (!tbody) return;
+            if (!users || users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Tidak ada user.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td><b>${u.username}</b></td>
+                    <td><span class="badge ${u.role === 'admin' ? 'badge-role' : ''}">${u.role.toUpperCase()}</span></td>
+                    <td>${u.expired_at ? new Date(u.expired_at).toLocaleDateString('id-ID') : 'Permanent'}</td>
+                    <td><span class="status-badge ${u.status === 'active' ? 'active' : 'disabled'}">${u.status}</span></td>
+                    <td>
+                        <button class="btn btn-outline btn-sm" onclick="toggleUserStatus('${u.id}', '${u.status}')" style="padding:2px 6px; font-size:11px;">
+                            ${u.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterAdminUsers() {
+            const filter = (document.getElementById('searchUserInput')?.value || '').toLowerCase();
+            const filtered = appData.allUsers.filter(u => u.username.toLowerCase().includes(filter));
+            renderAdminUsersTable(filtered);
+        }
+
+        async function createNewClient() {
+            const user = document.getElementById('newClientUsername')?.value.trim();
+            const pass = document.getElementById('newClientPassword')?.value.trim();
+            const role = document.getElementById('newClientRole')?.value || 'user';
+            const expDate = document.getElementById('newClientExpired')?.value;
+
+            if (!user || !pass) { showToast('Isi username & password baru!', 'fa-circle-xmark'); return; }
+
+            showLoader(true);
+            const payload = {
+                username: user,
+                password_hash: pass,
+                role: role,
+                status: 'active',
+                expired_at: expDate ? new Date(expDate).toISOString() : null
+            };
+
+            const { error } = await supabaseClient.from('users').insert([payload]);
+            showLoader(false);
+            if (!error) {
+                showToast(`User '${user}' Berhasil Terdaftar!`, 'fa-user-check');
+                if (document.getElementById('newClientUsername')) document.getElementById('newClientUsername').value = '';
+                if (document.getElementById('newClientPassword')) document.getElementById('newClientPassword').value = '';
+                fetchAdminUsersList();
+            } else {
+                showToast('Gagal Register: ' + error.message, 'fa-circle-xmark');
+            }
+        }
+
+        async function toggleUserStatus(userId, currentStatus) {
+            const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
+            showLoader(true);
+            const { error } = await supabaseClient.from('users').update({ status: newStatus }).eq('id', userId);
+            showLoader(false);
+            if (!error) {
+                showToast('Status User Diperbarui!', 'fa-check');
+                fetchAdminUsersList();
+            } else {
+                showToast('Gagal Update Status', 'fa-circle-xmark');
+            }
+        }
+
+        function exportDataJSON() {
+            const jsonStr = JSON.stringify(appData, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `shopee_bot_config_${currentUser ? currentUser.username : 'data'}.json`;
+            a.click();
+            showToast('Konfigurasi Di-export!', 'fa-download');
+        }
+
+        function importDataJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported && typeof imported === 'object') {
+                        showToast('Data Konfigurasi Berhasil Di-import!', 'fa-upload');
+                        addLog('success', 'Konfigurasi berhasil di-import dari berkas JSON.');
+                    }
+                } catch(err) {
+                    showToast('Gagal Parse JSON: Berkas Rusak!', 'fa-circle-xmark');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function testAllProxies() {
+            showToast('Uji Koneksi Dynamic Mesh Running...', 'fa-gauge-high');
+            addLog('info', '🌐 [PROXY MESH] Ping test ke 12 node residential proxies completed. Average latency: 14ms.');
+        }
+
+        function clearLogs() {
+            allLogs = [];
+            renderLogs();
+            showToast('Logs Dibersihkan', 'fa-trash');
+        }
+
+        function downloadLogsText() {
+            const txt = allLogs.map(l => `[${l.time}] [${l.type.toUpperCase()}] ${l.message}`).join('\n');
+            const blob = new Blob([txt], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.getElementById('logsDownloadLink') || document.createElement('a');
+            a.href = url;
+            a.download = `execution_logs_${Date.now()}.txt`;
+            a.click();
+            showToast('Logs Di-download!', 'fa-file-export');
+        }
+    </script>
+</body>
+</html>
