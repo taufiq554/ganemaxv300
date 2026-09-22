@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // Connection health test
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isValidId(userId);
+    }
+
+    // Shopee accounts
+    match /shopee_accounts/{accountId} {
+      allow read: if true;
+      allow write: if isValidId(accountId);
+    }
+
+    // Addresses
+    match /addresses/{addressId} {
+      allow read: if true;
+      allow write: if isValidId(addressId);
+    }
+
+    // Target URLs
+    match /target_urls/{urlId} {
+      allow read: if true;
+      allow write: if isValidId(urlId);
+    }
+
+    // Proxies
+    match /proxies/{proxyId} {
+      allow read: if true;
+      allow write: if isValidId(proxyId);
+    }
+
+    // Schedules
+    match /schedules/{scheduleId} {
+      allow read: if true;
+      allow write: if isValidId(scheduleId);
+    }
+
+    // Shopee Payments
+    match /shopee_payments/{paymentId} {
+      allow read: if true;
+      allow write: if isValidId(paymentId);
+    }
+
+    // Order History
+    match /order_history/{orderId} {
+      allow read: if true;
+      allow write: if isValidId(orderId);
+    }
+
+    // Logs
+    match /logs/{logId} {
+      allow read: if true;
+      allow write: if isValidId(logId);
+    }
+  }
+}
+

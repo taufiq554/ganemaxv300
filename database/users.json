@@ -1,0 +1,20 @@
+[
+  {
+    "id": "usr_admin",
+    "username": "admin",
+    "password_hash": "scrypt$baf30a2ca223d605e1cc7b1e7b745432$ff04195e4c2199ef40a8c8e0a72470b8acd6e248d4dad945f31b818b853a0450bc3e56006b732a81eaefe2cdcdaee0b02f5ce0bdb10674ca39b47b0ef42b4db5",
+    "role": "admin",
+    "status": "active",
+    "expired_at": null,
+    "created_at": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "usr_taufiq",
+    "username": "taufiq",
+    "password_hash": "scrypt$cbb45fcc3a668e6f3e1e063df9005260$54c7aa81796aa37b7a1c99152a59a9e5f87c351b5441d3253312424f62cbde182cb6e328568f512d66338a5e21b3e6feb3bc680dd15380c740e88768a9c492e5",
+    "role": "admin",
+    "status": "active",
+    "expired_at": null,
+    "created_at": "2025-01-01T00:00:00.000Z"
+  }
+]

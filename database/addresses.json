@@ -1,0 +1,32 @@
+[
+  {
+    "id": "addr_01",
+    "user_id": "usr_admin",
+    "label": "Rumah Utama",
+    "recipient_name": "Taufiq Hidayat",
+    "phone": "0895603417743",
+    "full_address": "Jl. Sudirman No. 45, RT 02 / RW 05, Kel. Menteng, Kec. Menteng, Kota Jakarta Pusat, DKI Jakarta 10310",
+    "is_default": true,
+    "created_at": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "addr_02",
+    "user_id": "usr_admin",
+    "label": "Kantor Cabang",
+    "recipient_name": "Admin Flash Sale",
+    "phone": "081234567890",
+    "full_address": "Gedung Cyber 2 Tower Lt. 18, Jl. H.R. Rasuna Said Blok X-5 No. 13, Kuningan Timur, Setiabudi, Jakarta Selatan 12950",
+    "is_default": false,
+    "created_at": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "addr_03",
+    "user_id": "usr_taufiq",
+    "label": "Rumah Utama",
+    "recipient_name": "Taufiq Hidayat",
+    "phone": "0895603417743",
+    "full_address": "Jl. Sudirman No. 45, RT 02 / RW 05, Kel. Menteng, Kec. Menteng, Kota Jakarta Pusat, DKI Jakarta 10310",
+    "is_default": true,
+    "created_at": "2025-01-01T00:00:00.000Z"
+  }
+]

@@ -1,0 +1,10 @@
+{
+  "projectId": "ganemaxbot",
+  "appId": "1:823985455254:web:63a92196b87cf3ba6802b7",
+  "apiKey": "AIzaSyCOQgB5AmzTqz0EJPTuLXuEq1Vs2YEbMdM",
+  "authDomain": "ganemaxbot.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "ganemaxbot.firebasestorage.app",
+  "messagingSenderId": "823985455254",
+  "measurementId": "G-X4J90FND0Q"
+}

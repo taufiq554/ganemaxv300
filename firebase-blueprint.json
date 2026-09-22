@@ -1,0 +1,185 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account for Shopee Flash Sale Manager",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID" },
+        "username": { "type": "string", "description": "Unique username" },
+        "password_hash": { "type": "string", "description": "Hashed password" },
+        "role": { "type": "string", "enum": ["admin", "user"], "description": "User role" },
+        "status": { "type": "string", "enum": ["active", "disabled"], "description": "User account status" },
+        "expired_at": { "type": "string", "description": "License expiration ISO string or null" },
+        "created_at": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["id", "username", "role", "status", "created_at"]
+    },
+    "ShopeeAccount": {
+      "title": "ShopeeAccount",
+      "description": "Linked Shopee account credentials and cookies",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "nickname": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "password": { "type": "string" },
+        "cookies": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "nickname", "username"]
+    },
+    "Address": {
+      "title": "Address",
+      "description": "Delivery address configuration for Shopee flash sale orders",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "label": { "type": "string" },
+        "recipient_name": { "type": "string" },
+        "phone": { "type": "string" },
+        "full_address": { "type": "string" },
+        "is_default": { "type": "boolean" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "label", "recipient_name", "phone", "full_address"]
+    },
+    "TargetUrl": {
+      "title": "TargetUrl",
+      "description": "Target product item URL for flash sale war sniping",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "variant": { "type": "string" },
+        "model_id": { "type": "string" },
+        "target_price": { "type": "number" },
+        "is_active": { "type": "boolean" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "title", "url", "target_price"]
+    },
+    "ProxyMesh": {
+      "title": "ProxyMesh",
+      "description": "Residential proxy node for multi-socket rotation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "host": { "type": "string" },
+        "port": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "dead", "checking"] },
+        "latency_ms": { "type": "number" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "host", "port"]
+    },
+    "Schedule": {
+      "title": "Schedule",
+      "description": "Target flash sale timing countdown schedule",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "title": { "type": "string" },
+        "target_time": { "type": "string" },
+        "is_active": { "type": "boolean" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "title", "target_time"]
+    },
+    "ShopeePayment": {
+      "title": "ShopeePayment",
+      "description": "Payment settings, ShopeePay PIN, and Telegram webhook settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "payment_method": { "type": "string" },
+        "custom_voucher_code": { "type": "string" },
+        "shopeepay_pin": { "type": "string" },
+        "auto_ongkir": { "type": "string" },
+        "auto_discount": { "type": "string" },
+        "payment_fallback": { "type": "string" },
+        "telegram_token": { "type": "string" },
+        "telegram_chat_id": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["user_id", "payment_method"]
+    },
+    "OrderHistory": {
+      "title": "OrderHistory",
+      "description": "Completed flash sale orders log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "order_sn": { "type": "string" },
+        "product_name": { "type": "string" },
+        "price": { "type": "number" },
+        "payment_method": { "type": "string" },
+        "speed_ms": { "type": "number" },
+        "checkout_time": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "order_sn", "product_name", "price"]
+    },
+    "Log": {
+      "title": "Log",
+      "description": "Execution and audit system logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "level": { "type": "string", "enum": ["info", "success", "warning", "error"] },
+        "message": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "message"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Client user accounts with credentials and roles"
+    },
+    "/shopee_accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/ShopeeAccount" },
+      "description": "Linked Shopee account cookies and session credentials"
+    },
+    "/addresses/{addressId}": {
+      "schema": { "$ref": "#/entities/Address" },
+      "description": "Delivery address items"
+    },
+    "/target_urls/{urlId}": {
+      "schema": { "$ref": "#/entities/TargetUrl" },
+      "description": "Target items for flash sale war"
+    },
+    "/proxies/{proxyId}": {
+      "schema": { "$ref": "#/entities/ProxyMesh" },
+      "description": "Proxy mesh servers"
+    },
+    "/schedules/{scheduleId}": {
+      "schema": { "$ref": "#/entities/Schedule" },
+      "description": "Flash sale schedule event timings"
+    },
+    "/shopee_payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/ShopeePayment" },
+      "description": "ShopeePay auto PIN and payment settings"
+    },
+    "/order_history/{orderId}": {
+      "schema": { "$ref": "#/entities/OrderHistory" },
+      "description": "Successful checkout order logs"
+    },
+    "/logs/{logId}": {
+      "schema": { "$ref": "#/entities/Log" },
+      "description": "System event execution logs"
+    }
+  }
+}

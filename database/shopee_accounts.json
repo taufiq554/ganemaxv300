@@ -1,0 +1,24 @@
+[
+  {
+    "id": "acc_01",
+    "user_id": "usr_admin",
+    "nickname": "Akun Flash Sale VIP",
+    "username": "shopee_warrior_pro",
+    "email": "warrior@shopee.co.id",
+    "phone": "0895603417743",
+    "password": "",
+    "cookies": "SPC_EC=abc123xyz789; SPC_F=wxy456rst123; shopee_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "created_at": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "acc_02",
+    "user_id": "usr_taufiq",
+    "nickname": "Akun Utama Taufiq",
+    "username": "taufiq_enterprise",
+    "email": "taufiq@enterprise.com",
+    "phone": "0895603417743",
+    "password": "",
+    "cookies": "SPC_EC=taufiq123xyz; SPC_F=taufiq456rst; shopee_token=eyJhbGciOiJIUzI1Ni...",
+    "created_at": "2025-01-01T00:00:00.000Z"
+  }
+]

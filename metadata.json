@@ -1,0 +1,6 @@
+{
+  "name": "Shopee Flash Sale Manager - Enterprise Pro",
+  "description": "Shopee Flash Sale Manager Enterprise Pro dengan Auto Checkout Detik 0, Multi-Socket Turbo, Residential Proxy Mesh, dan dukungan 6 region ASEAN (ID, MY, SG, TH, VN, PH).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

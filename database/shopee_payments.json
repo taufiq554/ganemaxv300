@@ -1,0 +1,15 @@
+[
+  {
+    "id": "pay_usr_admin",
+    "user_id": "usr_admin",
+    "payment_method": "shopeepay",
+    "shopeepay_pin": "123456",
+    "custom_voucher_code": "FS1000",
+    "auto_ongkir": "true",
+    "auto_discount": "true",
+    "payment_fallback": "spaylater",
+    "telegram_token": "8703715665:AAFBw7q9u9ZNyuRFvjvwmQE9V8mEBaD13r4",
+    "telegram_chat_id": "987654321",
+    "updated_at": "2025-01-01T00:00:00.000Z"
+  }
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "url_fs_01",
+    "user_id": "usr_admin",
+    "title": "Apple iPhone 15 Pro Max 256GB Natural Titanium",
+    "url": "https://shopee.co.id/Apple-iPhone-15-Pro-Max-256GB-Natural-Titanium-i.12345678.987654321",
+    "variant": "Natural Titanium",
+    "model_id": "1098234",
+    "target_price": 1000,
+    "created_at": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "url_fs_02",
+    "user_id": "usr_admin",
+    "title": "Sony PlayStation 5 Slim Disc Edition 1TB",
+    "url": "https://shopee.co.id/PlayStation-5-Console-Slim-Disc-Edition-i.87654321.12345678",
+    "variant": "Disc Edition",
+    "model_id": "2048591",
+    "target_price": 1000,
+    "created_at": "2025-01-01T00:00:00.000Z"
+  }
+]
