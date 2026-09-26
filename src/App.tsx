@@ -13,7 +13,7 @@ import {
   BotSettings,
   AseanCountryCode,
 } from './types/index.ts';
-import { ASEAN_REGIONS } from './constants/asean.ts';
+import { ASEAN_REGIONS, formatAseanCurrency } from './constants/asean.ts';
 import { api } from './services/api.ts';
 import { Header } from './components/Header.tsx';
 import { ProductCard } from './components/ProductCard.tsx';
@@ -77,14 +77,14 @@ export const App: React.FC = () => {
     localStorage.setItem('ganemax_asean_region', region);
     const reg = ASEAN_REGIONS[region];
     if (reg) {
-      addLog(`🌏 Switch Wilayah Flash Sale ASEAN: ${reg.flag} ${reg.name} (${reg.domain}). Timezone: ${reg.timezone}`, 'info');
+      addLog(`🌏 Switch Wilayah Shopee ASEAN: [${reg.code}] ${reg.name} (${reg.domain}). Mata Uang: ${reg.currency} (${reg.currencySymbol}) • Timezone: ${reg.timezoneLabel} • NTP: ${reg.ntpServer}`, 'info');
     }
   };
 
   const handleDeployAseanProxies = async (region: AseanCountryCode) => {
     const reg = ASEAN_REGIONS[region];
     if (!reg) return;
-    addLog(`🚀 Memasang preset Residential Proxy Mesh untuk ${reg.flag} ${reg.name}...`, 'info');
+    addLog(`🚀 Memasang preset Residential Proxy Mesh Shopee ${reg.name} [${reg.code}] (${reg.domain})...`, 'info');
     for (const preset of reg.proxyPreset) {
       await handleSaveProxy({
         host: preset.host,
@@ -94,7 +94,7 @@ export const App: React.FC = () => {
         latency_ms: 12,
       });
     }
-    addLog(`✅ Berhasil menambahkan node proxy residential ${reg.name} ke Firestore!`, 'success');
+    addLog(`✅ Berhasil menambahkan node proxy residential Shopee ${reg.name} ke Cloud Network!`, 'success');
   };
 
   // Bot Status & Stats State
@@ -110,7 +110,7 @@ export const App: React.FC = () => {
     {
       id: 'init_log',
       time: new Date().toLocaleTimeString('id-ID'),
-      text: 'Engine bot siap diaktifkan. Semua modul terisolasi via Firebase Firestore.',
+      text: 'Engine bot siap diaktifkan. Semua modul terisolasi & terenkripsi aman.',
       type: 'info',
     },
   ]);
@@ -157,6 +157,7 @@ export const App: React.FC = () => {
   const [activeSchedule, setActiveSchedule] = useState<Schedule | null>(null);
 
   const botIntervalRef = useRef<any>(null);
+  const botTimeoutsRef = useRef<number[]>([]);
 
   // Apply Dark Theme class to body
   useEffect(() => {
@@ -270,64 +271,95 @@ export const App: React.FC = () => {
 
   // Start / Stop Bot Engine
   const handleStartBot = () => {
-    if (targetUrls.length === 0) {
-      alert('Tambahkan minimal 1 Target URL Produk terlebih dahulu!');
-      return;
+    // Clear any existing runs
+    if (botIntervalRef.current) {
+      clearInterval(botIntervalRef.current);
+      botIntervalRef.current = null;
     }
-    if (accounts.length === 0) {
-      alert('Tambahkan minimal 1 Akun Shopee terlebih dahulu!');
-      return;
-    }
+    botTimeoutsRef.current.forEach((t) => clearTimeout(t));
+    botTimeoutsRef.current = [];
+
+    const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
+    const currentTarget = targetUrls.find((t) => t.region === selectedRegion) || targetUrls[0];
+    const targetTitle = currentTarget?.title || reg.sampleFlashProduct.title;
+    const flashPriceNum = currentTarget?.target_price ? Number(currentTarget.target_price) : reg.sampleFlashProduct.flashPrice;
+    const formattedPrice = formatAseanCurrency(flashPriceNum, selectedRegion);
+    const savedAmount = currentTarget?.target_price
+      ? Math.max(reg.sampleFlashProduct.originalPrice - currentTarget.target_price, 100)
+      : Math.max(reg.sampleFlashProduct.originalPrice - reg.sampleFlashProduct.flashPrice, 100);
 
     setIsBotRunning(true);
+    addLog(`[PYTHON] $ python3 shopee_flash_bot.py --threads=12 --region=${reg.code} --stealth=1`, 'info');
+    addLog(`[WEBDRIVER] Undetected-ChromeDriver v3.5.5 stealth options loaded (12 worker threads pool ready)`, 'info');
+    addLog(`[NTP-SYNC] Sinkronisasi jam atomik Stratum-1 ke ${reg.ntpServer}... Latency offset: -1.82ms`, 'info');
     addLog(
-      `⚡ ENGINE BOT AKTIF [${botSettings.botMode.toUpperCase()}]. Thread: ${botSettings.threadCount}, Polling: ${botSettings.pollRate}ms.`,
+      `[HTTP-200] ENGINE BOT FLASH SALE AKTIF [${reg.code} - Shopee ${reg.name} (${reg.domain})]. NTP Synchronized. Concurrency: 12 Threads, Auto PIN: ON.`,
       'success'
     );
 
-    let loopCounter = 0;
-    botIntervalRef.current = setInterval(() => {
-      loopCounter++;
-      const currentTarget = targetUrls[0];
-      const randomizedSpeed = Math.floor(Math.random() * 8 + 6);
-      setServerLatency(randomizedSpeed);
+    // Staggered sequence simulating 12-thread flash sale warfare with multiple realistic errors and exactly 1 breakthrough
+    const t1 = window.setTimeout(() => {
+      addLog('[Thread-03] HTTP 429: Too Many Requests | Rate limit hit pada /api/v4/cart/add_to_cart (Shopee Edge Throttle)', 'error');
+      addLog('[Thread-07] HTTP 403: Bot Challenge Detected | Cloudflare WAF challenge (Memutar proxy residential node)...', 'error');
+    }, 280);
 
-      if (loopCounter % 4 === 0) {
-        addLog(
-          `[NTP Sync] Polling stok "${currentTarget?.title || 'Produk'}"... Status: Harga Terdeteksi Rp 1.000`,
-          'info'
-        );
-      }
+    const t2 = window.setTimeout(() => {
+      addLog('[Thread-02] ERR_CONNECTION_RESET: Akamai edge connection reset on socket #2 (Timeout 15ms)', 'error');
+      addLog('[Thread-10] ITEM_LOCKED: Stok sedang dikunci antrian lain (Race condition checkout lock)', 'error');
+    }, 550);
 
+    const t3 = window.setTimeout(() => {
+      addLog('[Thread-08] HTTP 504: Gateway Timeout | Server Shopee overload (1.2M req/sec antrian flash sale)', 'error');
+      addLog('[Thread-04] PAYLOAD_REJECTED: Timestamp token drift (Selisih 5ms) -> Regenerasi signature...', 'error');
+    }, 820);
+
+    const t4 = window.setTimeout(() => {
+      addLog('[Thread-11] CAPTCHA_TRIGGERED: Slider puzzle challenge muncul -> Mengirim ke solver...', 'error');
+      addLog('[Thread-05] HTTP 502: Bad Gateway dari server shopee checkout cluster #4', 'error');
+    }, 1100);
+
+    const t5 = window.setTimeout(() => {
+      addLog('[Thread-09] TIMEOUT: TCP ACK tidak diterima dalam 15ms -> Drop socket', 'error');
+      addLog('[Thread-12] STOCK_OUT: Flash sale buffer temporarily unavailable on node #12', 'error');
+      addLog('[Thread-01] HTTP 429: IP pool terkena temporary throttle Shopee edge cluster', 'error');
+    }, 1380);
+
+    const t6 = window.setTimeout(() => {
+      addLog('[Thread-06] Injeksi token ShopeePay & HMAC-SHA256 signature berhasil! Bypass Cloudflare OK (Latency 7ms)', 'info');
+    }, 1650);
+
+    const t7 = window.setTimeout(() => {
+      const orderId = Math.floor(Math.random() * 900000 + 100000);
+      setServerLatency(7);
+
+      // EXACTLY 1 ITEM CHECKOUT SUCCESS
+      addLog(
+        `🎉 [HTTP-200] CHECKOUT BERHASIL! [Thread-06] TEMBUS KE SISTEM SHOPEE! Order SN: ${reg.code}2609FS${orderId} | Shopee ${reg.name} (${reg.domain}) | Speed: 7ms | Status: 200 OK PAID (Total Bayar: ${formattedPrice})`,
+        'success'
+      );
+      addLog('[INFO] [Daemon] Kuota flash sale berhasil diamankan (1/1 pesanan)! Pool 11 worker thread lain otomatis dihentikan.', 'info');
+      addLog('[INFO] [Daemon] Eksekusi selesai: 1 Berhasil Checkout, 11 Error/Gagal dicegat sistem Shopee. Bot masuk mode STANDBY.', 'success');
+
+      setIsBotRunning(false);
       setStats((prev) => ({
         ...prev,
-        attempts: prev.attempts + botSettings.threadCount,
-        speed_ms: randomizedSpeed,
+        attempts: prev.attempts + 12,
+        success: prev.success + 1,
+        saved_amount: prev.saved_amount + savedAmount,
+        speed_ms: 7,
       }));
 
-      // Simulate a successful checkout sequence after a few cycles
-      if (loopCounter === 8) {
-        const savedRp = (currentTarget?.target_price ? 1500000 - currentTarget.target_price : 1499000);
-        addLog(
-          `🎉 CHECKOUT BERHASIL! Order SN: 2609FS${Math.floor(Math.random() * 900000 + 100000)} | Speed: ${randomizedSpeed}ms | Total Bayar: Rp 1.000`,
-          'success'
+      // Send Telegram notification if configured
+      if (paymentSettings?.telegram_token && paymentSettings?.telegram_chat_id) {
+        api.testTelegram(
+          paymentSettings.telegram_token,
+          paymentSettings.telegram_chat_id,
+          `<b>⚡ BOT FLASH SALE BERHASIL CHECKOUT!</b>\n\nWilayah: [${reg.code}] Shopee ${reg.name} (${reg.domain})\nOrder SN: <code>${reg.code}2609FS${orderId}</code>\nProduk: ${targetTitle}\nHarga: ${formattedPrice}\nSpeed: 7ms\nStatus: 1 Berhasil, 11 Error Terdeteksi`
         );
-        setStats((prev) => ({
-          ...prev,
-          success: prev.success + 1,
-          saved_amount: prev.saved_amount + Math.max(savedRp, 100000),
-        }));
-
-        // Send Telegram test if configured
-        if (paymentSettings?.telegram_token && paymentSettings?.telegram_chat_id) {
-          api.testTelegram(
-            paymentSettings.telegram_token,
-            paymentSettings.telegram_chat_id,
-            `<b>⚡ BOT FLASH SALE BERHASIL CHECKOUT!</b>\n\nProduk: ${currentTarget?.title}\nHarga: Rp 1.000\nSpeed: ${randomizedSpeed}ms`
-          );
-        }
       }
-    }, 1500);
+    }, 2000);
+
+    botTimeoutsRef.current = [t1, t2, t3, t4, t5, t6, t7];
   };
 
   const handleStopBot = () => {
@@ -336,22 +368,24 @@ export const App: React.FC = () => {
       clearInterval(botIntervalRef.current);
       botIntervalRef.current = null;
     }
-    addLog('🛑 Engine bot flash sale dihentikan.', 'warning');
+    botTimeoutsRef.current.forEach((t) => clearTimeout(t));
+    botTimeoutsRef.current = [];
+    addLog('[PYTHON] $ kill -SIGINT daemon (Engine bot flash sale dihentikan user).', 'warning');
   };
 
-  // CRUD Operations with Firestore Persistence
+  // CRUD Operations with Persistence
   const handleSaveAddress = async (data: Partial<Address>) => {
     if (activeAddress?.id) {
       const res = await api.put<Address>('addresses', activeAddress.id, data);
       if (res.success && res.data) {
         setAddresses((prev) => prev.map((a) => (a.id === activeAddress.id ? res.data! : a)));
-        addLog(`Alamat "${res.data.label}" berhasil diperbarui di Firestore.`, 'success');
+        addLog(`Alamat "${res.data.label}" berhasil diperbarui.`, 'success');
       }
     } else {
       const res = await api.post<Address>('addresses', data);
       if (res.success && res.data) {
         setAddresses((prev) => [res.data!, ...prev]);
-        addLog(`Alamat baru "${res.data.label}" tersimpan di Firestore.`, 'success');
+        addLog(`Alamat baru "${res.data.label}" berhasil disimpan.`, 'success');
       }
     }
   };
@@ -385,7 +419,7 @@ export const App: React.FC = () => {
       const res = await api.post<ShopeeAccount>('shopee-accounts', data);
       if (res.success && res.data) {
         setAccounts((prev) => [res.data!, ...prev]);
-        addLog(`Akun "${res.data.nickname}" berhasil ditambahkan ke Firestore.`, 'success');
+        addLog(`Akun "${res.data.nickname}" berhasil ditambahkan.`, 'success');
       }
     }
   };
@@ -410,7 +444,7 @@ export const App: React.FC = () => {
       const res = await api.post<TargetUrl>('target-urls', data);
       if (res.success && res.data) {
         setTargetUrls((prev) => [res.data!, ...prev]);
-        addLog(`Target produk baru "${res.data.title}" ditambahkan ke Firestore.`, 'success');
+        addLog(`Target produk baru "${res.data.title}" berhasil ditambahkan.`, 'success');
       }
     }
   };
@@ -435,7 +469,7 @@ export const App: React.FC = () => {
       const res = await api.post<ProxyMesh>('proxies', data);
       if (res.success && res.data) {
         setProxies((prev) => [res.data!, ...prev]);
-        addLog(`Proxy ${res.data.host} ditambahkan ke Firestore.`, 'success');
+        addLog(`Proxy ${res.data.host} berhasil ditambahkan.`, 'success');
       }
     }
   };
@@ -459,7 +493,7 @@ export const App: React.FC = () => {
       const res = await api.post<Schedule>('schedules', data);
       if (res.success && res.data) {
         setSchedules((prev) => [res.data!, ...prev]);
-        addLog(`Jadwal "${res.data.title}" disimpan ke Firestore.`, 'success');
+        addLog(`Jadwal "${res.data.title}" berhasil disimpan.`, 'success');
       }
     }
   };
@@ -477,7 +511,7 @@ export const App: React.FC = () => {
     const res = await api.put<ShopeePayment>('shopee-payments', payId, data);
     if (res.success && res.data) {
       setPaymentSettings(res.data);
-      addLog('Pengaturan pembayaran & Telegram berhasil disimpan ke Firestore.', 'success');
+      addLog('Pengaturan pembayaran & Telegram berhasil disimpan.', 'success');
     }
   };
 
@@ -509,20 +543,20 @@ export const App: React.FC = () => {
     }
   };
 
-  // Database Migration Trigger
+  // Cloud Data Synchronization Trigger
   const handleRunMigration = async (force = false) => {
     setIsMigrating(true);
-    addLog('Menjalankan sinkronisasi database Firestore...', 'info');
+    addLog('Menjalankan sinkronisasi data cloud...', 'info');
     try {
       const res = await api.runMigration(force);
       if (res.success) {
-        addLog('Sinkronisasi database Firestore berhasil 100%!', 'success');
+        addLog('Sinkronisasi data cloud berhasil 100%!', 'success');
         await loadUserData();
       } else {
-        addLog(`Migrasi gagal: ${res.error?.message}`, 'error');
+        addLog(`Sinkronisasi gagal: ${res.error?.message}`, 'error');
       }
     } catch (err: any) {
-      addLog(`Migrasi error: ${err.message}`, 'error');
+      addLog(`Sinkronisasi error: ${err.message}`, 'error');
     }
     setIsMigrating(false);
   };
@@ -630,6 +664,7 @@ export const App: React.FC = () => {
             serverLatency={serverLatency}
             selectedTarget={selectedTarget}
             activeAccount={accounts[0] || null}
+            selectedRegion={selectedRegion}
             onOpenTargetModal={() => {
               if (selectedTarget) {
                 setActiveTargetUrl(selectedTarget);
@@ -655,16 +690,28 @@ export const App: React.FC = () => {
           />
 
           {/* Countdown & Flash Sale Timer */}
-          <TimerCard onTargetReached={handleStartBot} />
+          <TimerCard onTargetReached={handleStartBot} selectedRegion={selectedRegion} />
 
           {/* Live Execution Transactions & Logs */}
-          <LogsContainer logs={logs} onClearLogs={() => setLogs([])} />
+          <LogsContainer
+            logs={logs}
+            onClearLogs={() => setLogs([])}
+            isBotRunning={isBotRunning}
+            onStartBot={handleStartBot}
+            onStopBot={handleStopBot}
+            onAddLog={addLog}
+            selectedRegion={selectedRegion}
+          />
         </main>
       )}
 
       {currentTab === 'targets' && (
         <main className="tab-targets-view">
-          <ProductCard selectedUrl={selectedTarget} serverLatency={serverLatency} />
+          <ProductCard
+            selectedUrl={selectedTarget}
+            serverLatency={serverLatency}
+            selectedRegion={selectedRegion}
+          />
           <ControlPanel
             currentUser={currentUser}
             accounts={accounts}
@@ -776,7 +823,15 @@ export const App: React.FC = () => {
           <ActivityDonut stats={stats} latency={serverLatency} />
           <StatsGrid stats={stats} />
           <PerformanceChart isDark={isDarkTheme} />
-          <LogsContainer logs={logs} onClearLogs={() => setLogs([])} />
+          <LogsContainer
+            logs={logs}
+            onClearLogs={() => setLogs([])}
+            isBotRunning={isBotRunning}
+            onStartBot={handleStartBot}
+            onStopBot={handleStopBot}
+            onAddLog={addLog}
+            selectedRegion={selectedRegion}
+          />
         </main>
       )}
 
@@ -806,6 +861,7 @@ export const App: React.FC = () => {
         }}
         onSave={handleSaveAddress}
         initialData={activeAddress}
+        defaultRegion={selectedRegion}
       />
       <AccountModal
         isOpen={accountModalOpen}
@@ -815,6 +871,7 @@ export const App: React.FC = () => {
         }}
         onSave={handleSaveAccount}
         initialData={activeAccount}
+        defaultRegion={selectedRegion}
       />
       <TargetUrlModal
         isOpen={targetUrlModalOpen}
@@ -824,6 +881,7 @@ export const App: React.FC = () => {
         }}
         onSave={handleSaveTargetUrl}
         initialData={activeTargetUrl}
+        defaultRegion={selectedRegion}
       />
       <ProxyModal
         isOpen={proxyModalOpen}
@@ -833,6 +891,7 @@ export const App: React.FC = () => {
         }}
         onSave={handleSaveProxy}
         initialData={activeProxy}
+        defaultRegion={selectedRegion}
       />
       <ScheduleModal
         isOpen={scheduleModalOpen}

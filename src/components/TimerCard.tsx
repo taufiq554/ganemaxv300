@@ -1,14 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { AseanCountryCode } from '../types/index.ts';
+import { ASEAN_REGIONS } from '../constants/asean.ts';
+import { AseanFlag } from './AseanFlag.tsx';
 
 interface TimerCardProps {
   onTargetReached?: () => void;
+  selectedRegion?: AseanCountryCode;
 }
 
-export const TimerCard: React.FC<TimerCardProps> = ({ onTargetReached }) => {
+export const TimerCard: React.FC<TimerCardProps> = ({
+  onTargetReached,
+  selectedRegion = 'ID',
+}) => {
+  const currentRegionInfo = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
   const [targetTime, setTargetTime] = useState<string>('');
   const [timeDisplay, setTimeDisplay] = useState<string>('00:00:00');
   const [msDisplay, setMsDisplay] = useState<string>('.000');
   const [isLiveClock, setIsLiveClock] = useState<boolean>(true);
+  const [triggeredNotice, setTriggeredNotice] = useState<boolean>(false);
+  const hasTriggeredRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    hasTriggeredRef.current = false;
+    setTriggeredNotice(false);
+  }, [targetTime]);
 
   useEffect(() => {
     let animationFrameId: number;
@@ -27,8 +42,12 @@ export const TimerCard: React.FC<TimerCardProps> = ({ onTargetReached }) => {
         if (diff <= 0) {
           setTimeDisplay('00:00:00');
           setMsDisplay('.000');
-          if (diff > -1000 && onTargetReached) {
-            onTargetReached();
+          if (!hasTriggeredRef.current) {
+            hasTriggeredRef.current = true;
+            setTriggeredNotice(true);
+            if (onTargetReached) {
+              onTargetReached();
+            }
           }
         } else {
           const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -50,6 +69,8 @@ export const TimerCard: React.FC<TimerCardProps> = ({ onTargetReached }) => {
   const handleResetToLive = () => {
     setIsLiveClock(true);
     setTargetTime('');
+    setTriggeredNotice(false);
+    hasTriggeredRef.current = false;
   };
 
   const handleSetQuickTarget = (timeStr: string) => {
@@ -68,6 +89,8 @@ export const TimerCard: React.FC<TimerCardProps> = ({ onTargetReached }) => {
     const val = `${year}-${month}-${day}T${hours}:${mins}`;
     setTargetTime(val);
     setIsLiveClock(false);
+    setTriggeredNotice(false);
+    hasTriggeredRef.current = false;
   };
 
   return (
@@ -82,20 +105,31 @@ export const TimerCard: React.FC<TimerCardProps> = ({ onTargetReached }) => {
           gap: '6px',
         }}
       >
-        <div className="timer-label">
-          <i className="fa-solid fa-stopwatch"></i> Hitung Mundur Start Flash Sale
+        <div className="timer-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <i className="fa-solid fa-stopwatch"></i>
+          <AseanFlag code={currentRegionInfo.code} size="xs" />
+          <span>Flash Sale {currentRegionInfo.name} ({currentRegionInfo.timezoneLabel})</span>
         </div>
         <span
           id="countdownStatusBadge"
           className="badge"
           style={{
-            background: 'rgba(255,255,255,0.2)',
+            background: triggeredNotice
+              ? 'rgba(34, 197, 94, 0.4)'
+              : !isLiveClock
+              ? 'rgba(245, 158, 11, 0.4)'
+              : 'rgba(255,255,255,0.2)',
             color: 'white',
             fontSize: '10px',
             fontWeight: 700,
+            border: triggeredNotice ? '1px solid #4ade80' : !isLiveClock ? '1px solid #fbbf24' : 'none',
           }}
         >
-          {isLiveClock ? 'LIVE CLOCK' : 'TARGET COUNTDOWN'}
+          {triggeredNotice
+            ? 'OTOMATIS DIJALANKAN (TERCAPAI)'
+            : isLiveClock
+            ? 'LIVE CLOCK'
+            : 'COUNTDOWN AUTO-START'}
         </span>
       </div>
       <div className="timer-display" id="timerDisplay">
@@ -107,11 +141,12 @@ export const TimerCard: React.FC<TimerCardProps> = ({ onTargetReached }) => {
       {/* Pengatur Tanggal & Jam Target Eksekusi */}
       <div
         style={{
-          marginTop: '12px',
+          marginTop: '14px',
           background: 'rgba(0,0,0,0.25)',
-          padding: '12px',
+          padding: '14px',
           borderRadius: '14px',
           textAlign: 'left',
+          marginBottom: '2px',
         }}
       >
         <div
@@ -154,8 +189,13 @@ export const TimerCard: React.FC<TimerCardProps> = ({ onTargetReached }) => {
           value={targetTime}
           onChange={(e) => {
             setTargetTime(e.target.value);
-            if (e.target.value) setIsLiveClock(false);
-            else setIsLiveClock(true);
+            if (e.target.value) {
+              setIsLiveClock(false);
+              setTriggeredNotice(false);
+              hasTriggeredRef.current = false;
+            } else {
+              setIsLiveClock(true);
+            }
           }}
           style={{
             background: 'rgba(255,255,255,0.95)',
@@ -169,63 +209,48 @@ export const TimerCard: React.FC<TimerCardProps> = ({ onTargetReached }) => {
             outline: 'none',
           }}
         />
-        <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="btn btn-sm"
+        {!isLiveClock && targetTime && (
+          <div
             style={{
-              background: 'rgba(255,255,255,0.2)',
-              color: 'white',
+              marginTop: '8px',
               fontSize: '11px',
-              padding: '4px 8px',
-              flex: 1,
+              color: '#38bdf8',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
-            onClick={() => handleSetQuickTarget('00:00')}
           >
-            00:00 Malam
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm"
-            style={{
-              background: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              fontSize: '11px',
-              padding: '4px 8px',
-              flex: 1,
-            }}
-            onClick={() => handleSetQuickTarget('12:00')}
-          >
-            12:00 Siang
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm"
-            style={{
-              background: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              fontSize: '11px',
-              padding: '4px 8px',
-              flex: 1,
-            }}
-            onClick={() => handleSetQuickTarget('18:00')}
-          >
-            18:00 Sore
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm"
-            style={{
-              background: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              fontSize: '11px',
-              padding: '4px 8px',
-              flex: 1,
-            }}
-            onClick={() => handleSetQuickTarget('20:00')}
-          >
-            20:00 Malam
-          </button>
+            <i className="fa-solid fa-clock-rotate-left"></i>
+            <span>
+              Target disetel: {new Date(targetTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}. Saat jam tiba, bot otomatis langsung dijalankan di terminal!
+            </span>
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
+          {currentRegionInfo.flashSaleSchedule.map((timeStr) => (
+            <button
+              key={timeStr}
+              type="button"
+              className="btn btn-sm"
+              style={{
+                background: 'rgba(255,255,255,0.22)',
+                color: 'white',
+                fontSize: '11px',
+                padding: '5px 10px',
+                flex: 1,
+                minWidth: '58px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onClick={() => handleSetQuickTarget(timeStr)}
+            >
+              {timeStr}
+            </button>
+          ))}
         </div>
       </div>
     </div>

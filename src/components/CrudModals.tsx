@@ -8,6 +8,7 @@ interface AddressModalProps {
   onClose: () => void;
   onSave: (data: Partial<Address>) => Promise<void>;
   initialData?: Address | null;
+  defaultRegion?: AseanCountryCode;
 }
 
 export const AddressModal: React.FC<AddressModalProps> = ({
@@ -15,12 +16,13 @@ export const AddressModal: React.FC<AddressModalProps> = ({
   onClose,
   onSave,
   initialData,
+  defaultRegion = 'ID',
 }) => {
   const [label, setLabel] = useState('');
   const [recipient, setRecipient] = useState('');
   const [phone, setPhone] = useState('');
   const [fullAddress, setFullAddress] = useState('');
-  const [country, setCountry] = useState<AseanCountryCode>('ID');
+  const [country, setCountry] = useState<AseanCountryCode>(defaultRegion);
   const [postalCode, setPostalCode] = useState('');
   const [isDefault, setIsDefault] = useState(false);
 
@@ -30,7 +32,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
       setRecipient(initialData.recipient_name || '');
       setPhone(initialData.phone || '');
       setFullAddress(initialData.full_address || '');
-      setCountry((initialData.country as AseanCountryCode) || 'ID');
+      setCountry((initialData.country as AseanCountryCode) || defaultRegion);
       setPostalCode(initialData.postal_code || '');
       setIsDefault(Boolean(initialData.is_default));
     } else {
@@ -38,11 +40,11 @@ export const AddressModal: React.FC<AddressModalProps> = ({
       setRecipient('');
       setPhone('');
       setFullAddress('');
-      setCountry('ID');
+      setCountry(defaultRegion);
       setPostalCode('');
       setIsDefault(false);
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, defaultRegion]);
 
   if (!isOpen) return null;
 
@@ -87,7 +89,7 @@ export const AddressModal: React.FC<AddressModalProps> = ({
                   const reg = ASEAN_REGIONS[code];
                   return (
                     <option key={code} value={code}>
-                      {reg.flag} {reg.name} ({reg.currency})
+                      [{reg.code}] {reg.name} ({reg.currency})
                     </option>
                   );
                 })}
@@ -178,6 +180,7 @@ interface AccountModalProps {
   onClose: () => void;
   onSave: (data: Partial<ShopeeAccount>) => Promise<void>;
   initialData?: ShopeeAccount | null;
+  defaultRegion?: AseanCountryCode;
 }
 
 export const AccountModal: React.FC<AccountModalProps> = ({
@@ -185,10 +188,11 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   onClose,
   onSave,
   initialData,
+  defaultRegion = 'ID',
 }) => {
   const [nickname, setNickname] = useState('');
   const [username, setUsername] = useState('');
-  const [region, setRegion] = useState<AseanCountryCode>('ID');
+  const [region, setRegion] = useState<AseanCountryCode>(defaultRegion);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -199,7 +203,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     if (initialData) {
       setNickname(initialData.nickname || '');
       setUsername(initialData.username || '');
-      setRegion((initialData.region as AseanCountryCode) || 'ID');
+      setRegion((initialData.region as AseanCountryCode) || defaultRegion);
       setEmail(initialData.email || '');
       setPhone(initialData.phone || '');
       setPassword(initialData.password || '');
@@ -207,13 +211,13 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     } else {
       setNickname('');
       setUsername('');
-      setRegion('ID');
+      setRegion(defaultRegion);
       setEmail('');
       setPhone('');
       setPassword('');
       setCookies('');
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, defaultRegion]);
 
   if (!isOpen) return null;
 
@@ -257,7 +261,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                 const reg = ASEAN_REGIONS[code];
                 return (
                   <option key={code} value={code}>
-                    {reg.flag} Shopee {reg.name} ({reg.domain})
+                    [{reg.code}] Shopee {reg.name} ({reg.domain})
                   </option>
                 );
               })}
@@ -349,6 +353,7 @@ interface TargetUrlModalProps {
   onClose: () => void;
   onSave: (data: Partial<TargetUrl>) => Promise<void>;
   initialData?: TargetUrl | null;
+  defaultRegion?: AseanCountryCode;
 }
 
 export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({
@@ -356,10 +361,11 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({
   onClose,
   onSave,
   initialData,
+  defaultRegion = 'ID',
 }) => {
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
-  const [region, setRegion] = useState<AseanCountryCode>('ID');
+  const [region, setRegion] = useState<AseanCountryCode>(defaultRegion);
   const [variant, setVariant] = useState('');
   const [modelId, setModelId] = useState('');
   const [price, setPrice] = useState<number>(1000);
@@ -368,19 +374,20 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({
     if (initialData) {
       setTitle(initialData.title || '');
       setUrl(initialData.url || '');
-      setRegion((initialData.region as AseanCountryCode) || 'ID');
+      setRegion((initialData.region as AseanCountryCode) || defaultRegion);
       setVariant(initialData.variant || '');
       setModelId(initialData.model_id || '');
       setPrice(initialData.target_price || 1000);
     } else {
       setTitle('');
       setUrl('');
-      setRegion('ID');
+      setRegion(defaultRegion);
       setVariant('');
       setModelId('');
-      setPrice(1000);
+      const defReg = ASEAN_REGIONS[defaultRegion] || ASEAN_REGIONS.ID;
+      setPrice(defReg.code === 'ID' || defReg.code === 'VN' ? 1000 : 1);
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, defaultRegion]);
 
   if (!isOpen) return null;
 
@@ -433,7 +440,7 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({
                   const reg = ASEAN_REGIONS[code];
                   return (
                     <option key={code} value={code}>
-                      {reg.flag} {reg.name} ({reg.domain})
+                      [{reg.code}] {reg.name} ({reg.domain})
                     </option>
                   );
                 })}
@@ -445,7 +452,7 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="iPhone 15 Pro Max 256GB"
+                placeholder="Contoh: Flash Sale Item / Produk Shopee"
                 required
               />
             </div>
@@ -467,7 +474,7 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({
                 type="text"
                 value={variant}
                 onChange={(e) => setVariant(e.target.value)}
-                placeholder="Black Titanium"
+                placeholder="Varian (Warna / Ukuran)"
               />
             </div>
             <div className="form-group">
@@ -511,6 +518,7 @@ interface ProxyModalProps {
   onClose: () => void;
   onSave: (data: Partial<ProxyMesh>) => Promise<void>;
   initialData?: ProxyMesh | null;
+  defaultRegion?: AseanCountryCode;
 }
 
 export const ProxyModal: React.FC<ProxyModalProps> = ({
@@ -518,22 +526,23 @@ export const ProxyModal: React.FC<ProxyModalProps> = ({
   onClose,
   onSave,
   initialData,
+  defaultRegion = 'ID',
 }) => {
   const [host, setHost] = useState('');
   const [port, setPort] = useState<number | string>(8080);
-  const [region, setRegion] = useState<AseanCountryCode>('ID');
+  const [region, setRegion] = useState<AseanCountryCode>(defaultRegion);
 
   useEffect(() => {
     if (initialData) {
       setHost(initialData.host || '');
       setPort(initialData.port || 8080);
-      setRegion((initialData.region as AseanCountryCode) || 'ID');
+      setRegion((initialData.region as AseanCountryCode) || defaultRegion);
     } else {
       setHost('');
       setPort(8080);
-      setRegion('ID');
+      setRegion(defaultRegion);
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, defaultRegion]);
 
   if (!isOpen) return null;
 
@@ -573,7 +582,7 @@ export const ProxyModal: React.FC<ProxyModalProps> = ({
                 const reg = ASEAN_REGIONS[code];
                 return (
                   <option key={code} value={code}>
-                    {reg.flag} {reg.name} ({reg.domain})
+                    [{reg.code}] {reg.name} ({reg.domain})
                   </option>
                 );
               })}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { TargetUrl, AseanCountryCode } from '../types/index.ts';
 import { ASEAN_REGIONS, formatAseanCurrency } from '../constants/asean.ts';
+import { AseanFlag } from './AseanFlag.tsx';
 
 interface ProductCardProps {
   selectedUrl: TargetUrl | null;
@@ -33,12 +34,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <i className="fa-solid fa-wifi"></i> Latensi: {serverLatency} ms
         </span>
         <span
-          className="badge"
+          className="badge inline-flex items-center gap-1.5"
           id="ntpClockBadge"
           style={{ background: '#e0f2fe', color: '#0369a1' }}
           title={`NTP Source: ${currentRegionInfo.ntpServer}`}
         >
-          <i className="fa-solid fa-clock"></i> {currentRegionInfo.flag} NTP {currentRegionInfo.timezoneLabel}
+          <i className="fa-solid fa-clock"></i>
+          <AseanFlag code={currentRegionInfo.code} size="xs" />
+          <span>NTP {currentRegionInfo.timezoneLabel}</span>
         </span>
       </div>
       <div className="product-name" id="previewTitle">

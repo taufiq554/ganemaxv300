@@ -18,16 +18,13 @@ export const PaymentGatewayModal: React.FC<PaymentGatewayModalProps> = ({
   if (!isOpen) return null;
 
   const plans = [
-    { id: '1_hari', price: 25000, label: '1 Hari Trial', desc: 'Trial 24 Jam' },
-    { id: '3_hari', price: 50000, label: '3 Hari Flash', desc: 'Weekend Event' },
-    { id: '7_hari', price: 100000, label: '7 Hari', desc: '1 Minggu Penuh' },
-    { id: '30_hari', price: 150000, label: '30 Hari Pro', desc: 'Paling Populer' },
-    { id: '60_hari', price: 250000, label: '60 Hari Hemat', desc: 'Diskon Spesial' },
-    { id: '365_hari', price: 1000000, label: '1 Tahun VIP', desc: 'Prioritas Server' },
-    { id: 'lifetime', price: 2500000, label: 'Lifetime VIP', desc: 'Permanen Selamanya' },
+    { id: '30_hari', price: 150000, label: '1 Bulan Pro', desc: '30 Hari Akses' },
+    { id: '60_hari', price: 250000, label: '2 Bulan Hemat', desc: '60 Hari Akses' },
+    { id: '365_hari', price: 1000000, label: '1 Tahun VIP', desc: '12 Bulan Penuh' },
+    { id: 'lifetime', price: 3300000, label: 'Unlimited Permanen', desc: 'Permanen Selamanya' },
   ];
 
-  const currentPlan = plans.find((p) => p.id === selectedPlan) || plans[3];
+  const currentPlan = plans.find((p) => p.id === selectedPlan) || plans[0];
 
   const getConfirmationMessage = () => {
     return (

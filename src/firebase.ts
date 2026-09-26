@@ -60,8 +60,10 @@ export async function testConnection() {
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
       console.warn('Firebase connection test: client offline or awaiting initial sync.');
+    } else {
+      console.info('Firebase connection test status:', (error as any)?.code || (error as any)?.message || 'ready');
     }
   }
 }
 
-testConnection();
+testConnection().catch(() => {});

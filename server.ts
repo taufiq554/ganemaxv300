@@ -14,9 +14,16 @@ app.use(express.json());
 // Mount API router
 app.use('/api', apiApp);
 
-// Serve static assets from dist
+// Google Search Console HTML verification handler
+app.get('/googlee771107603824512.html', (_req, res) => {
+  res.type('text/html').send('google-site-verification: googlee771107603824512.html');
+});
+
+// Serve static assets from dist and public
 const distPath = path.join(__dirname, 'dist');
+const publicPath = path.join(__dirname, 'public');
 app.use(express.static(distPath));
+app.use(express.static(publicPath));
 
 // Route /app and /app/* to app/index.html
 app.get('/app', (_req, res) => {

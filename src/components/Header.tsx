@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, AseanCountryCode } from '../types/index.ts';
 import { ASEAN_REGIONS, ALL_ASEAN_CODES } from '../constants/asean.ts';
+import { AseanFlag } from './AseanFlag.tsx';
 
 interface HeaderProps {
   currentUser: User | null;
@@ -88,13 +89,20 @@ export const Header: React.FC<HeaderProps> = ({
                   fontWeight: 700,
                   color: '#0284c7',
                   background: '#e0f2fe',
-                  padding: '1px 6px',
+                  padding: '2px 6px',
                   borderRadius: '6px',
                   marginLeft: '4px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: 'pointer',
+                  flexShrink: 0,
                 }}
-                title={`Target Server: ${currentRegionInfo.domain}`}
+                onClick={() => setIsRegionMenuOpen(!isRegionMenuOpen)}
+                title={`Pilih Wilayah Shopee ASEAN (Aktif: ${currentRegionInfo.name} - ${currentRegionInfo.domain})`}
               >
-                {currentRegionInfo.flag} {currentRegionInfo.code}
+                <AseanFlag code={currentRegionInfo.code} size="xs" />
+                <span>{currentRegionInfo.code}</span>
               </span>
             </div>
           </div>
@@ -117,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
                 gap: '6px',
               }}
             >
-              <span style={{ fontSize: '15px' }}>{currentRegionInfo.flag}</span>
+              <AseanFlag code={currentRegionInfo.code} size="sm" />
               <span style={{ fontWeight: 800, fontSize: '12px' }}>{currentRegionInfo.code}</span>
               <span style={{ fontSize: '10px', color: '#64748b' }}>({currentRegionInfo.currencySymbol})</span>
               <i className="fa-solid fa-chevron-down" style={{ fontSize: '9px', marginLeft: '2px' }}></i>
@@ -167,7 +175,7 @@ export const Header: React.FC<HeaderProps> = ({
                       }}
                     >
                       <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '16px' }}>{reg.flag}</span>
+                        <AseanFlag code={reg.code} size="sm" />
                         <span>{reg.name}</span>
                       </span>
                       <span style={{ fontSize: '11px', color: isSelected ? '#2563eb' : '#64748b', fontFamily: 'monospace' }}>
@@ -238,6 +246,32 @@ export const Header: React.FC<HeaderProps> = ({
 
             {isMenuOpen && (
               <div className="header-dropdown-menu">
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  onClick={() => {
+                    onOpenPaymentModal();
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <i className="fa-solid fa-qrcode text-emerald-500"></i>
+                  <span>Sewa via QRIS</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    setIsRegionMenuOpen(true);
+                  }}
+                >
+                  <i className="fa-solid fa-earth-asia text-sky-500"></i>
+                  <span>Ganti Wilayah ASEAN ({currentRegionInfo.code})</span>
+                </button>
+
+                <div className="dropdown-divider"></div>
+
                 <button
                   type="button"
                   className="dropdown-item"

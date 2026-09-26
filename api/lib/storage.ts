@@ -13,8 +13,32 @@ import {
   where,
   orderBy,
   limit as firestoreLimit,
-} from 'firebase/firestore';
+} from 'firebase/firestore/lite';
 import { getFirestoreDb } from './firebase.ts';
+
+// Helper to retry transient cloud network errors (ECONNRESET, UNAVAILABLE)
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, delayMs = 200): Promise<T> {
+  let lastErr: any;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastErr = err;
+      const isTransient =
+        err?.code === 14 ||
+        err?.code === 'unavailable' ||
+        err?.message?.includes('ECONNRESET') ||
+        err?.message?.includes('UNAVAILABLE') ||
+        err?.message?.includes('network');
+      if (attempt < maxRetries && isTransient) {
+        await new Promise((r) => setTimeout(r, delayMs * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
 
 export type TableName =
   | 'users'
@@ -131,18 +155,18 @@ class FirestoreStorageAdapter implements StorageAdapter {
       }
 
       let q = queryConstraints.length > 0 ? query(colRef, ...queryConstraints) : query(colRef);
-      const snapshot = await getDocs(q);
+      const snapshot = await withRetry(() => getDocs(q));
 
       if (snapshot.empty) {
         // If collection is completely empty, check if we need initial seeding from local seed
-        const checkAll = await getDocs(colRef);
+        const checkAll = await withRetry(() => getDocs(colRef));
         if (checkAll.empty) {
           const seeds = readLocalSeed<T>(table);
           if (seeds.length > 0) {
             console.log(`[Firestore] Auto-seeding collection: ${table} (${seeds.length} records)`);
             for (const item of seeds) {
               const docId = (item as any).id || crypto.randomUUID();
-              await setDoc(doc(db, table, docId), item as any);
+              await withRetry(() => setDoc(doc(db, table, docId), item as any));
             }
             // Re-fetch with filters
             return this.list(table, filters, options);
@@ -173,7 +197,7 @@ class FirestoreStorageAdapter implements StorageAdapter {
 
     try {
       const docRef = doc(db, table, id);
-      const docSnap = await getDoc(docRef);
+      const docSnap = await withRetry(() => getDoc(docRef));
       if (docSnap.exists()) {
         return { id: docSnap.id, ...docSnap.data() } as T;
       }
@@ -198,7 +222,7 @@ class FirestoreStorageAdapter implements StorageAdapter {
     } as T;
 
     const docRef = doc(db, table, id);
-    await setDoc(docRef, newRecord as any);
+    await withRetry(() => setDoc(docRef, newRecord as any));
     return newRecord;
   }
 
@@ -211,13 +235,13 @@ class FirestoreStorageAdapter implements StorageAdapter {
     if (!db) throw new Error('Firestore not available');
 
     const docRef = doc(db, table, id);
-    const existing = await getDoc(docRef);
+    const existing = await withRetry(() => getDoc(docRef));
 
     if (!existing.exists()) {
       // Support upsert for shopee_payments if user_id was passed
       if (table === 'shopee_payments') {
         const payload = { ...updates, id, updated_at: new Date().toISOString() };
-        await setDoc(docRef, payload);
+        await withRetry(() => setDoc(docRef, payload));
         return payload as T;
       }
       return null;
@@ -228,8 +252,8 @@ class FirestoreStorageAdapter implements StorageAdapter {
       updated_at: updates.updated_at || new Date().toISOString(),
     };
 
-    await updateDoc(docRef, payload);
-    const updatedSnap = await getDoc(docRef);
+    await withRetry(() => updateDoc(docRef, payload));
+    const updatedSnap = await withRetry(() => getDoc(docRef));
     return { id: updatedSnap.id, ...updatedSnap.data() } as T;
   }
 
@@ -238,7 +262,7 @@ class FirestoreStorageAdapter implements StorageAdapter {
     if (!db) return false;
 
     const docRef = doc(db, table, id);
-    await deleteDoc(docRef);
+    await withRetry(() => deleteDoc(docRef));
     return true;
   }
 
@@ -249,19 +273,19 @@ class FirestoreStorageAdapter implements StorageAdapter {
     const report: Record<string, { status: string; count: number }> = {};
     for (const table of VALID_TABLES) {
       const colRef = collection(db, table);
-      const snapshot = await getDocs(colRef);
+      const snapshot = await withRetry(() => getDocs(colRef));
       const seeds = readLocalSeed(table);
 
       if (snapshot.empty || force) {
         let count = 0;
         for (const item of seeds) {
           const docId = (item as any).id || crypto.randomUUID();
-          await setDoc(doc(db, table, docId), item);
+          await withRetry(() => setDoc(doc(db, table, docId), item));
           count++;
         }
-        report[table] = { status: 'seeded_to_firestore', count };
+        report[table] = { status: 'seeded_to_cloud', count };
       } else {
-        report[table] = { status: 'existing_in_firestore', count: snapshot.size };
+        report[table] = { status: 'existing_in_cloud', count: snapshot.size };
       }
     }
     return report;

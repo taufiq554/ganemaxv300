@@ -28,7 +28,7 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
   ID: {
     code: 'ID',
     name: 'Indonesia',
-    flag: '🇮🇩',
+    flag: '[ID]',
     currency: 'IDR',
     currencySymbol: 'Rp',
     exchangeRateToIdr: 1,
@@ -41,15 +41,14 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     flashSaleSchedule: ['00:00', '12:00', '18:00', '20:00', '21:00'],
     popularPaymentMethods: [
       { id: 'shopeepay', label: 'ShopeePay (Bypass PIN Instant)', icon: 'fa-solid fa-wallet' },
-      { id: 'spaylater', label: 'SPayLater (0% Bunga)', icon: 'fa-solid fa-credit-card' },
-      { id: 'bank_transfer', label: 'Virtual Account (BCA / Mandiri / BRI / BNI)', icon: 'fa-solid fa-building-columns' },
-      { id: 'cod', label: 'COD (Bayar di Tempat)', icon: 'fa-solid fa-hand-holding-dollar' },
+      { id: 'spaylater', label: 'SPayLater (0% Bunga / Cicilan Instan)', icon: 'fa-solid fa-credit-card' },
+      { id: 'spinjam', label: 'SPinjam (Shopee Pinjam Limit Instan)', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
-      title: 'Apple iPhone 15 Pro Max 256GB Titanium Natural (Garansi Resmi)',
-      originalPrice: 24999000,
+      title: 'Samsung Galaxy S24 Ultra 12GB/256GB Titanium Gray (Garansi Resmi)',
+      originalPrice: 21999000,
       flashPrice: 1000,
-      url: 'https://shopee.co.id/Apple-iPhone-15-Pro-Max-256GB-Natural-i.123456.987654',
+      url: 'https://shopee.co.id/Samsung-Galaxy-S24-Ultra-256GB-Titanium-i.123456.987654',
     },
     proxyPreset: [
       { host: 'id-res.ganemax-mesh.net', port: 8081 },
@@ -59,7 +58,7 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
   SG: {
     code: 'SG',
     name: 'Singapore',
-    flag: '🇸🇬',
+    flag: '[SG]',
     currency: 'SGD',
     currencySymbol: 'S$',
     exchangeRateToIdr: 11800,
@@ -71,10 +70,9 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     phonePrefix: '+65',
     flashSaleSchedule: ['00:00', '12:00', '18:00', '20:00', '22:00'],
     popularPaymentMethods: [
-      { id: 'shopeepay_sg', label: 'ShopeePay SG (One-Click)', icon: 'fa-solid fa-wallet' },
-      { id: 'paynow', label: 'PayNow QR (Auto Dynamic)', icon: 'fa-solid fa-qrcode' },
-      { id: 'spaylater_sg', label: 'SPayLater Singapore', icon: 'fa-solid fa-credit-card' },
-      { id: 'card_sg', label: 'Credit / Debit Card (Tokenized)', icon: 'fa-brands fa-cc-visa' },
+      { id: 'shopeepay_sg', label: 'ShopeePay SG (One-Click Instant)', icon: 'fa-solid fa-wallet' },
+      { id: 'spaylater_sg', label: 'SPayLater Singapore (0% Interest)', icon: 'fa-solid fa-credit-card' },
+      { id: 'spinjam_sg', label: 'SPinjam / SLoan Singapore', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
       title: 'Sony PlayStation 5 Slim Digital Edition (1TB SSD)',
@@ -90,7 +88,7 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
   MY: {
     code: 'MY',
     name: 'Malaysia',
-    flag: '🇲🇾',
+    flag: '[MY]',
     currency: 'MYR',
     currencySymbol: 'RM',
     exchangeRateToIdr: 3600,
@@ -102,17 +100,15 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     phonePrefix: '+60',
     flashSaleSchedule: ['00:00', '12:00', '16:00', '20:00', '22:00'],
     popularPaymentMethods: [
-      { id: 'shopeepay_my', label: 'ShopeePay MY (Fast PIN)', icon: 'fa-solid fa-wallet' },
-      { id: 'tng_ewallet', label: "Touch 'n Go eWallet", icon: 'fa-solid fa-mobile-screen-button' },
-      { id: 'duitnow', label: 'DuitNow QR Instant', icon: 'fa-solid fa-qrcode' },
-      { id: 'fpx_my', label: 'Maybank2u / CIMB / FPX Online', icon: 'fa-solid fa-building-columns' },
-      { id: 'spaylater_my', label: 'SPayLater Malaysia', icon: 'fa-solid fa-credit-card' },
+      { id: 'shopeepay_my', label: 'ShopeePay MY (Fast PIN Instant)', icon: 'fa-solid fa-wallet' },
+      { id: 'spaylater_my', label: 'SPayLater Malaysia (0% Interest)', icon: 'fa-solid fa-credit-card' },
+      { id: 'spinjam_my', label: 'SPinjam / SLoan Malaysia', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
-      title: 'Apple iPad Air M2 11-inch Wi-Fi 128GB Space Grey',
-      originalPrice: 2999,
+      title: 'Sony WH-1000XM5 Wireless Noise Canceling Headphones Black',
+      originalPrice: 1799,
       flashPrice: 1,
-      url: 'https://shopee.com.my/Apple-iPad-Air-M2-11-inch-i.654321.112233',
+      url: 'https://shopee.com.my/Sony-WH-1000XM5-Wireless-Headphones-i.654321.112233',
     },
     proxyPreset: [
       { host: 'my-kl.ganemax-mesh.net', port: 8083 },
@@ -122,7 +118,7 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
   TH: {
     code: 'TH',
     name: 'Thailand',
-    flag: '🇹🇭',
+    flag: '[TH]',
     currency: 'THB',
     currencySymbol: '฿',
     exchangeRateToIdr: 460,
@@ -135,10 +131,8 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     flashSaleSchedule: ['00:00', '12:00', '18:00', '21:00'],
     popularPaymentMethods: [
       { id: 'shopeepay_th', label: 'ShopeePay Thailand (Direct API)', icon: 'fa-solid fa-wallet' },
-      { id: 'promptpay', label: 'PromptPay QR (National Switch)', icon: 'fa-solid fa-qrcode' },
-      { id: 'kbank_scb', label: 'Mobile Banking (KBank / SCB Easy)', icon: 'fa-solid fa-building-columns' },
       { id: 'spaylater_th', label: 'SPayLater Thailand', icon: 'fa-solid fa-credit-card' },
-      { id: 'cod_th', label: 'Cash on Delivery (เก็บเงินปลายทาง)', icon: 'fa-solid fa-hand-holding-dollar' },
+      { id: 'spinjam_th', label: 'SPinjam / SEasyCash Thailand', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
       title: 'Dyson Airwrap Multi-Styler Complete Long Nickel/Copper',
@@ -154,7 +148,7 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
   VN: {
     code: 'VN',
     name: 'Vietnam',
-    flag: '🇻🇳',
+    flag: '[VN]',
     currency: 'VND',
     currencySymbol: '₫',
     exchangeRateToIdr: 0.63,
@@ -167,10 +161,8 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     flashSaleSchedule: ['00:00', '09:00', '12:00', '15:00', '18:00', '21:00'],
     popularPaymentMethods: [
       { id: 'shopeepay_vn', label: 'ShopeePay (Ví AirPay VN)', icon: 'fa-solid fa-wallet' },
-      { id: 'momo_vn', label: 'Ví Điện Tử MoMo', icon: 'fa-solid fa-mobile-screen' },
-      { id: 'zalopay_vn', label: 'Ví ZaloPay QR', icon: 'fa-solid fa-qrcode' },
       { id: 'spaylater_vn', label: 'SPayLater Vietnam', icon: 'fa-solid fa-credit-card' },
-      { id: 'cod_vn', label: 'COD (Thanh toán khi nhận hàng)', icon: 'fa-solid fa-hand-holding-dollar' },
+      { id: 'spinjam_vn', label: 'SPinjam / Vay Tiêu Dùng Shopee VN', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
       title: 'Điện thoại Samsung Galaxy S24 Ultra 12GB/256GB',
@@ -186,7 +178,7 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
   PH: {
     code: 'PH',
     name: 'Philippines',
-    flag: '🇵🇭',
+    flag: '[PH]',
     currency: 'PHP',
     currencySymbol: '₱',
     exchangeRateToIdr: 280,
@@ -199,10 +191,8 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     flashSaleSchedule: ['00:00', '12:00', '18:00', '21:00'],
     popularPaymentMethods: [
       { id: 'shopeepay_ph', label: 'ShopeePay PH (Instant PIN Bypass)', icon: 'fa-solid fa-wallet' },
-      { id: 'gcash', label: 'GCash (Direct Token Auth)', icon: 'fa-solid fa-mobile-screen' },
-      { id: 'maya_ph', label: 'Maya (PayMaya Wallet)', icon: 'fa-solid fa-wallet' },
       { id: 'spaylater_ph', label: 'SPayLater Philippines', icon: 'fa-solid fa-credit-card' },
-      { id: 'cod_ph', label: 'Cash on Delivery (COD)', icon: 'fa-solid fa-hand-holding-dollar' },
+      { id: 'spinjam_ph', label: 'SPinjam / SLoan Philippines', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
       title: 'Nintendo Switch OLED Model White Set (Official Warranty)',

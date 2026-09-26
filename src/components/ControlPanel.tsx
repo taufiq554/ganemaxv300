@@ -10,7 +10,8 @@ import {
   BotSettings,
   AseanCountryCode,
 } from '../types/index.ts';
-import { ASEAN_REGIONS, ALL_ASEAN_CODES } from '../constants/asean.ts';
+import { ASEAN_REGIONS, ALL_ASEAN_CODES, formatAseanCurrency } from '../constants/asean.ts';
+import { AseanFlag } from './AseanFlag.tsx';
 
 interface ControlPanelProps {
   currentUser: User | null;
@@ -87,13 +88,21 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const [selectedAddressId, setSelectedAddressId] = useState<string>(addresses[0]?.id || '');
   const [isDeployingProxies, setIsDeployingProxies] = useState(false);
 
-  // Payment local state
-  const [payMethod, setPayMethod] = useState(paymentSettings?.payment_method || 'shopeepay');
+  // Payment local state (COD disabled for flash sale: only shopeepay, spaylater, spinjam)
+  const [payMethod, setPayMethod] = useState(
+    paymentSettings?.payment_method && paymentSettings.payment_method !== 'cod'
+      ? paymentSettings.payment_method
+      : 'shopeepay'
+  );
   const [shopeepayPin, setShopeepayPin] = useState(paymentSettings?.shopeepay_pin || '');
   const [customVoucher, setCustomVoucher] = useState(paymentSettings?.custom_voucher_code || '');
   const [autoOngkir, setAutoOngkir] = useState(paymentSettings?.auto_ongkir || 'true');
   const [autoDiscount, setAutoDiscount] = useState(paymentSettings?.auto_discount || 'true');
-  const [payFallback, setPayFallback] = useState(paymentSettings?.payment_fallback || 'spaylater');
+  const [payFallback, setPayFallback] = useState(
+    paymentSettings?.payment_fallback && paymentSettings.payment_fallback !== 'cod'
+      ? paymentSettings.payment_fallback
+      : 'spaylater'
+  );
   const [tgToken, setTgToken] = useState(paymentSettings?.telegram_token || '');
   const [tgChatId, setTgChatId] = useState(paymentSettings?.telegram_chat_id || '');
   const [isSavingPay, setIsSavingPay] = useState(false);
@@ -111,13 +120,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
 
   const LICENSE_TIERS = [
-    { id: '1_hari', label: '1 Hari (Trial 24 Jam)', priceRp: 'Rp 25.000', priceUsd: '$2', days: 1, maxAccounts: 1, maxThreads: 2, deviceLimit: 1 },
-    { id: '3_hari', label: '3 Hari (Weekend Flash)', priceRp: 'Rp 50.000', priceUsd: '$4', days: 3, maxAccounts: 2, maxThreads: 4, deviceLimit: 1 },
-    { id: '7_hari', label: '7 Hari (1 Minggu Pro)', priceRp: 'Rp 100.000', priceUsd: '$7', days: 7, maxAccounts: 3, maxThreads: 8, deviceLimit: 2 },
-    { id: '30_hari', label: '30 Hari (1 Bulan Starter)', priceRp: 'Rp 150.000', priceUsd: '$11', days: 30, maxAccounts: 5, maxThreads: 12, deviceLimit: 3 },
-    { id: '60_hari', label: '60 Hari (2 Bulan Best Value)', priceRp: 'Rp 250.000', priceUsd: '$18', days: 60, maxAccounts: 10, maxThreads: 16, deviceLimit: 5 },
-    { id: '365_hari', label: '365 Hari (1 Tahun VIP)', priceRp: 'Rp 1.000.000', priceUsd: '$70', days: 365, maxAccounts: 25, maxThreads: 24, deviceLimit: 10 },
-    { id: 'lifetime', label: 'Lifetime (Sultan Unlimited)', priceRp: 'Rp 1.800.000', priceUsd: '$125', days: 36500, maxAccounts: 999, maxThreads: 32, deviceLimit: 99 },
+    { id: '30_hari', label: '30 Hari (1 Bulan Starter)', priceRp: 'Rp 150.000', priceUsd: '$10', days: 30, maxAccounts: 5, maxThreads: 12, deviceLimit: 3 },
+    { id: '60_hari', label: '60 Hari (2 Bulan Best Value)', priceRp: 'Rp 250.000', priceUsd: '$17', days: 60, maxAccounts: 10, maxThreads: 16, deviceLimit: 5 },
+    { id: '365_hari', label: '365 Hari (1 Tahun VIP)', priceRp: 'Rp 1.000.000', priceUsd: '$68', days: 365, maxAccounts: 25, maxThreads: 24, deviceLimit: 10 },
+    { id: 'lifetime', label: 'Unlimited Permanen (Lifetime)', priceRp: 'Rp 3.300.000', priceUsd: '$220', days: 36500, maxAccounts: 999, maxThreads: 32, deviceLimit: 99 },
   ];
 
   const currentRegionInfo = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
@@ -143,13 +149,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const handleSavePayment = async () => {
     setIsSavingPay(true);
+    const sanitizedMethod = payMethod === 'cod' ? 'shopeepay' : payMethod;
+    const sanitizedFallback = payFallback === 'cod' ? 'spaylater' : payFallback;
     await onUpdatePayment({
-      payment_method: payMethod,
+      payment_method: sanitizedMethod,
       shopeepay_pin: shopeepayPin,
       custom_voucher_code: customVoucher,
       auto_ongkir: autoOngkir,
       auto_discount: autoDiscount,
-      payment_fallback: payFallback,
+      payment_fallback: sanitizedFallback,
       telegram_token: tgToken,
       telegram_chat_id: tgChatId,
     });
@@ -285,7 +293,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   transition: 'all 0.15s ease',
                 }}
               >
-                <span>{reg.flag}</span>
+                <AseanFlag code={reg.code} size="xs" />
                 <span>{reg.name}</span>
                 <span style={{ fontSize: '10px', opacity: 0.8 }}>({reg.currency})</span>
               </button>
@@ -352,7 +360,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             {targetUrls.length === 0 && <option value="">Belum ada target URL</option>}
             {targetUrls.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.title} - Rp {t.target_price.toLocaleString('id-ID')}
+                {t.title} - {formatAseanCurrency(t.target_price, (t.region as AseanCountryCode) || selectedRegion)}
               </option>
             ))}
           </select>
@@ -504,18 +512,39 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
       </div>
 
+      {/* Peringatan Kebijakan Flash Sale: COD Dilarang */}
+      <div
+        style={{
+          marginBottom: '14px',
+          padding: '10px 14px',
+          borderRadius: '8px',
+          backgroundColor: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}
+      >
+        <i className="fa-solid fa-ban" style={{ color: '#ef4444', fontSize: '15px', flexShrink: 0 }}></i>
+        <div style={{ fontSize: '12px', color: '#fca5a5', lineHeight: '1.4' }}>
+          <strong>Flash Sale System:</strong> COD (Bayar di Tempat) telah <strong>dihapus</strong> karena sistem Shopee menolak opsi COD saat flash sale. Jalur instan yang aktif: <strong>ShopeePay</strong>, <strong>SPayLater</strong>, dan <strong>SPinjam</strong>.
+        </div>
+      </div>
+
       <div className="form-row">
         <div className="form-group">
-          <label>Metode Pembayaran ({currentRegionInfo.name})</label>
+          <label>Metode Pembayaran Flash Sale ({currentRegionInfo.name})</label>
           <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>
-            {currentRegionInfo.popularPaymentMethods.map((pm) => (
-              <option key={pm.id} value={pm.id}>
-                {pm.label}
-              </option>
-            ))}
-            <option value="shopeepay">ShopeePay Default</option>
-            <option value="spaylater">SPayLater</option>
-            <option value="cod">Cash on Delivery (COD)</option>
+            <option value="shopeepay">ShopeePay (Bypass PIN Instant - Tercepat)</option>
+            <option value="spaylater">SPayLater (0% Bunga / Cicilan Instan)</option>
+            <option value="spinjam">SPinjam (Shopee Pinjam Limit Instan)</option>
+            {currentRegionInfo.popularPaymentMethods
+              .filter((pm) => pm.id !== 'shopeepay' && pm.id !== 'spaylater' && pm.id !== 'spinjam' && pm.id !== 'cod')
+              .map((pm) => (
+                <option key={pm.id} value={pm.id}>
+                  {pm.label}
+                </option>
+              ))}
           </select>
         </div>
         <div className="form-group">
@@ -541,11 +570,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           />
         </div>
         <div className="form-group">
-          <label>Fallback Pembayaran Jika Gagal</label>
+          <label>Fallback Pembayaran Jika Saldo Kurang</label>
           <select value={payFallback} onChange={(e) => setPayFallback(e.target.value)}>
-            <option value="spaylater">SPayLater</option>
-            <option value="cod">COD</option>
-            <option value="none">Jangan Fallback</option>
+            <option value="spaylater">SPayLater (Rekomendasi Fallback)</option>
+            <option value="spinjam">SPinjam (Shopee Pinjam)</option>
+            <option value="shopeepay">ShopeePay</option>
+            <option value="none">Jangan Fallback (Batalkan)</option>
           </select>
         </div>
       </div>
@@ -596,7 +626,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         style={{ marginBottom: '20px' }}
       >
         <i className="fa-solid fa-floppy-disk"></i>{' '}
-        {isSavingPay ? 'Menyimpan ke Firestore...' : 'Simpan Konfigurasi Pembayaran'}
+        {isSavingPay ? 'Menyimpan...' : 'Simpan Konfigurasi Pembayaran'}
       </button>
 
       {/* 5. PROXY MESH & JADWAL */}
@@ -730,7 +760,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 style={{ width: 'auto', background: '#3b82f6', color: 'white', borderColor: '#3b82f6' }}
               >
                 <i className={`fa-solid ${isMigrating ? 'fa-spinner fa-spin' : 'fa-arrows-rotate'}`}></i>{' '}
-                {isMigrating ? 'Sinkronisasi...' : 'Sinkronisasi Firestore'}
+                {isMigrating ? 'Sinkronisasi...' : 'Sinkronisasi Cloud'}
               </button>
             )}
           </div>
@@ -780,7 +810,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <div style={{ marginBottom: '20px', background: '#ffffff', borderRadius: '12px', border: '1px solid #bfdbfe', padding: '16px', overflowX: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
               <div style={{ fontWeight: 800, fontSize: '13px', color: '#1e3a8a' }}>
-                <i className="fa-solid fa-table-list mr-1 text-blue-600"></i> Tabel Resmi Harga & Batasan Kuota Lisensi Bot (Firestore Synced)
+                <i className="fa-solid fa-table-list mr-1 text-blue-600"></i> Tabel Resmi Harga & Batasan Kuota Lisensi Bot (Terintegrasi)
               </div>
               <span style={{ fontSize: '11px', color: '#64748b' }}>Pembayaran via QRIS / DM Telegram <strong>@mrpangeranz</strong></span>
             </div>
@@ -940,7 +970,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               style={{ width: 'auto', background: '#1d4ed8', borderColor: '#1d4ed8', marginTop: '12px' }}
             >
               <i className="fa-solid fa-user-plus"></i>{' '}
-              {isAddingUser ? 'Menyimpan ke Firestore...' : 'Aktivasi Lisensi Pengguna Baru'}
+              {isAddingUser ? 'Menyimpan...' : 'Aktivasi Lisensi Pengguna Baru'}
             </button>
           </form>
 
@@ -959,7 +989,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   <th style={{ padding: '10px 12px' }}>User & Password</th>
                   <th style={{ padding: '10px 12px' }}>Paket Lisensi</th>
                   <th style={{ padding: '10px 12px' }}>Batas Kuota</th>
-                  <th style={{ padding: '10px 12px' }}>Masa Aktif Firestore</th>
+                  <th style={{ padding: '10px 12px' }}>Masa Aktif Akun</th>
                   <th style={{ padding: '10px 12px' }}>Role</th>
                   <th style={{ padding: '10px 12px' }}>Status</th>
                   <th style={{ padding: '10px 12px', textAlign: 'center' }}>Aksi Kelola</th>
@@ -1072,7 +1102,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                               className="btn btn-outline btn-sm"
                               style={{ padding: '4px 8px', fontSize: '11px', width: 'auto', color: '#047857', borderColor: '#a7f3d0' }}
                               onClick={() => handleExtendExpiry(u, 30)}
-                              title="Perpanjang masa aktif akun +30 Hari di Firestore"
+                              title="Perpanjang masa aktif akun +30 Hari"
                             >
                               +30 Hari
                             </button>

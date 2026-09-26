@@ -1,6 +1,7 @@
 import React from 'react';
 import { TargetUrl, ShopeeAccount, BotStats, AseanCountryCode } from '../types/index.ts';
 import { ASEAN_REGIONS, formatAseanCurrency } from '../constants/asean.ts';
+import { AseanFlag } from './AseanFlag.tsx';
 
 interface ModernHeroCardsProps {
   stats: BotStats;
@@ -14,6 +15,40 @@ interface ModernHeroCardsProps {
   isBotRunning: boolean;
   onToggleBot: () => void;
 }
+
+// Smart universal product icon resolver (No hardcoded Apple logo!)
+const getProductIcon = (title: string): string => {
+  const t = (title || '').toLowerCase();
+  if (t.includes('phone') || t.includes('hp') || t.includes('samsung') || t.includes('xiaomi') || t.includes('oppo') || t.includes('vivo') || t.includes('realme') || t.includes('infinix')) {
+    return 'fa-solid fa-mobile-screen-button';
+  }
+  if (t.includes('laptop') || t.includes('notebook') || t.includes('macbook') || t.includes('asus') || t.includes('lenovo') || t.includes('acer')) {
+    return 'fa-solid fa-laptop';
+  }
+  if (t.includes('ipad') || t.includes('tablet') || t.includes('tab')) {
+    return 'fa-solid fa-tablet-screen-button';
+  }
+  if (t.includes('jam') || t.includes('watch')) {
+    return 'fa-solid fa-clock';
+  }
+  if (t.includes('earphone') || t.includes('headphone') || t.includes('tws') || t.includes('airpod') || t.includes('audio')) {
+    return 'fa-solid fa-headphones';
+  }
+  if (t.includes('sepatu') || t.includes('shoes') || t.includes('sneaker') || t.includes('sandal')) {
+    return 'fa-solid fa-shoe-prints';
+  }
+  if (t.includes('baju') || t.includes('kaos') || t.includes('shirt') || t.includes('jaket') || t.includes('jersey') || t.includes('fashion')) {
+    return 'fa-solid fa-shirt';
+  }
+  if (t.includes('kamera') || t.includes('camera')) {
+    return 'fa-solid fa-camera';
+  }
+  if (t.includes('game') || t.includes('playstation') || t.includes('switch') || t.includes('nintendo') || t.includes('ps5') || t.includes('xbox')) {
+    return 'fa-solid fa-gamepad';
+  }
+  // Default clean flash sale shopping bag icon for any generic item
+  return 'fa-solid fa-bag-shopping';
+};
 
 export const ModernHeroCards: React.FC<ModernHeroCardsProps> = ({
   stats,
@@ -36,6 +71,8 @@ export const ModernHeroCards: React.FC<ModernHeroCardsProps> = ({
     : formatAseanCurrency(0, selectedRegion);
 
   const defaultSample = currentRegionInfo.sampleFlashProduct;
+  
+  // Use selectedTarget if provided, otherwise default to region sample
   const targetTitle = selectedTarget?.title || defaultSample.title;
   const targetPriceNum = selectedTarget?.target_price
     ? Number(selectedTarget.target_price)
@@ -61,8 +98,9 @@ export const ModernHeroCards: React.FC<ModernHeroCardsProps> = ({
                 >
                   REAL METRIC
                 </span>
-                <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded ml-1">
-                  {currentRegionInfo.flag} {currentRegionInfo.code}
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded ml-1">
+                  <AseanFlag code={currentRegionInfo.code} size="xs" />
+                  <span>{currentRegionInfo.code}</span>
                 </span>
               </div>
               <div className="balance-amount">{formattedSaved}</div>
@@ -91,12 +129,13 @@ export const ModernHeroCards: React.FC<ModernHeroCardsProps> = ({
           </div>
 
           <div className="balance-bottom-meta">
-            <div className="latency-indicator">
+            <div className="latency-indicator flex items-center gap-1.5">
               <span className={`latency-dot ${serverLatency < 20 ? 'fast' : 'normal'}`}></span>
               <span>Latensi: <strong>{serverLatency} ms</strong></span>
               <span className="meta-separator">•</span>
-              <span title={`Atomic Clock Pool: ${currentRegionInfo.ntpServer}`}>
-                {currentRegionInfo.flag} {currentRegionInfo.ntpServer.split('.')[0]}: <strong>Detik 0</strong>
+              <span className="inline-flex items-center gap-1" title={`Atomic Clock Pool: ${currentRegionInfo.ntpServer}`}>
+                <AseanFlag code={currentRegionInfo.code} size="xs" />
+                <span>{currentRegionInfo.ntpServer.split('.')[0]}: <strong>Detik 0</strong></span>
               </span>
             </div>
 
@@ -109,7 +148,7 @@ export const ModernHeroCards: React.FC<ModernHeroCardsProps> = ({
         </div>
       </div>
 
-      {/* 2. Upcoming Flash Sale Targets (Duo Bento Cards matching reference) */}
+      {/* 2. Upcoming Flash Sale Targets (Duo Bento Cards) */}
       <div className="modern-targets-section">
         <div className="section-title-row">
           <h3 className="section-heading">
@@ -128,11 +167,13 @@ export const ModernHeroCards: React.FC<ModernHeroCardsProps> = ({
           {/* Card A: Vibrant Purple Featured Card */}
           <div className="target-card purple-gradient">
             <div className="target-card-top">
-              <div className="target-icon-circle purple">
-                <i className="fa-brands fa-apple"></i>
+              <div className="target-icon-circle purple" title={targetTitle}>
+                <i className={getProductIcon(targetTitle)}></i>
               </div>
-              <span className="target-badge-pill">
-                <i className="fa-solid fa-bolt"></i> {currentRegionInfo.flag} Siap Detik 0
+              <span className="target-badge-pill flex items-center gap-1">
+                <i className="fa-solid fa-bolt text-amber-300"></i>
+                <AseanFlag code={currentRegionInfo.code} size="xs" />
+                <span>Siap Detik 0</span>
               </span>
             </div>
 
@@ -173,11 +214,11 @@ export const ModernHeroCards: React.FC<ModernHeroCardsProps> = ({
 
             <div className="target-card-body">
               <h4 className="target-item-title">
-                {activeAccount?.nickname || 'Akun Shopee Utama'}
+                {activeAccount?.nickname || `Akun Shopee ${currentRegionInfo.name}`}
               </h4>
               <div className="target-price-row">
                 <span className="account-meta-text">
-                  {activeAccount?.username ? `@${activeAccount.username}` : 'Auto PIN ShopeePay ON'}
+                  {activeAccount?.username ? `@${activeAccount.username}` : `Auto PIN ${currentRegionInfo.code === 'ID' ? 'ShopeePay' : 'Direct Pay'} ON`}
                 </span>
               </div>
             </div>
@@ -185,7 +226,7 @@ export const ModernHeroCards: React.FC<ModernHeroCardsProps> = ({
             <div className="target-card-footer">
               <div className="target-time-info">
                 <i className="fa-solid fa-shield-halved"></i>
-                <span>Proxy Residential Aktif</span>
+                <span>Proxy Residential {currentRegionInfo.code} Aktif</span>
               </div>
               <button
                 type="button"
