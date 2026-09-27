@@ -318,10 +318,15 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
               />
-              <i
-                className={`fa-solid ${showPass ? 'fa-eye-slash' : 'fa-eye'} password-toggle`}
+              <button
+                type="button"
+                className="password-toggle-btn"
                 onClick={() => setShowPass(!showPass)}
-              ></i>
+                title={showPass ? 'Sembunyikan password' : 'Lihat password'}
+                aria-label={showPass ? 'Sembunyikan password' : 'Lihat password'}
+              >
+                <i className={`fa-solid ${showPass ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+              </button>
             </div>
           </div>
           <div className="form-group">

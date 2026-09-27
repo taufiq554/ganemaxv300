@@ -76,7 +76,7 @@ logging.basicConfig(
 logger = logging.getLogger("GaneMaX-Core")
 
 class ShopeeFlashBotDaemon:
-    def __init__(self, region="${selectedRegion}", thread_count=12):
+    def __init__(self, region="${selectedRegion}", thread_count=8):
         self.region = region
         self.thread_count = thread_count
         self.is_running = False
@@ -161,7 +161,7 @@ class ShopeeFlashBotDaemon:
         logger.info("Daemon selesai. Kuota pesanan berhasil diamankan (1 item checkout).")
 
 if __name__ == "__main__":
-    bot = ShopeeFlashBotDaemon(region="${selectedRegion}", thread_count=12)
+    bot = ShopeeFlashBotDaemon(region="${selectedRegion}", thread_count=8)
     bot.start()`,
     },
     {
@@ -618,7 +618,7 @@ NTP_SERVERS = {
 }
 
 # Concurrency & Performance Engine
-MULTI_THREAD_COUNT = 12
+MULTI_THREAD_COUNT = 8
 POLL_RATE_MS = 15
 HEADLESS_MODE = True
 TIMEOUT_SOCKET_MS = 2500
@@ -752,7 +752,7 @@ Saat Anda menekan tombol "Jalankan Engine di Web Terminal", engine daemon langsu
       onStartBot();
       setRunFeedback('Engine Python aktif! Mengalirkan log langsung ke Terminal Web App.');
       if (onAddLog) {
-        onAddLog(`[PYTHON] $ python3 shopee_flash_bot.py --threads=12 --stealth=active`, 'info');
+        onAddLog(`[PYTHON] $ python3 shopee_flash_bot.py --threads=8 --stealth=active`, 'info');
         onAddLog(`[WEBDRIVER] Undetected ChromeDriver stealth v3.5.5 siap beroperasi`, 'info');
         onAddLog(`[CLI] Script Python berhasil terhubung langsung ke Web App Terminal!`, 'success');
       }

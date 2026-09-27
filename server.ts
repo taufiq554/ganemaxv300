@@ -19,6 +19,17 @@ app.get('/googlee771107603824512.html', (_req, res) => {
   res.type('text/html').send('google-site-verification: googlee771107603824512.html');
 });
 
+// Google Search Console sitemap.xml and robots.txt handler
+app.get('/sitemap.xml', (_req, res) => {
+  const sitemapPath = path.join(__dirname, 'public', 'sitemap.xml');
+  res.type('application/xml').sendFile(sitemapPath);
+});
+
+app.get('/robots.txt', (_req, res) => {
+  const robotsPath = path.join(__dirname, 'public', 'robots.txt');
+  res.type('text/plain').sendFile(robotsPath);
+});
+
 // Serve static assets from dist and public
 const distPath = path.join(__dirname, 'dist');
 const publicPath = path.join(__dirname, 'public');

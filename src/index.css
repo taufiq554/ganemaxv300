@@ -4031,5 +4031,62 @@ body.dark-theme .modern-ai-input {
   justify-content: center;
 }
 
+/* Password & PIN Visibility Toggle */
+.password-input-wrapper,
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-input-wrapper input,
+.password-wrapper input {
+  width: 100%;
+  padding-right: 42px !important;
+}
+
+.password-toggle-btn,
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 6px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 15px;
+  transition: all 0.2s ease;
+  z-index: 5;
+}
+
+.password-toggle-btn:hover,
+.password-toggle:hover {
+  color: #2563eb;
+  background-color: rgba(37, 99, 235, 0.08);
+}
+
+.dark .password-toggle-btn,
+.dark .password-toggle,
+body.dark-theme .password-toggle-btn,
+body.dark-theme .password-toggle {
+  color: #94a3b8;
+}
+
+.dark .password-toggle-btn:hover,
+.dark .password-toggle:hover,
+body.dark-theme .password-toggle-btn:hover,
+body.dark-theme .password-toggle:hover {
+  color: #60a5fa;
+  background-color: rgba(96, 165, 250, 0.15);
+}
+
+
 
 

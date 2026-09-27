@@ -106,6 +106,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const [tgToken, setTgToken] = useState(paymentSettings?.telegram_token || '');
   const [tgChatId, setTgChatId] = useState(paymentSettings?.telegram_chat_id || '');
   const [isSavingPay, setIsSavingPay] = useState(false);
+  const [showShopeepayPin, setShowShopeepayPin] = useState(false);
 
   // Admin Add User form state
   const [newUsername, setNewUsername] = useState('');
@@ -113,17 +114,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const [newRole, setNewRole] = useState<'admin' | 'user'>('user');
   const [newPlan, setNewPlan] = useState<string>('30_hari');
   const [customMaxAccounts, setCustomMaxAccounts] = useState<number>(5);
-  const [customMaxThreads, setCustomMaxThreads] = useState<number>(12);
+  const [customMaxThreads, setCustomMaxThreads] = useState<number>(8);
   const [customDeviceLimit, setCustomDeviceLimit] = useState<number>(3);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
 
   const LICENSE_TIERS = [
-    { id: '30_hari', label: '30 Hari (1 Bulan Starter)', priceRp: 'Rp 150.000', priceUsd: '$10', days: 30, maxAccounts: 5, maxThreads: 12, deviceLimit: 3 },
-    { id: '60_hari', label: '60 Hari (2 Bulan Best Value)', priceRp: 'Rp 250.000', priceUsd: '$17', days: 60, maxAccounts: 10, maxThreads: 16, deviceLimit: 5 },
-    { id: '365_hari', label: '365 Hari (1 Tahun VIP)', priceRp: 'Rp 1.000.000', priceUsd: '$68', days: 365, maxAccounts: 25, maxThreads: 24, deviceLimit: 10 },
-    { id: 'lifetime', label: 'Unlimited Permanen (Lifetime)', priceRp: 'Rp 3.300.000', priceUsd: '$220', days: 36500, maxAccounts: 999, maxThreads: 32, deviceLimit: 99 },
+    { id: '30_hari', label: '30 Hari (1 Bulan Starter)', priceRp: 'Rp 150.000', priceUsd: '$10', days: 30, maxAccounts: 5, maxThreads: 8, deviceLimit: 3 },
+    { id: '60_hari', label: '60 Hari (2 Bulan Best Value)', priceRp: 'Rp 250.000', priceUsd: '$17', days: 60, maxAccounts: 10, maxThreads: 12, deviceLimit: 5 },
+    { id: '365_hari', label: '365 Hari (1 Tahun VIP)', priceRp: 'Rp 1.000.000', priceUsd: '$68', days: 365, maxAccounts: 25, maxThreads: 16, deviceLimit: 10 },
+    { id: 'lifetime', label: 'Unlimited Permanen (Lifetime)', priceRp: 'Rp 3.300.000', priceUsd: '$220', days: 36500, maxAccounts: 999, maxThreads: 24, deviceLimit: 99 },
   ];
 
   const currentRegionInfo = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
@@ -549,13 +550,25 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
         <div className="form-group">
           <label>PIN ShopeePay (Bypass Prompt)</label>
-          <input
-            type="password"
-            value={shopeepayPin}
-            onChange={(e) => setShopeepayPin(e.target.value)}
-            placeholder="6 digit PIN"
-            maxLength={6}
-          />
+          <div className="password-input-wrapper">
+            <input
+              type={showShopeepayPin ? 'text' : 'password'}
+              value={shopeepayPin}
+              onChange={(e) => setShopeepayPin(e.target.value)}
+              placeholder="6 digit PIN"
+              maxLength={6}
+              inputMode="numeric"
+            />
+            <button
+              type="button"
+              className="password-toggle-btn"
+              onClick={() => setShowShopeepayPin(!showShopeepayPin)}
+              title={showShopeepayPin ? 'Sembunyikan PIN' : 'Lihat PIN'}
+              aria-label={showShopeepayPin ? 'Sembunyikan PIN' : 'Lihat PIN'}
+            >
+              <i className={`fa-solid ${showShopeepayPin ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+            </button>
+          </div>
         </div>
       </div>
 

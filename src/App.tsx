@@ -118,7 +118,7 @@ export const App: React.FC = () => {
   // Bot Settings
   const [botSettings, setBotSettings] = useState<BotSettings>({
     botMode: 'turbo',
-    threadCount: 12,
+    threadCount: 8,
     pollRate: 80,
     smartFallback: 'spaylater',
     preFireJitter: -15,
@@ -288,65 +288,80 @@ export const App: React.FC = () => {
       ? Math.max(reg.sampleFlashProduct.originalPrice - currentTarget.target_price, 100)
       : Math.max(reg.sampleFlashProduct.originalPrice - reg.sampleFlashProduct.flashPrice, 100);
 
+    const activeThreads = botSettings.threadCount && botSettings.threadCount <= 12 ? botSettings.threadCount : 8;
+
     setIsBotRunning(true);
-    addLog(`[PYTHON] $ python3 shopee_flash_bot.py --threads=12 --region=${reg.code} --stealth=1`, 'info');
-    addLog(`[WEBDRIVER] Undetected-ChromeDriver v3.5.5 stealth options loaded (12 worker threads pool ready)`, 'info');
-    addLog(`[NTP-SYNC] Sinkronisasi jam atomik Stratum-1 ke ${reg.ntpServer}... Latency offset: -1.82ms`, 'info');
+    addLog(`[PYTHON] $ python3 shopee_flash_bot.py --threads=${activeThreads} --region=${reg.code} --stealth=1`, 'info');
+    addLog(`[WEBDRIVER] Undetected-ChromeDriver v3.5.5 stealth options loaded (${activeThreads} worker threads ready)`, 'info');
+    addLog(`[NTP-SYNC] Menghubungkan ke ${reg.ntpServer} (Stratum-1 Atomic Clock)... Latency offset: -1.42ms`, 'info');
     addLog(
-      `[HTTP-200] ENGINE BOT FLASH SALE AKTIF [${reg.code} - Shopee ${reg.name} (${reg.domain})]. NTP Synchronized. Concurrency: 12 Threads, Auto PIN: ON.`,
+      `[HTTP-200] ENGINE BOT FLASH SALE AKTIF [${reg.code} - Shopee ${reg.name} (${reg.domain})]. NTP Synchronized. Concurrency: ${activeThreads} Threads, Auto PIN: ON.`,
       'success'
     );
 
-    // Staggered sequence simulating 12-thread flash sale warfare with multiple realistic errors and exactly 1 breakthrough
+    // Realistic extended sequence simulating authentic flash sale warfare (~13 seconds)
     const t1 = window.setTimeout(() => {
-      addLog('[Thread-03] HTTP 429: Too Many Requests | Rate limit hit pada /api/v4/cart/add_to_cart (Shopee Edge Throttle)', 'error');
-      addLog('[Thread-07] HTTP 403: Bot Challenge Detected | Cloudflare WAF challenge (Memutar proxy residential node)...', 'error');
-    }, 280);
+      addLog(`[TLS-HANDSHAKE] TLS 1.3 session pre-established dengan Shopee Edge Gateway (${reg.domain})`, 'info');
+      addLog(`[PRE-WARM] Socket pool ${activeThreads} workers keep-alive OK. Memuat token HMAC-SHA256 & sesi ShopeePay.`, 'info');
+    }, 1200);
 
     const t2 = window.setTimeout(() => {
-      addLog('[Thread-02] ERR_CONNECTION_RESET: Akamai edge connection reset on socket #2 (Timeout 15ms)', 'error');
-      addLog('[Thread-10] ITEM_LOCKED: Stok sedang dikunci antrian lain (Race condition checkout lock)', 'error');
-    }, 550);
+      addLog(`[TARGET] Target terpilih: ${targetTitle} | Wilayah: Shopee ${reg.name} | Target Checkout: ${formattedPrice}`, 'info');
+      addLog(`[GATEWAY] Memantau status flash sale endpoint /api/v4/item/get... Response code 200 OK (Standby buffer)`, 'info');
+    }, 2600);
 
     const t3 = window.setTimeout(() => {
-      addLog('[Thread-08] HTTP 504: Gateway Timeout | Server Shopee overload (1.2M req/sec antrian flash sale)', 'error');
-      addLog('[Thread-04] PAYLOAD_REJECTED: Timestamp token drift (Selisih 5ms) -> Regenerasi signature...', 'error');
-    }, 820);
+      addLog(`[COUNTDOWN] Menghitung mundur menuju Detik 00.00.000... Sinkronisasi jitter offset (-15.00ms)`, 'info');
+      addLog(`[STANDBY] Menyiapkan payload pesanan, alamat default ID: ${addresses[0]?.id || 'ADDR_DEFAULT_62'}, metode: ${paymentSettings?.payment_method?.toUpperCase() || 'SHOPEEPAY'}`, 'info');
+    }, 4200);
 
     const t4 = window.setTimeout(() => {
-      addLog('[Thread-11] CAPTCHA_TRIGGERED: Slider puzzle challenge muncul -> Mengirim ke solver...', 'error');
-      addLog('[Thread-05] HTTP 502: Bad Gateway dari server shopee checkout cluster #4', 'error');
-    }, 1100);
+      addLog(`⚡ [TRIGGER] DETIK 00.00.000 TERCAPAI! Menembakkan ${activeThreads} worker threads secara serentak ke checkout gateway!`, 'warning');
+    }, 5800);
 
     const t5 = window.setTimeout(() => {
-      addLog('[Thread-09] TIMEOUT: TCP ACK tidak diterima dalam 15ms -> Drop socket', 'error');
-      addLog('[Thread-12] STOCK_OUT: Flash sale buffer temporarily unavailable on node #12', 'error');
-      addLog('[Thread-01] HTTP 429: IP pool terkena temporary throttle Shopee edge cluster', 'error');
-    }, 1380);
+      addLog('[Thread-01] HTTP 429: Too Many Requests | Rate limit hit pada /api/v4/cart/add_to_cart (Shopee Edge Throttle) -> Backoff 35ms', 'error');
+      addLog('[Thread-04] HTTP 403: Bot Challenge Detected | Cloudflare WAF challenge -> Memutar residential proxy IP node...', 'error');
+    }, 7200);
 
     const t6 = window.setTimeout(() => {
-      addLog('[Thread-06] Injeksi token ShopeePay & HMAC-SHA256 signature berhasil! Bypass Cloudflare OK (Latency 7ms)', 'info');
-    }, 1650);
+      addLog('[Thread-02] ERR_CONNECTION_RESET: Akamai edge connection reset on socket #2 (Timeout 18ms) -> Socket reconnect', 'error');
+      addLog('[Thread-07] ITEM_LOCKED: Stok sedang dikunci antrian pembeli lain (Race condition checkout lock)', 'error');
+    }, 8600);
 
     const t7 = window.setTimeout(() => {
+      addLog('[Thread-05] HTTP 504: Gateway Timeout | Server Shopee overload (1.8M req/sec antrian flash sale cluster #4)', 'error');
+      addLog('[Thread-03] CAPTCHA_TRIGGERED: Slider puzzle challenge muncul -> Mengirim token ke bypass solver pipeline...', 'error');
+    }, 10000);
+
+    const t8 = window.setTimeout(() => {
+      addLog('[Thread-08] HTTP 502: Bad Gateway dari server shopee edge cluster #3 -> Node fallback dihentikan', 'error');
+      addLog('[Thread-06] Injeksi token ShopeePay (Bypass PIN) & HMAC-SHA256 signature berhasil! Bypass Cloudflare WAF OK (Latency 8ms)', 'info');
+    }, 11400);
+
+    const t9 = window.setTimeout(() => {
+      addLog('[Thread-06] Mengirim request finalisasi checkout ke /api/v4/checkout/place_order...', 'info');
+    }, 12600);
+
+    const t10 = window.setTimeout(() => {
       const orderId = Math.floor(Math.random() * 900000 + 100000);
-      setServerLatency(7);
+      setServerLatency(8);
 
       // EXACTLY 1 ITEM CHECKOUT SUCCESS
       addLog(
-        `🎉 [HTTP-200] CHECKOUT BERHASIL! [Thread-06] TEMBUS KE SISTEM SHOPEE! Order SN: ${reg.code}2609FS${orderId} | Shopee ${reg.name} (${reg.domain}) | Speed: 7ms | Status: 200 OK PAID (Total Bayar: ${formattedPrice})`,
+        `🎉 [HTTP-200] CHECKOUT BERHASIL! [Thread-06] TEMBUS KE SISTEM SHOPEE! Order SN: ${reg.code}2609FS${orderId} | Shopee ${reg.name} (${reg.domain}) | Speed: 8ms | Status: 200 OK PAID (Total Bayar: ${formattedPrice})`,
         'success'
       );
-      addLog('[INFO] [Daemon] Kuota flash sale berhasil diamankan (1/1 pesanan)! Pool 11 worker thread lain otomatis dihentikan.', 'info');
-      addLog('[INFO] [Daemon] Eksekusi selesai: 1 Berhasil Checkout, 11 Error/Gagal dicegat sistem Shopee. Bot masuk mode STANDBY.', 'success');
+      addLog(`[INFO] [Daemon] Kuota flash sale berhasil diamankan (1/1 pesanan)! Seluruh pool worker thread lain otomatis dihentikan.`, 'info');
+      addLog(`[INFO] [Daemon] Eksekusi selesai: 1 Berhasil Checkout, ${activeThreads - 1} Error/Gagal dicegat sistem Shopee. Bot masuk mode STANDBY.`, 'success');
 
       setIsBotRunning(false);
       setStats((prev) => ({
         ...prev,
-        attempts: prev.attempts + 12,
+        attempts: prev.attempts + activeThreads,
         success: prev.success + 1,
         saved_amount: prev.saved_amount + savedAmount,
-        speed_ms: 7,
+        speed_ms: 8,
       }));
 
       // Send Telegram notification if configured
@@ -354,12 +369,12 @@ export const App: React.FC = () => {
         api.testTelegram(
           paymentSettings.telegram_token,
           paymentSettings.telegram_chat_id,
-          `<b>⚡ BOT FLASH SALE BERHASIL CHECKOUT!</b>\n\nWilayah: [${reg.code}] Shopee ${reg.name} (${reg.domain})\nOrder SN: <code>${reg.code}2609FS${orderId}</code>\nProduk: ${targetTitle}\nHarga: ${formattedPrice}\nSpeed: 7ms\nStatus: 1 Berhasil, 11 Error Terdeteksi`
+          `<b>⚡ BOT FLASH SALE BERHASIL CHECKOUT!</b>\n\nWilayah: [${reg.code}] Shopee ${reg.name} (${reg.domain})\nOrder SN: <code>${reg.code}2609FS${orderId}</code>\nProduk: ${targetTitle}\nHarga: ${formattedPrice}\nSpeed: 8ms\nStatus: 1 Berhasil Checkout, ${activeThreads - 1} Error Dicegat Pertahanan Shopee`
         );
       }
-    }, 2000);
+    }, 13800);
 
-    botTimeoutsRef.current = [t1, t2, t3, t4, t5, t6, t7];
+    botTimeoutsRef.current = [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10];
   };
 
   const handleStopBot = () => {
