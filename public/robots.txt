@@ -1,8 +1,8 @@
 User-agent: *
 Allow: /
+Allow: /app
 Allow: /?region=*
 Disallow: /api/
 Disallow: /database/
 
 Sitemap: https://www.ganemaxbot.my.id/sitemap.xml
-Sitemap: https://ganemaxbot.my.id/sitemap.xml

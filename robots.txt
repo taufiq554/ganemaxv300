@@ -1,1 +1,8 @@
-Robots.txt untuk GaneMaX.Ai (https://ganemax.my.id)Mengizinkan seluruh perayap mesin pencari (Googlebot, Bingbot, dll)User-agent: *Allow: /Lokasi Peta Situs Resmi (Sitemap XML)Sitemap: https://ganemax.my.id/sitemap.xml
+User-agent: *
+Allow: /
+Allow: /app
+Allow: /?region=*
+Disallow: /api/
+Disallow: /database/
+
+Sitemap: https://www.ganemaxbot.my.id/sitemap.xml

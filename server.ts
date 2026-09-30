@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import apiApp from './api/index.ts';
 
@@ -21,12 +22,18 @@ app.get('/googlee771107603824512.html', (_req, res) => {
 
 // Google Search Console sitemap.xml and robots.txt handler
 app.get('/sitemap.xml', (_req, res) => {
-  const sitemapPath = path.join(__dirname, 'public', 'sitemap.xml');
+  const sitemapPath = fs.existsSync(path.join(distPath, 'sitemap.xml'))
+    ? path.join(distPath, 'sitemap.xml')
+    : path.join(__dirname, 'public', 'sitemap.xml');
+  res.set('Cache-Control', 'public, max-age=3600, must-revalidate');
   res.type('application/xml').sendFile(sitemapPath);
 });
 
 app.get('/robots.txt', (_req, res) => {
-  const robotsPath = path.join(__dirname, 'public', 'robots.txt');
+  const robotsPath = fs.existsSync(path.join(distPath, 'robots.txt'))
+    ? path.join(distPath, 'robots.txt')
+    : path.join(__dirname, 'public', 'robots.txt');
+  res.set('Cache-Control', 'public, max-age=3600, must-revalidate');
   res.type('text/plain').sendFile(robotsPath);
 });
 
