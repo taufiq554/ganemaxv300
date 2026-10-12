@@ -34,6 +34,7 @@ interface ControlPanelProps {
   onOpenAddressModal: (address?: Address) => void;
   onDeleteAddress: (id: string) => Promise<void>;
   onOpenAccountModal: (account?: ShopeeAccount) => void;
+  onOpenBulkAccountModal?: () => void;
   onDeleteAccount: (id: string) => Promise<void>;
   onOpenTargetUrlModal: (target?: TargetUrl) => void;
   onDeleteTargetUrl: (id: string) => Promise<void>;
@@ -70,6 +71,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onOpenAddressModal,
   onDeleteAddress,
   onOpenAccountModal,
+  onOpenBulkAccountModal,
   onDeleteAccount,
   onOpenTargetUrlModal,
   onDeleteTargetUrl,
@@ -395,16 +397,29 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       <div className="section-title">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <i className="fa-solid fa-user-shield" style={{ color: '#2563eb' }}></i>
-          <span>Akun Shopee Eksekutor</span>
+          <span>Akun Shopee Eksekutor ({accounts.length})</span>
         </div>
-        <button
-          type="button"
-          className="btn btn-outline btn-sm"
-          onClick={() => onOpenAccountModal()}
-          style={{ width: 'auto' }}
-        >
-          <i className="fa-solid fa-plus"></i> Tambah Akun
-        </button>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => onOpenAccountModal()}
+            style={{ width: 'auto' }}
+          >
+            <i className="fa-solid fa-plus"></i> Tambah
+          </button>
+          {onOpenBulkAccountModal && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={onOpenBulkAccountModal}
+              style={{ width: 'auto', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}
+              title="Import banyak akun sekaligus via teks/cookies"
+            >
+              <i className="fa-solid fa-file-import"></i> Bulk Import
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="form-group">

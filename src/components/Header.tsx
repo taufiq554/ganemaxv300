@@ -200,15 +200,30 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="notification-dot"></span>
           </button>
 
-          {/* Music Audio Toggle */}
+          {/* Music Audio Toggle (lagu.mp3) */}
           <button
             type="button"
-            className={`header-icon-btn ${isPlayingMusic ? 'active-audio' : ''}`}
+            className={`header-icon-btn ${isPlayingMusic ? 'active-audio text-blue-600 bg-blue-50 border-blue-300' : ''}`}
             onClick={onToggleMusic}
-            title={isPlayingMusic ? 'Matikan Audio' : 'Nyalakan Audio'}
-            aria-label="Toggle Musik"
+            title={isPlayingMusic ? 'Matikan Musik Latar (lagu.mp3)' : 'Nyalakan Musik Latar (lagu.mp3)'}
+            aria-label="Toggle Musik lagu.mp3"
+            style={{ position: 'relative' }}
           >
-            <i className={`fa-solid ${isPlayingMusic ? 'fa-volume-high' : 'fa-volume-xmark'}`}></i>
+            <i className={`fa-solid ${isPlayingMusic ? 'fa-volume-high text-blue-600' : 'fa-volume-xmark'}`}></i>
+            {isPlayingMusic && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  right: '-2px',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: '#10b981',
+                  boxShadow: '0 0 6px #10b981',
+                }}
+              />
+            )}
           </button>
 
           {/* Theme Toggle */}

@@ -36,6 +36,9 @@ import {
   ProxyModal,
   ScheduleModal,
 } from './components/CrudModals.tsx';
+import { BulkAccountModal } from './components/BulkAccountModal.tsx';
+import { SimulatorModal } from './components/SimulatorModal.tsx';
+import { ProofGalleryModal } from './components/ProofGalleryModal.tsx';
 
 export const App: React.FC = () => {
   // Authentication State
@@ -156,6 +159,10 @@ export const App: React.FC = () => {
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [activeSchedule, setActiveSchedule] = useState<Schedule | null>(null);
 
+  const [bulkAccountModalOpen, setBulkAccountModalOpen] = useState(false);
+  const [simulatorModalOpen, setSimulatorModalOpen] = useState(false);
+  const [proofGalleryModalOpen, setProofGalleryModalOpen] = useState(false);
+
   const botIntervalRef = useRef<any>(null);
   const botTimeoutsRef = useRef<number[]>([]);
 
@@ -223,20 +230,38 @@ export const App: React.FC = () => {
     }
   }, [currentUser, loadUserData]);
 
-  // Audio Playback Handler
+  // Audio Playback Handler (/lagu.mp3)
   const handleToggleMusic = () => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio('audio.mp3');
-      audioRef.current.loop = true;
-    }
-    if (isPlayingMusic) {
-      audioRef.current.pause();
-      setIsPlayingMusic(false);
-    } else {
-      audioRef.current
-        .play()
-        .then(() => setIsPlayingMusic(true))
-        .catch((e) => console.log('Audio autoplay prevented:', e));
+    try {
+      if (!audioRef.current) {
+        audioRef.current = new Audio('/lagu.mp3');
+        audioRef.current.loop = true;
+        audioRef.current.onerror = () => {
+          console.warn('Playback error on /lagu.mp3, trying /audio.mp3');
+          if (audioRef.current) {
+            audioRef.current.src = '/audio.mp3';
+            audioRef.current.play().catch(() => {});
+          }
+        };
+      }
+      if (isPlayingMusic) {
+        audioRef.current.pause();
+        setIsPlayingMusic(false);
+        addLog('🎵 Musik latar (lagu.mp3) dihentikan.', 'info');
+      } else {
+        audioRef.current
+          .play()
+          .then(() => {
+            setIsPlayingMusic(true);
+            addLog('🎵 Memutar musik latar (lagu.mp3) sukses.', 'info');
+          })
+          .catch((e) => {
+            console.log('Audio autoplay prevented:', e);
+            setIsPlayingMusic(false);
+          });
+      }
+    } catch (err) {
+      console.error('Audio toggle error:', err);
     }
   };
 
@@ -445,6 +470,41 @@ export const App: React.FC = () => {
     if (res.success) {
       setAccounts((prev) => prev.filter((a) => a.id !== id));
       addLog('Akun berhasil dihapus.', 'info');
+    }
+  };
+
+  const handleSaveBulkAccounts = async (bulkData: Partial<ShopeeAccount>[]) => {
+    if (!bulkData || bulkData.length === 0) return;
+    const allowedMax = currentUser?.role === 'admin' ? 999 : (currentUser?.max_accounts || 15);
+    const availableSlots = Math.max(0, allowedMax - accounts.length);
+    if (availableSlots <= 0) {
+      alert(`Batas kuota akun Anda (${allowedMax} akun) telah penuh. Silakan upgrade lisensi untuk menambah slot akun.`);
+      addLog(`[Batas Kuota] Gagal impor massal: batas ${allowedMax} akun tercapai.`, 'error');
+      return;
+    }
+
+    const itemsToImport = bulkData.slice(0, availableSlots);
+    addLog(`🚀 Memproses impor massal ${itemsToImport.length} akun Shopee ke database...`, 'info');
+
+    const res = await api.post<{ total_imported: number; items: ShopeeAccount[] }>(
+      'shopee-accounts/bulk',
+      itemsToImport
+    );
+
+    if (res.success && res.data?.items) {
+      setAccounts((prev) => [...res.data!.items, ...prev]);
+      addLog(`✅ Berhasil mengimpor ${res.data.items.length} akun Shopee sekaligus!`, 'success');
+    } else {
+      // Fallback sequential
+      let count = 0;
+      for (const item of itemsToImport) {
+        const singleRes = await api.post<ShopeeAccount>('shopee-accounts', item);
+        if (singleRes.success && singleRes.data) {
+          setAccounts((prev) => [singleRes.data!, ...prev]);
+          count++;
+        }
+      }
+      addLog(`✅ Selesai mengimpor ${count} akun Shopee ke database.`, 'success');
     }
   };
 
@@ -702,6 +762,9 @@ export const App: React.FC = () => {
             onOpenProxyModal={() => setProxyModalOpen(true)}
             onOpenScheduleModal={() => setScheduleModalOpen(true)}
             onSwitchTab={(tab) => setCurrentTab(tab)}
+            onOpenSimulator={() => setSimulatorModalOpen(true)}
+            onOpenProofGallery={() => setProofGalleryModalOpen(true)}
+            onOpenBulkImport={() => setBulkAccountModalOpen(true)}
           />
 
           {/* Countdown & Flash Sale Timer */}
@@ -754,6 +817,7 @@ export const App: React.FC = () => {
               setActiveAccount(acc || null);
               setAccountModalOpen(true);
             }}
+            onOpenBulkAccountModal={() => setBulkAccountModalOpen(true)}
             onDeleteAccount={handleDeleteAccount}
             onOpenTargetUrlModal={(t) => {
               setActiveTargetUrl(t || null);
@@ -808,6 +872,7 @@ export const App: React.FC = () => {
               setActiveAccount(acc || null);
               setAccountModalOpen(true);
             }}
+            onOpenBulkAccountModal={() => setBulkAccountModalOpen(true)}
             onDeleteAccount={handleDeleteAccount}
             onOpenTargetUrlModal={(t) => {
               setActiveTargetUrl(t || null);
@@ -916,6 +981,21 @@ export const App: React.FC = () => {
         }}
         onSave={handleSaveSchedule}
         initialData={activeSchedule}
+      />
+      <BulkAccountModal
+        isOpen={bulkAccountModalOpen}
+        onClose={() => setBulkAccountModalOpen(false)}
+        onSaveBulk={handleSaveBulkAccounts}
+        defaultRegion={selectedRegion}
+      />
+      <SimulatorModal
+        isOpen={simulatorModalOpen}
+        onClose={() => setSimulatorModalOpen(false)}
+        selectedRegion={selectedRegion}
+      />
+      <ProofGalleryModal
+        isOpen={proofGalleryModalOpen}
+        onClose={() => setProofGalleryModalOpen(false)}
       />
     </div>
   );

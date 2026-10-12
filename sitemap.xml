@@ -4,7 +4,7 @@
   <!-- Halaman Utama (Landing Page) -->
   <url>
     <loc>https://www.ganemaxbot.my.id/</loc>
-    <lastmod>2026-10-01T00:00:00+07:00</lastmod>
+    <lastmod>2026-10-12T00:00:00+07:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.00</priority>
     <xhtml:link rel="alternate" hreflang="id" href="https://www.ganemaxbot.my.id/?region=ID"/>
@@ -18,7 +18,7 @@
   <!-- Halaman Aplikasi Dashboard Bot -->
   <url>
     <loc>https://www.ganemaxbot.my.id/app</loc>
-    <lastmod>2026-10-01T00:00:00+07:00</lastmod>
+    <lastmod>2026-10-12T00:00:00+07:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.90</priority>
   </url>
@@ -26,37 +26,37 @@
   <!-- Regional & Negara ASEAN -->
   <url>
     <loc>https://www.ganemaxbot.my.id/?region=ID</loc>
-    <lastmod>2026-10-01T00:00:00+07:00</lastmod>
+    <lastmod>2026-10-12T00:00:00+07:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.90</priority>
   </url>
   <url>
     <loc>https://www.ganemaxbot.my.id/?region=MY</loc>
-    <lastmod>2026-10-01T00:00:00+07:00</lastmod>
+    <lastmod>2026-10-12T00:00:00+07:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.80</priority>
   </url>
   <url>
     <loc>https://www.ganemaxbot.my.id/?region=SG</loc>
-    <lastmod>2026-10-01T00:00:00+07:00</lastmod>
+    <lastmod>2026-10-12T00:00:00+07:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.80</priority>
   </url>
   <url>
     <loc>https://www.ganemaxbot.my.id/?region=TH</loc>
-    <lastmod>2026-10-01T00:00:00+07:00</lastmod>
+    <lastmod>2026-10-12T00:00:00+07:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.80</priority>
   </url>
   <url>
     <loc>https://www.ganemaxbot.my.id/?region=VN</loc>
-    <lastmod>2026-10-01T00:00:00+07:00</lastmod>
+    <lastmod>2026-10-12T00:00:00+07:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.80</priority>
   </url>
   <url>
     <loc>https://www.ganemaxbot.my.id/?region=PH</loc>
-    <lastmod>2026-10-01T00:00:00+07:00</lastmod>
+    <lastmod>2026-10-12T00:00:00+07:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.80</priority>
   </url>

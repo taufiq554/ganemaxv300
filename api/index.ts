@@ -410,6 +410,40 @@ router.get('/:table/:id', validateTableParam, requireAuth, async (req: Authentic
   }
 });
 
+router.post('/:table/bulk', validateTableParam, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const table = normalizeTableName(req.params.table)!;
+  try {
+    const rawItems = Array.isArray(req.body) ? req.body : req.body.items || [];
+    if (!Array.isArray(rawItems) || rawItems.length === 0) {
+      return errorRes(res, 'Daftar data impor massal tidak boleh kosong', 400);
+    }
+
+    const createdList: any[] = [];
+    for (const rawItem of rawItems) {
+      if (!rawItem || typeof rawItem !== 'object') continue;
+      const payload = { ...rawItem };
+      if (USER_SCOPED_TABLES.includes(table)) {
+        if (req.user!.role !== 'admin' || !payload.user_id) {
+          payload.user_id = req.user!.id;
+        }
+      }
+      const created = await storage.create(table, payload);
+      createdList.push(created);
+    }
+
+    return successRes(
+      res,
+      {
+        total_imported: createdList.length,
+        items: createdList,
+      },
+      201
+    );
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
 router.post('/:table', validateTableParam, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const table = normalizeTableName(req.params.table)!;
   try {

@@ -6,6 +6,9 @@ interface QuickMenuGridProps {
   onOpenProxyModal: () => void;
   onOpenScheduleModal: () => void;
   onSwitchTab: (tab: 'dashboard' | 'targets' | 'engine' | 'analytics') => void;
+  onOpenSimulator?: () => void;
+  onOpenProofGallery?: () => void;
+  onOpenBulkImport?: () => void;
 }
 
 export const QuickMenuGrid: React.FC<QuickMenuGridProps> = ({
@@ -14,18 +17,69 @@ export const QuickMenuGrid: React.FC<QuickMenuGridProps> = ({
   onOpenProxyModal,
   onOpenScheduleModal,
   onSwitchTab,
+  onOpenSimulator,
+  onOpenProofGallery,
+  onOpenBulkImport,
 }) => {
   return (
     <div className="modern-quick-menu-section">
       <div className="section-title-row">
-        <h3 className="section-heading">Menu Cepat Bot</h3>
-        <span className="section-subtext">Akses Fitur Utama</span>
+        <h3 className="section-heading">Menu Cepat & Fitur Unggulan</h3>
+        <span className="section-subtext">Akses Fitur Utama Bot</span>
       </div>
 
       <div className="quick-menu-grid">
-        {/* 1. Sewa QRIS */}
+        {/* 1. Simulasi Live Sniping Checkout (Fitur #2) */}
+        {onOpenSimulator && (
+          <div className="quick-menu-card highlight-glow" onClick={onOpenSimulator} style={{ borderLeft: '4px solid #f59e0b' }}>
+            <div className="quick-card-icon amber">
+              <i className="fa-solid fa-bolt"></i>
+            </div>
+            <div className="quick-card-info">
+              <h5 className="quick-card-title flex items-center gap-1.5">
+                Simulasi Sniping Live
+                <span className="text-[10px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded">NEW</span>
+              </h5>
+              <p className="quick-card-desc">Tes sub-milidetik & struk 1rb</p>
+            </div>
+            <i className="fa-solid fa-chevron-right quick-card-arrow"></i>
+          </div>
+        )}
+
+        {/* 2. Bukti Nyata Struk Rp 1.000 (Fitur #1) */}
+        {onOpenProofGallery && (
+          <div className="quick-menu-card" onClick={onOpenProofGallery} style={{ borderLeft: '4px solid #10b981' }}>
+            <div className="quick-card-icon green">
+              <i className="fa-solid fa-receipt"></i>
+            </div>
+            <div className="quick-card-info">
+              <h5 className="quick-card-title flex items-center gap-1.5">
+                Bukti Nyata Struk
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded">VERIFIED</span>
+              </h5>
+              <p className="quick-card-desc">Struk resmi iPhone & Emas 1rb</p>
+            </div>
+            <i className="fa-solid fa-chevron-right quick-card-arrow"></i>
+          </div>
+        )}
+
+        {/* 3. Bulk Import Akun Massal (Fitur #5) */}
+        {onOpenBulkImport && (
+          <div className="quick-menu-card" onClick={onOpenBulkImport} style={{ borderLeft: '4px solid #2563eb' }}>
+            <div className="quick-card-icon blue">
+              <i className="fa-solid fa-file-import"></i>
+            </div>
+            <div className="quick-card-info">
+              <h5 className="quick-card-title">Bulk Import Akun</h5>
+              <p className="quick-card-desc">Multi-akun teks & cookies</p>
+            </div>
+            <i className="fa-solid fa-chevron-right quick-card-arrow"></i>
+          </div>
+        )}
+
+        {/* 4. Sewa QRIS */}
         <div className="quick-menu-card" onClick={onOpenQris}>
-          <div className="quick-card-icon green">
+          <div className="quick-card-icon purple">
             <i className="fa-solid fa-qrcode"></i>
           </div>
           <div className="quick-card-info">
@@ -35,9 +89,9 @@ export const QuickMenuGrid: React.FC<QuickMenuGridProps> = ({
           <i className="fa-solid fa-chevron-right quick-card-arrow"></i>
         </div>
 
-        {/* 2. Jadwal & Countdown */}
+        {/* 5. Jadwal & Countdown */}
         <div className="quick-menu-card" onClick={onOpenScheduleModal}>
-          <div className="quick-card-icon purple">
+          <div className="quick-card-icon violet">
             <i className="fa-solid fa-clock"></i>
           </div>
           <div className="quick-card-info">
@@ -47,7 +101,7 @@ export const QuickMenuGrid: React.FC<QuickMenuGridProps> = ({
           <i className="fa-solid fa-chevron-right quick-card-arrow"></i>
         </div>
 
-        {/* 3. Proxy Residential */}
+        {/* 6. Proxy Mesh */}
         <div className="quick-menu-card" onClick={onOpenProxyModal}>
           <div className="quick-card-icon blue">
             <i className="fa-solid fa-shield-halved"></i>
@@ -55,18 +109,6 @@ export const QuickMenuGrid: React.FC<QuickMenuGridProps> = ({
           <div className="quick-card-info">
             <h5 className="quick-card-title">Proxy Mesh</h5>
             <p className="quick-card-desc">Rotasi IP anti-banned</p>
-          </div>
-          <i className="fa-solid fa-chevron-right quick-card-arrow"></i>
-        </div>
-
-        {/* 4. Konfigurasi Engine */}
-        <div className="quick-menu-card" onClick={() => onSwitchTab('engine')}>
-          <div className="quick-card-icon violet">
-            <i className="fa-solid fa-sliders"></i>
-          </div>
-          <div className="quick-card-info">
-            <h5 className="quick-card-title">Engine & PIN</h5>
-            <p className="quick-card-desc">Jitter -15ms & ShopeePay</p>
           </div>
           <i className="fa-solid fa-chevron-right quick-card-arrow"></i>
         </div>

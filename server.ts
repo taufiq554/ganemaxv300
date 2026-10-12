@@ -20,6 +20,19 @@ app.get('/googlee771107603824512.html', (_req, res) => {
   res.type('text/html').send('google-site-verification: googlee771107603824512.html');
 });
 
+// Explicit audio streamer for background music
+app.get(['/lagu.mp3', '/audio.mp3'], (_req, res) => {
+  const filePath = fs.existsSync(path.join(__dirname, 'public', 'lagu.mp3'))
+    ? path.join(__dirname, 'public', 'lagu.mp3')
+    : fs.existsSync(path.join(__dirname, 'lagu.mp3'))
+      ? path.join(__dirname, 'lagu.mp3')
+      : path.join(__dirname, 'dist', 'lagu.mp3');
+  res.set('Accept-Ranges', 'bytes');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.type('audio/mpeg');
+  res.sendFile(filePath);
+});
+
 // Google Search Console sitemap.xml and robots.txt handler
 app.get('/sitemap.xml', (_req, res) => {
   const sitemapPath = fs.existsSync(path.join(distPath, 'sitemap.xml'))
