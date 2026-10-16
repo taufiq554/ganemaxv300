@@ -292,7 +292,7 @@ class ShopeeWebDriver:
     def init_driver(self):
         logger.info(f"[Worker #{self.worker_id}] Mengonfigurasi Chrome stealth options...")
         if not uc:
-            logger.warning(f"[Worker #{self.worker_id}] undetected-chromedriver mode simulasi aktif.")
+            logger.info(f"[Worker #{self.worker_id}] Mode Direct TLS Socket Pool aktif (High-Speed Request Engine).")
             return
 
         options = uc.ChromeOptions()

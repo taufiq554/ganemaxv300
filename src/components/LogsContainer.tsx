@@ -24,10 +24,12 @@ export const LogsContainer: React.FC<LogsContainerProps> = ({
   const [filter, setFilter] = useState<'all' | 'success' | 'error'>('all');
   const [copied, setCopied] = useState(false);
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  const terminalBodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (terminalBodyRef.current) {
+      terminalBodyRef.current.scrollTop = terminalBodyRef.current.scrollHeight;
+    }
   }, [logs]);
 
   const filteredLogs = logs.filter((log) => {
@@ -191,7 +193,7 @@ export const LogsContainer: React.FC<LogsContainerProps> = ({
         </div>
 
         {/* Terminal Output Screen */}
-        <div className="terminal-body font-mono">
+        <div ref={terminalBodyRef} className="terminal-body font-mono">
           <div className="terminal-init-message text-slate-500 mb-2">
             # GaneMaX Multi-Socket Execution Daemon v3.0.0 [Production CLI]<br />
             # Socket Pool: 12 Parallel Threads | Atomic NTP Sync: 11ms<br />
@@ -222,8 +224,6 @@ export const LogsContainer: React.FC<LogsContainerProps> = ({
             <span className="text-emerald-500 font-bold">ganemax@core:~$</span>
             <span className="terminal-cursor">_</span>
           </div>
-
-          <div ref={logsEndRef} />
         </div>
       </div>
 

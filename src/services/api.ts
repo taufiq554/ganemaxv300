@@ -167,6 +167,46 @@ export const api = {
       return false;
     }
   },
+
+  async executeBot(params: {
+    region?: string;
+    targetTitle?: string;
+    targetPrice?: number;
+    threadCount?: number;
+    paymentMethod?: string;
+    jitterMs?: number;
+    targetUrl?: string;
+  }): Promise<ApiResponse<{
+    success: boolean;
+    order_sn: string;
+    product_title: string;
+    price: number;
+    region: string;
+    domain: string;
+    latency_ms: number;
+    threads_used: number;
+    jitter_offset_ms: number;
+    payment_method: string;
+    order?: any;
+    edge_cluster: string;
+    edge_http_code: number;
+    ntp_synchronized: boolean;
+    timestamp: string;
+  }>> {
+    return api.post('bot/execute', params);
+  },
+
+  async pingGateway(region = 'ID'): Promise<ApiResponse<{
+    region: string;
+    domain: string;
+    status: number;
+    latency_ms: number;
+    ntp_server: string;
+    ntp_drift_ms: number;
+    timestamp: string;
+  }>> {
+    return api.post('bot/ping-gateway', { region });
+  },
 };
 
 /**

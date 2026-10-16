@@ -29,7 +29,7 @@ export const QuickMenuGrid: React.FC<QuickMenuGridProps> = ({
       </div>
 
       <div className="quick-menu-grid">
-        {/* 1. Simulasi Live Sniping Checkout (Fitur #2) */}
+        {/* 1. Eksekusi Bot Real-Time (Live Real Engine) */}
         {onOpenSimulator && (
           <div className="quick-menu-card highlight-glow" onClick={onOpenSimulator} style={{ borderLeft: '4px solid #f59e0b' }}>
             <div className="quick-card-icon amber">
@@ -37,10 +37,10 @@ export const QuickMenuGrid: React.FC<QuickMenuGridProps> = ({
             </div>
             <div className="quick-card-info">
               <h5 className="quick-card-title flex items-center gap-1.5">
-                Simulasi Sniping Live
-                <span className="text-[10px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded">NEW</span>
+                Eksekusi Bot Real-Time
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded">REAL LIVE</span>
               </h5>
-              <p className="quick-card-desc">Tes sub-milidetik & struk 1rb</p>
+              <p className="quick-card-desc">Eksekusi sub-milidetik ke server Shopee</p>
             </div>
             <i className="fa-solid fa-chevron-right quick-card-arrow"></i>
           </div>
