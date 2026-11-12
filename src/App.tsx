@@ -30,8 +30,10 @@ import {
   ScheduleModal,
 } from './components/CrudModals.tsx';
 import { BulkAccountModal } from './components/BulkAccountModal.tsx';
-import { PythonScriptModal } from './components/PythonScriptModal.tsx';
-import { useServerClock } from './lib/useServerClock.ts';
+import { useServerClock, SyncResult } from './lib/useServerClock.ts';
+import { getNextSession, formatClock } from './lib/time.ts';
+import { parseShopeeLink, buildOpenUrl, isValidHttpUrl } from './lib/shopee.ts';
+import { FireOverlay, FireState } from './components/gx/FireOverlay.tsx';
 import {
   TopBar,
   Dock,
@@ -44,7 +46,6 @@ import {
   DashboardView,
   LatencyState,
   ArmState,
-  ARM_LEAD_MS,
   normalizeOrder,
 } from './components/gx/DashboardView.tsx';
 import { HistoryView } from './components/gx/HistoryView.tsx';
@@ -91,7 +92,6 @@ export const App: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>(readDismissed);
   const [isAnnDrawerOpen, setIsAnnDrawerOpen] = useState(false);
-  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
   const [selectedTargetId, setSelectedTargetId] = useState<string>(() => {
     try {
       return localStorage.getItem('gx_selected_target') || '';
@@ -105,7 +105,8 @@ export const App: React.FC = () => {
   const [notifState, setNotifState] = useState<NotificationPermission | 'unsupported'>(() =>
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
   );
-  const clock = useServerClock();
+  const clockLogRef = useRef<((r: SyncResult, manual: boolean) => void) | null>(null);
+  const clock = useServerClock(60_000, (r, m) => clockLogRef.current?.(r, m));
   const toast = useToast();
   const isRunningRef = useRef(false);
 
@@ -152,8 +153,8 @@ export const App: React.FC = () => {
   const [logs, setLogs] = useState<BotLogItem[]>([
     {
       id: 'init_log',
-      time: new Date().toLocaleTimeString('id-ID'),
-      text: 'Engine bot siap diaktifkan. Semua modul terisolasi & terenkripsi aman.',
+      time: `${new Date().toLocaleTimeString('id-ID', { hour12: false })}.${String(new Date().getMilliseconds()).padStart(3, '0')}`,
+      text: '[SYSTEM] Dashboard GaneMaX.Ai siap. Monitor gateway & jam server berjalan.',
       type: 'info',
     },
   ]);
@@ -177,6 +178,10 @@ export const App: React.FC = () => {
     notifySuccess: true,
     notifyError: true,
     notifyRateLimit: true,
+    openLeadMs: 800,
+    openMode: "app",
+    soundAlert: true,
+    vibrateAlert: true,
   };
     try {
       const saved = JSON.parse(localStorage.getItem('gx_bot_settings') || 'null');
@@ -231,10 +236,13 @@ export const App: React.FC = () => {
   const addLog = useCallback(
     (text: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
       setLogs((prev) => [
-        ...prev.slice(-150),
+        ...prev.slice(-400),
         {
           id: Math.random().toString(36).substring(2, 9),
-          time: new Date().toLocaleTimeString('id-ID'),
+          time: (() => {
+            const d = new Date();
+            return `${d.toLocaleTimeString('id-ID', { hour12: false })}.${String(d.getMilliseconds()).padStart(3, '0')}`;
+          })(),
           text,
           type,
         },
@@ -400,7 +408,12 @@ export const App: React.FC = () => {
   };
 
   const licenseThreadCap = currentUser?.role === 'admin' ? 24 : currentUser?.max_threads || 8;
-  const effectiveThreads = Math.max(1, Math.min(Number(botSettings.threadCount) || 8, licenseThreadCap));
+
+  // ================================================================
+  // ENGINE "ASISTEN WAR" — semua log adalah kejadian nyata
+  // ================================================================
+  const targetPriceFor = (t: TargetUrl | null) => (t?.target_price ? Number(t.target_price) : 0);
+  const openLeadMs = Math.max(0, Math.min(5000, Number(botSettings.openLeadMs ?? 800)));
 
   const clearBotTimers = () => {
     if (botIntervalRef.current) {
@@ -417,184 +430,358 @@ export const App: React.FC = () => {
     setEnginePhase(phase);
   };
 
-  // Start / Stop Bot Engine (Real Network & Gateway Execution)
-  const handleStartBot = async () => {
-    if (isRunningRef.current) return; // cegah eksekusi dobel (auto-start + klik manual)
+  // --- Suara, getar, wake lock (butuh sentuhan user untuk aktif) ---
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const wakeLockRef = useRef<any>(null);
+  const primeAlerts = () => {
+    try {
+      if (!audioCtxRef.current) {
+        const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (Ctx) audioCtxRef.current = new Ctx();
+      }
+      audioCtxRef.current?.resume?.();
+    } catch {}
+  };
+  const beep = (freq = 880, ms = 120) => {
+    if (botSettings.soundAlert === false) return;
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    try {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.value = freq;
+      g.gain.value = 0.12;
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + ms / 1000);
+    } catch {}
+  };
+  const vibrate = (pattern: number | number[]) => {
+    if (botSettings.vibrateAlert === false) return;
+    try {
+      navigator.vibrate?.(pattern);
+    } catch {}
+  };
+  const requestWakeLock = async () => {
+    try {
+      const wl = (navigator as any).wakeLock;
+      if (!wl) {
+        addLog('[SYSTEM] Browser tidak mendukung Wake Lock — jaga layar HP tetap menyala manual.', 'warning');
+        return;
+      }
+      wakeLockRef.current = await wl.request('screen');
+      addLog('[SYSTEM] Wake Lock aktif: layar tidak akan mati selama menunggu sesi.', 'info');
+    } catch (e: any) {
+      addLog(`[SYSTEM] Wake Lock ditolak browser (${e?.name || 'error'}).`, 'warning');
+    }
+  };
+  const releaseWakeLock = () => {
+    try {
+      wakeLockRef.current?.release?.();
+    } catch {}
+    wakeLockRef.current = null;
+  };
+
+  // --- Overlay detik 0 ---
+  const [fireState, setFireState] = useState<FireState | null>(null);
+
+  // --- Pemeriksaan sebelum war (sinkron jam, lisensi, gateway, data produk) ---
+  const runPrechecks = async (): Promise<boolean> => {
+    const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
+    const t = selectedTarget;
+    setEnginePhase('sync');
+    addLog(`[WAR] Sesi war dimulai · Shopee ${reg.name} (${reg.domain}) · target: ${t?.title || '-'}`, 'info');
+    addLog('[NTP] Sinkronisasi jam ke server bot (3 sampel)…', 'info');
+    const sync = await clock.resync();
+    if (!isRunningRef.current) return false;
+    sync.samples.forEach((s, i) => addLog(`[NTP] Sampel #${i + 1}: RTT ${s.rtt} ms · selisih jam ${s.offset > 0 ? '+' : ''}${s.offset} ms`, 'info'));
+    if (sync.best) {
+      addLog(`[NTP] Jam terkunci ke server (sampel terbaik RTT ${sync.best.rtt} ms). Akurasi ±${Math.ceil(sync.best.rtt / 2)} ms.`, 'success');
+    } else {
+      addLog('[NTP] Gagal sinkron ke server — memakai jam perangkat.', 'warning');
+    }
+
+    const lic = await api.sessionStart();
+    if (!isRunningRef.current) return false;
+    if (!lic.success) {
+      addLog(`[LISENSI] ${lic.error?.message || 'Lisensi tidak valid'}`, 'error');
+      toast.show(lic.error?.message || 'Lisensi tidak valid');
+      finishRun('error');
+      return false;
+    }
+    addLog('[LISENSI] Lisensi aktif terverifikasi di server.', 'success');
+
+    setEnginePhase('warm');
+    const ping = await api.pingGateway(reg.code);
+    if (!isRunningRef.current) return false;
+    if (ping.success && ping.data) {
+      setServerLatency(ping.data.latency_ms);
+      if (ping.data.reachable === false) {
+        addLog(`[GATEWAY] ${reg.domain} tidak terjangkau dari server bot. Shopee tetap dibuka langsung dari HP kamu.`, 'warning');
+      } else {
+        addLog(`[GATEWAY] ${reg.domain} → HTTP ${ping.data.status} · ${ping.data.latency_ms} ms`, 'info');
+      }
+    }
+
+    if (t?.url) {
+      const ids = parseShopeeLink(t.url);
+      addLog(ids ? `[PRODUK] Link valid · shopid ${ids.shopId} · itemid ${ids.itemId}` : '[PRODUK] Link tanpa ID produk (link pendek) — akan dibuka apa adanya.', ids ? 'info' : 'warning');
+      if (ids) {
+        addLog('[PRODUK] Mengambil data produk dari Shopee…', 'info');
+        const ck = await api.checkItem(reg.code, t.url);
+        if (!isRunningRef.current) return false;
+        const d = ck.data;
+        if (ck.success && d?.item) {
+          const it = d.item;
+          addLog(`[PRODUK] ${it.name}`, 'success');
+          if (it.price != null) addLog(`[PRODUK] Harga sekarang ${formatAseanCurrency(it.price, selectedRegion)}${it.stock != null ? ` · stok ${it.stock}` : ''}`, 'info');
+          if (it.flash_sale) {
+            const fs = it.flash_sale;
+            addLog(
+              `[FLASH] Flash sale terdeteksi${fs.price != null ? ` · harga ${formatAseanCurrency(fs.price, selectedRegion)}` : ''}${fs.stock != null ? ` · kuota ${fs.stock}` : ''}${fs.start_time ? ` · mulai ${new Date(fs.start_time).toLocaleTimeString('id-ID')}` : ''}`,
+              'success'
+            );
+          } else {
+            addLog('[FLASH] Belum ada data flash sale aktif untuk produk ini.', 'info');
+          }
+        } else if (d) {
+          addLog(`[PRODUK] Data produk tidak bisa diambil: ${d.reason || `HTTP ${d.status}`} (${d.latency_ms} ms). Lanjut tanpa data stok.`, 'warning');
+        } else {
+          addLog(`[PRODUK] Cek produk gagal: ${ck.error?.message || 'error'}`, 'warning');
+        }
+      }
+    }
+    setEnginePhase('armed');
+    return true;
+  };
+
+  // --- Detik 0: buka Shopee ---
+  const fire = (scheduledEpoch: number | null) => {
+    const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
+    const t = selectedTarget;
+    if (!t?.url) {
+      addLog('[ERROR] Target tidak punya link produk.', 'error');
+      finishRun('error');
+      return;
+    }
+    setEnginePhase('fire');
+    const now = clock.now();
+    const delta = scheduledEpoch != null ? now - scheduledEpoch : null;
+    const mode = botSettings.openMode === 'browser' ? 'browser' : 'app';
+    const { href, via } = buildOpenUrl(t.url, selectedRegion, mode);
+    beep(1320, 220);
+    vibrate([200, 80, 200]);
+    if (scheduledEpoch != null) {
+      addLog(
+        `[FIRE] Membuka Shopee ${openLeadMs} ms sebelum sesi · jam server ${formatClock(now, reg.timezone)}.${String(now % 1000).padStart(3, '0')} · presisi timer ${delta! >= 0 ? '+' : ''}${delta} ms`,
+        'warning'
+      );
+      const zeroAt = scheduledEpoch + openLeadMs;
+      const tZero = window.setTimeout(() => {
+        const n = clock.now();
+        addLog(`[T-0] Detik 0 sesi · jam server ${formatClock(n, reg.timezone)}.${String(n % 1000).padStart(3, '0')} (selisih ${n - zeroAt >= 0 ? '+' : ''}${n - zeroAt} ms)`, 'warning');
+      }, Math.max(0, zeroAt - now));
+      botTimeoutsRef.current.push(tZero);
+    } else {
+      addLog(`[FIRE] Buka manual · jam server ${formatClock(now, reg.timezone)}.${String(now % 1000).padStart(3, '0')}`, 'warning');
+    }
+
+    let autoOpened = false;
+    if (!href.startsWith('intent:')) {
+      try {
+        // Catatan: dengan fitur 'noopener' window.open selalu mengembalikan null, jadi opener diputus manual
+        const w = window.open(href, '_blank');
+        autoOpened = !!w;
+        if (w) {
+          try {
+            w.opener = null;
+          } catch {}
+        }
+      } catch {
+        autoOpened = false;
+      }
+    }
+    if (autoOpened) {
+      addLog(`[OPEN] Shopee dibuka otomatis lewat ${via}. Selesaikan checkout di Shopee.`, 'success');
+    } else {
+      addLog(`[OPEN] Tekan tombol "Buka Shopee" di layar — ${href.startsWith('intent:') ? 'Android butuh satu sentuhan untuk masuk app' : 'browser memblokir pembukaan otomatis'}.`, 'warning');
+    }
+    releaseWakeLock();
+    setStats((p) => ({ ...p, attempts: p.attempts + 1 }));
+    setFireState({
+      target: t,
+      href,
+      via,
+      autoOpened,
+      scheduledEpoch,
+      firedAt: now,
+      region: selectedRegion,
+    });
+    isRunningRef.current = false;
+    setIsBotRunning(false);
+    setEnginePhase('done');
+    addLog('[WAR] Menunggu konfirmasi hasil checkout dari kamu…', 'info');
+    if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
+      try {
+        new Notification('Sesi flash sale dimulai!', { body: `Buka Shopee sekarang: ${t.title}` });
+      } catch {}
+    }
+  };
+
+  const guardStart = (): boolean => {
     if (currentUser && currentUser.role !== 'admin' && currentUser.expired_at) {
       const exp = new Date(currentUser.expired_at).getTime();
       if (!isNaN(exp) && exp < Date.now()) {
-        addLog('[LISENSI] Masa aktif lisensi habis. Perpanjang via QRIS untuk menjalankan engine.', 'error');
-        toast.show('Lisensi habis — perpanjang dulu untuk menjalankan bot');
-        return;
+        addLog('[LISENSI] Masa aktif lisensi habis. Perpanjang via QRIS untuk memakai bot.', 'error');
+        toast.show('Lisensi habis — perpanjang dulu');
+        return false;
       }
     }
     if (!selectedTarget) {
       addLog('[SETUP] Belum ada target produk. Tambahkan link produk di tab Target.', 'error');
       toast.show('Tambahkan target produk dulu');
-      return;
+      return false;
     }
-    if (accounts.length === 0) {
-      addLog('[SETUP] Belum ada akun Shopee eksekutor. Tambahkan akun di tab Target.', 'error');
-      toast.show('Tambahkan akun Shopee dulu');
-      return;
+    if (!isValidHttpUrl(selectedTarget.url)) {
+      addLog('[SETUP] Link target tidak valid. Edit target dan tempel link produk Shopee.', 'error');
+      toast.show('Link target tidak valid');
+      return false;
     }
+    return true;
+  };
+
+  // Tombol "Jalankan": cek semua lalu langsung buka Shopee
+  const handleStartBot = async () => {
+    if (isRunningRef.current) return;
+    if (!guardStart()) return;
+    primeAlerts();
     clearBotTimers();
     isRunningRef.current = true;
-
-    const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
-    const currentTarget = selectedTarget;
-    const targetTitle = currentTarget?.title || reg.sampleFlashProduct.title;
-    const flashPriceNum = currentTarget?.target_price ? Number(currentTarget.target_price) : reg.sampleFlashProduct.flashPrice;
-    const formattedPrice = formatAseanCurrency(flashPriceNum, selectedRegion);
-    const savedAmount = currentTarget?.target_price
-      ? Math.max(reg.sampleFlashProduct.originalPrice - currentTarget.target_price, 100)
-      : Math.max(reg.sampleFlashProduct.originalPrice - reg.sampleFlashProduct.flashPrice, 100);
-
-    const activeThreads = effectiveThreads;
-    const jitter = Number(botSettings.preFireJitter) || -15;
-
     setIsBotRunning(true);
-    setEnginePhase('sync');
-    addLog(`[PYTHON] $ python3 shopee_flash_bot.py --threads=${activeThreads} --region=${reg.code} --stealth=1`, 'info');
-    addLog(`[WEBDRIVER] Undetected-ChromeDriver stealth options loaded (${activeThreads} worker threads ready)`, 'info');
-    addLog(`[NTP-SYNC] Menghubungkan ke ${reg.ntpServer}...`, 'info');
-
-    try {
-      // 1. Real Gateway Ping & Latency Check
-      const pingRes = await api.pingGateway(reg.code);
-      if (!isRunningRef.current) return; // dihentikan saat menunggu
-      const initialPing = pingRes.success ? pingRes.data?.latency_ms || 12 : 14;
-      setServerLatency(initialPing);
-
-      addLog(`[NTP-SYNC] Jam tersinkron ke server. Selisih jam perangkat: ${clock.offsetMs}ms, RTT gateway: ${initialPing}ms`, 'success');
-      addLog(`[ENGINE] ENGINE BOT FLASH SALE AKTIF [${reg.code} - Shopee ${reg.name} (${reg.domain})]. Concurrency: ${activeThreads} Threads.`, 'success');
-
-      // 2. Milestone Logs
-      const t1 = window.setTimeout(() => {
-        setEnginePhase('warm');
-        addLog(`[TLS-HANDSHAKE] TLS 1.3 session pre-established dengan Shopee Edge Gateway (${reg.domain})`, 'info');
-        addLog(`[PRE-WARM] Socket pool ${activeThreads} workers keep-alive OK. Memuat sesi pembayaran.`, 'info');
-      }, 1000);
-
-      const t2 = window.setTimeout(() => {
-        addLog(`[TARGET] Target: ${targetTitle} | Wilayah: Shopee ${reg.name} | Target Checkout: ${formattedPrice}`, 'info');
-        addLog(`[GATEWAY] Memantau status flash sale endpoint /api/v4/item/get... (standby buffer)`, 'info');
-      }, 2000);
-
-      const t3 = window.setTimeout(() => {
-        setEnginePhase('armed');
-        addLog(`[COUNTDOWN] Menunggu detik 00.000... offset jitter ${jitter}ms`, 'info');
-        addLog(`[STANDBY] Payload siap, alamat: ${addresses[0]?.label || 'default'}, metode: ${paymentSettings?.payment_method?.toUpperCase() || 'SHOPEEPAY'}`, 'info');
-      }, 3200);
-
-      const t4 = window.setTimeout(() => {
-        setEnginePhase('fire');
-        addLog(`[TRIGGER] Menembakkan ${activeThreads} worker threads ke checkout gateway!`, 'warning');
-      }, 4500);
-
-      const t5 = window.setTimeout(async () => {
-        // 3. Backend Checkout Execution
-        try {
-          const res = await api.executeBot({
-            region: reg.code,
-            targetTitle,
-            targetPrice: flashPriceNum,
-            threadCount: activeThreads,
-            paymentMethod: paymentSettings?.payment_method || 'SHOPEEPAY',
-            jitterMs: jitter,
-            targetUrl: currentTarget?.url,
-          });
-          if (!isRunningRef.current) return;
-
-          if (res.success && res.data) {
-            const confirmedSn = res.data.order_sn;
-            const latencyMs = res.data.latency_ms || 8;
-            setServerLatency(latencyMs);
-
-            addLog(
-              `[HTTP-200] CHECKOUT BERHASIL! Order SN: ${confirmedSn} | Shopee ${reg.name} | Speed: ${latencyMs}ms | Total: ${formattedPrice}`,
-              'success'
-            );
-            addLog(`[DATABASE] Transaksi ${confirmedSn} disimpan ke riwayat.`, 'success');
-
-            finishRun('done');
-            setStats((prev) => ({
-              ...prev,
-              attempts: prev.attempts + activeThreads,
-              success: prev.success + 1,
-              saved_amount: prev.saved_amount + savedAmount,
-              speed_ms: latencyMs,
-            }));
-            if (botSettings.notifySuccess !== false && 'Notification' in window && Notification.permission === 'granted') {
-              try {
-                new Notification('Checkout selesai', { body: `${targetTitle} · ${formattedPrice}` });
-              } catch {}
-            }
-
-            loadUserData();
-          } else {
-            addLog(`[ERROR] Eksekusi gateway gagal: ${res.error?.message || 'Server overload'}`, 'error');
-            setStats((prev) => ({ ...prev, attempts: prev.attempts + activeThreads }));
-            finishRun('error');
-          }
-        } catch (err: any) {
-          addLog(`[ERROR] Gagal memproses order checkout: ${err.message}`, 'error');
-          finishRun('error');
-        }
-      }, 6000);
-
-      botTimeoutsRef.current = [t1, t2, t3, t4, t5];
-    } catch (e: any) {
-      addLog(`[EXCEPTION] Engine gateway error: ${e.message}`, 'error');
-      finishRun('error');
-    }
+    const ok = await runPrechecks();
+    if (!ok || !isRunningRef.current) return;
+    fire(null);
   };
 
   const handleStopBot = () => {
     const wasRunning = isRunningRef.current;
     clearBotTimers();
     finishRun('idle');
-    if (wasRunning) addLog('[PYTHON] $ kill -SIGINT daemon (engine dihentikan user).', 'warning');
+    releaseWakeLock();
+    if (wasRunning) addLog('[WAR] Sesi dihentikan oleh kamu.', 'warning');
   };
 
-  // Simpan referensi fungsi terbaru untuk dipakai timer auto-start
-  const startRef = useRef(handleStartBot);
-  startRef.current = handleStartBot;
+  // --- Auto-start terjadwal ---
+  const precheckStartedRef = useRef(false);
+  const milestonesRef = useRef<Set<string>>(new Set());
+  const fireRef = useRef(fire);
+  fireRef.current = fire;
+  const precheckRef = useRef(runPrechecks);
+  precheckRef.current = runPrechecks;
 
-  // Auto-start terjadwal: picu ARM_LEAD_MS sebelum sesi, memakai jam server tersinkron
   useEffect(() => {
     if (!armed) return;
+    precheckStartedRef.current = false;
+    milestonesRef.current = new Set();
     const id = window.setInterval(() => {
       const remain = armed.epoch - clock.now();
-      if (remain <= ARM_LEAD_MS) {
+      const fireAt = remain - openLeadMs;
+      const mark = (k: string, text: string, type: 'info' | 'warning' = 'info') => {
+        if (milestonesRef.current.has(k)) return;
+        milestonesRef.current.add(k);
+        addLog(text, type);
+      };
+
+      // Hitung mundur ke sesi
+      for (const m of [600, 300, 120, 60, 30]) {
+        if (remain <= m * 1000 && remain > (m - 1) * 1000) mark(`m${m}`, `[COUNTDOWN] T-${m >= 60 ? `${m / 60} menit` : `${m} dtk`} menuju sesi ${armed.label}`);
+      }
+      if (remain <= 10_000 && remain > 0) {
+        const sec = Math.ceil(remain / 1000);
+        if (!milestonesRef.current.has(`s${sec}`)) {
+          mark(`s${sec}`, `[COUNTDOWN] T-${sec}`, sec <= 3 ? 'warning' : 'info');
+          if (sec <= 3) beep(880, 90);
+        }
+      }
+
+      // Mulai cek 60 dtk sebelum sesi
+      if (remain <= 60_000 && !precheckStartedRef.current) {
+        precheckStartedRef.current = true;
+        isRunningRef.current = true;
+        setIsBotRunning(true);
+        precheckRef.current().then((ok) => {
+          if (ok) addLog(`[STANDBY] Semua siap. Shopee dibuka ${openLeadMs} ms sebelum ${armed.label} supaya pas detik 0.`, 'success');
+        });
+      }
+
+      if (fireAt <= 0) {
         window.clearInterval(id);
         setArmed(null);
         if (remain > -60_000) {
-          addLog(`[SCHEDULER] Auto-start sesi ${armed.label} dipicu (T-${Math.max(0, Math.round(remain))}ms).`, 'warning');
-          startRef.current();
+          if (!isRunningRef.current && precheckStartedRef.current) return; // dihentikan user
+          isRunningRef.current = true;
+          fireRef.current(armed.epoch - openLeadMs);
         } else {
-          addLog(`[SCHEDULER] Jadwal ${armed.label} terlewat, auto-start dibatalkan.`, 'error');
+          addLog(`[SCHEDULER] Jadwal ${armed.label} terlewat (HP tidur / tab tertutup). Auto-start dibatalkan.`, 'error');
+          finishRun('error');
         }
       }
-    }, 50);
+    }, 25);
     return () => window.clearInterval(id);
-  }, [armed, clock, addLog]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [armed, openLeadMs]);
 
   const handleArm = (a: ArmState) => {
+    if (!guardStart()) return;
+    primeAlerts();
     setArmed(a);
-    addLog(`[SCHEDULER] Auto-start dijadwalkan untuk sesi ${a.label}. Biarkan tab ini tetap terbuka.`, 'info');
+    addLog(`[SCHEDULER] Auto-start dijadwalkan untuk sesi ${a.label}. Pemeriksaan mulai T-60 dtk, Shopee dibuka ${openLeadMs} ms sebelum detik 0.`, 'info');
+    addLog('[SCHEDULER] Biarkan halaman ini terbuka & layar menyala sampai sesi dimulai.', 'info');
+    requestWakeLock();
     toast.show(`Auto-start sesi ${a.label} aktif — biarkan halaman tetap terbuka`);
   };
   const handleDisarm = () => {
     if (armed) addLog(`[SCHEDULER] Jadwal auto-start ${armed.label} dibatalkan.`, 'info');
     setArmed(null);
+    releaseWakeLock();
+    if (isRunningRef.current) finishRun('idle');
   };
 
-  // Monitor latensi gateway: cek berkala (lebih rapat saat engine jalan)
+  // --- Konfirmasi hasil dari user ---
+  const handleConfirmResult = async (r: { success: boolean; orderSn?: string; price?: number; note?: string }) => {
+    if (!fireState) return;
+    const t = fireState.target;
+    if (r.success) {
+      const res = await api.confirmOrder({
+        region: fireState.region,
+        targetTitle: t.title,
+        price: r.price ?? targetPriceFor(t),
+        orderSn: r.orderSn,
+        paymentMethod: paymentSettings?.payment_method || '',
+        openDelayMs: fireState.scheduledEpoch != null ? fireState.firedAt - fireState.scheduledEpoch : null,
+        targetUrl: t.url,
+      });
+      if (res.success) {
+        addLog(`[HASIL] Checkout dikonfirmasi${r.orderSn ? ` · no. pesanan ${r.orderSn}` : ''} · tersimpan di riwayat.`, 'success');
+        setStats((p) => ({ ...p, success: p.success + 1 }));
+        loadUserData();
+      } else {
+        addLog(`[HASIL] Gagal menyimpan: ${res.error?.message || 'error'}`, 'error');
+      }
+    } else {
+      addLog(`[HASIL] Tidak dapat${r.note ? `: ${r.note}` : ''}. Coba sesi berikutnya.`, 'warning');
+    }
+    setFireState(null);
+    setEnginePhase('idle');
+  };
+
+  // --- Monitor nyala terus: gateway, jam, tab, jaringan ---
   useEffect(() => {
     if (!currentUser) return;
     let alive = true;
     let timer: number | undefined;
+    const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
     const tick = async () => {
       if (document.visibilityState === 'visible') {
         const res = await api.pingGateway(selectedRegion);
@@ -608,6 +795,14 @@ export const App: React.FC = () => {
             reachable: d.reachable !== false,
             checkedAt: Date.now(),
           }));
+          addLog(
+            d.reachable === false
+              ? `[GATEWAY] ${reg.domain} tidak terjangkau dari server bot (${d.latency_ms} ms)`
+              : `[GATEWAY] ${reg.domain} → HTTP ${d.status} · ${d.latency_ms} ms`,
+            d.reachable === false ? 'warning' : 'info'
+          );
+        } else {
+          addLog(`[GATEWAY] Server bot tidak merespons: ${res.error?.message || 'error'}`, 'error');
         }
       }
       if (alive) timer = window.setTimeout(tick, isRunningRef.current || armed ? 5000 : 20000);
@@ -617,10 +812,58 @@ export const App: React.FC = () => {
       alive = false;
       if (timer) window.clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, selectedRegion, armed]);
 
+  // Status sesi tiap menit
+  useEffect(() => {
+    if (!currentUser) return;
+    const id = window.setInterval(() => {
+      const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
+      const nxt = getNextSession(clock.now(), reg.flashSaleSchedule, reg.timezone);
+      if (!nxt) return;
+      const mins = Math.max(0, Math.round((nxt.epoch - clock.now()) / 60000));
+      addLog(`[MONITOR] Sesi berikutnya ${nxt.label} ${reg.timezoneLabel.split(' ')[0]} · ${mins >= 60 ? `${Math.floor(mins / 60)} jam ${mins % 60} mnt` : `${mins} mnt`} lagi${armed ? ' · auto-start AKTIF' : ''}`, 'info');
+    }, 60_000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, selectedRegion, armed]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (!armed && !isRunningRef.current) return;
+      if (document.visibilityState === 'hidden') addLog('[SYSTEM] Tab disembunyikan — browser bisa memperlambat timer. Kembali ke tab ini sebelum sesi.', 'warning');
+      else {
+        addLog('[SYSTEM] Tab aktif kembali. Menyinkronkan ulang jam…', 'info');
+        if (armed) requestWakeLock();
+      }
+    };
+    const onOff = () => addLog('[NETWORK] Koneksi internet terputus!', 'error');
+    const onOn = () => addLog('[NETWORK] Koneksi internet kembali.', 'success');
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('offline', onOff);
+    window.addEventListener('online', onOn);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('offline', onOff);
+      window.removeEventListener('online', onOn);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [armed]);
+
+  // Log sinkron jam berkala (dipanggil oleh hook jam)
+  clockLogRef.current = (r: SyncResult, manual: boolean) => {
+    if (manual || !r.best) return;
+    addLog(`[NTP] Jam disinkron ulang · RTT ${r.best.rtt} ms · selisih ${r.best.offset > 0 ? '+' : ''}${r.best.offset} ms`, 'info');
+  };
+
   // Bersihkan timer saat komponen dilepas
-  useEffect(() => () => clearBotTimers(), []);
+  useEffect(() => () => {
+    clearBotTimers();
+    releaseWakeLock();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   // CRUD Operations with Persistence
   const handleSaveAddress = async (data: Partial<Address>) => {
@@ -904,6 +1147,8 @@ export const App: React.FC = () => {
   const normalizedOrders = useMemo(
     () =>
       orderHistory
+        // Order berstatus 'PAID (200 OK)' dibuat engine lama tanpa checkout sungguhan — tidak ditampilkan
+        .filter((o: any) => o.status !== 'PAID (200 OK)')
         .map((o) => normalizeOrder(o as any))
         .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()),
     [orderHistory]
@@ -928,51 +1173,24 @@ export const App: React.FC = () => {
 
   const controlPanelProps = {
     currentUser,
-    accounts,
-    addresses,
     targetUrls,
-    proxies,
-    schedules,
     paymentSettings,
     botSettings,
-    usersList,
     isBotRunning,
     selectedRegion,
     onSelectRegion: handleSelectRegion,
-    onDeployAseanProxies: handleDeployAseanProxies,
     onStartBot: handleStartBot,
     onStopBot: handleStopBot,
     onUpdatePayment: handleUpdatePayment,
     onUpdateSettings: setBotSettings,
-    onOpenAddressModal: (addr?: Address) => {
-      setActiveAddress(addr || null);
-      setAddressModalOpen(true);
-    },
-    onDeleteAddress: handleDeleteAddress,
-    onOpenAccountModal: (acc?: ShopeeAccount) => {
-      setActiveAccount(acc || null);
-      setAccountModalOpen(true);
-    },
-    onOpenBulkAccountModal: () => setBulkAccountModalOpen(true),
-    onDeleteAccount: handleDeleteAccount,
     onOpenTargetUrlModal: (t?: TargetUrl) => {
       setActiveTargetUrl(t || null);
       setTargetUrlModalOpen(true);
     },
     onDeleteTargetUrl: handleDeleteTargetUrl,
-    onOpenProxyModal: (p?: ProxyMesh) => {
-      setActiveProxy(p || null);
-      setProxyModalOpen(true);
-    },
-    onDeleteProxy: handleDeleteProxy,
-    onOpenScheduleModal: (sc?: Schedule) => {
-      setActiveSchedule(sc || null);
-      setScheduleModalOpen(true);
-    },
-    onDeleteSchedule: handleDeleteSchedule,
     selectedTargetId: selectedTarget?.id || '',
     onSelectTarget: handleSelectTarget,
-    maxThreads: licenseThreadCap,
+    onRequestNotification: handleRequestNotification,
   };
 
   return (
@@ -1019,7 +1237,7 @@ export const App: React.FC = () => {
             phase={enginePhase}
             latency={latency}
             botSettings={botSettings}
-            effectiveThreads={effectiveThreads}
+            openLeadMs={openLeadMs}
             armed={armed}
             onArm={handleArm}
             onDisarm={handleDisarm}
@@ -1040,7 +1258,6 @@ export const App: React.FC = () => {
               setAddressModalOpen(true);
             }}
             onGoTab={setCurrentTab}
-            onOpenScript={() => setIsScriptModalOpen(true)}
             onOpenQris={() => setIsPayModalOpen(true)}
             onCopied={toast.show}
           />
@@ -1050,8 +1267,8 @@ export const App: React.FC = () => {
           <>
             <div className="gx-pagehead">
               <div>
-                <h1>Target & akun</h1>
-                <p>Produk incaran, akun Shopee eksekutor, alamat, dan pembayaran.</p>
+                <h1>Target</h1>
+                <p>Produk incaran dan notifikasi hasil war.</p>
               </div>
             </div>
             <ControlPanel {...controlPanelProps} section="setup" />
@@ -1063,7 +1280,7 @@ export const App: React.FC = () => {
             <div className="gx-pagehead">
               <div>
                 <h1>Engine</h1>
-                <p>Wilayah Shopee, proxy, dan parameter eksekusi.</p>
+                <p>Wilayah Shopee dan pengaturan pembukaan di detik 0.</p>
               </div>
             </div>
             <ControlPanel {...controlPanelProps} section="engine" />
@@ -1176,14 +1393,22 @@ export const App: React.FC = () => {
         onSaveBulk={handleSaveBulkAccounts}
         defaultRegion={selectedRegion}
       />
-      <PythonScriptModal
-        isOpen={isScriptModalOpen}
-        onClose={() => setIsScriptModalOpen(false)}
-        isBotRunning={isBotRunning}
-        onStartBot={handleStartBot}
-        onStopBot={handleStopBot}
-        onAddLog={addLog}
-        selectedRegion={selectedRegion}
+      <FireOverlay
+        state={fireState}
+        clock={clock}
+        onOpen={(href) => {
+          addLog('[OPEN] Shopee dibuka lewat tombol.', 'success');
+          if (href.startsWith('intent:')) window.location.href = href;
+          else {
+            const w = window.open(href, '_blank');
+            if (w) {
+              try {
+                w.opener = null;
+              } catch {}
+            }
+          }
+        }}
+        onResult={handleConfirmResult}
       />
     </div>
   );

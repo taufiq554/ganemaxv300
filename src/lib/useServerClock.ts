@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+export interface ClockSample {
+  rtt: number;
+  offset: number;
+}
+
+export interface SyncResult {
+  samples: ClockSample[];
+  best: ClockSample | null;
+}
+
 export interface ServerClock {
   /** Waktu sekarang menurut server (ms epoch), sudah dikoreksi latensi jaringan. */
   now: () => number;
@@ -9,14 +19,16 @@ export interface ServerClock {
   rttMs: number | null;
   synced: boolean;
   lastSyncAt: number | null;
-  resync: () => void;
+  resync: () => Promise<SyncResult>;
 }
 
 /**
  * Sinkronisasi jam ala NTP sederhana ke endpoint /api/time.
  * Mengambil 3 sampel, memakai sampel dengan RTT paling kecil.
  */
-export function useServerClock(intervalMs = 60_000): ServerClock {
+export function useServerClock(intervalMs = 60_000, onSync?: (r: SyncResult, manual: boolean) => void): ServerClock {
+  const onSyncRef = useRef(onSync);
+  onSyncRef.current = onSync;
   const offsetRef = useRef(0);
   const [offsetMs, setOffsetMs] = useState(0);
   const [rttMs, setRttMs] = useState<number | null>(null);
@@ -24,11 +36,11 @@ export function useServerClock(intervalMs = 60_000): ServerClock {
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const busy = useRef(false);
 
-  const sync = useCallback(async () => {
-    if (busy.current) return;
+  const sync = useCallback(async (manual = false): Promise<SyncResult> => {
+    const result: SyncResult = { samples: [], best: null };
+    if (busy.current) return result;
     busy.current = true;
     try {
-      let best: { rtt: number; offset: number } | null = null;
       for (let i = 0; i < 3; i++) {
         const t0 = performance.now();
         const wall0 = Date.now();
@@ -38,13 +50,14 @@ export function useServerClock(intervalMs = 60_000): ServerClock {
         const serverNow = Number(json?.data?.now);
         if (!res.ok || !serverNow) continue;
         const rtt = t1 - t0;
-        const offset = serverNow - (wall0 + rtt / 2);
-        if (!best || rtt < best.rtt) best = { rtt, offset };
+        const sample = { rtt: Math.round(rtt), offset: Math.round(serverNow - (wall0 + rtt / 2)) };
+        result.samples.push(sample);
+        if (!result.best || sample.rtt < result.best.rtt) result.best = sample;
       }
-      if (best) {
-        offsetRef.current = best.offset;
-        setOffsetMs(Math.round(best.offset));
-        setRttMs(Math.round(best.rtt));
+      if (result.best) {
+        offsetRef.current = result.best.offset;
+        setOffsetMs(result.best.offset);
+        setRttMs(result.best.rtt);
         setSynced(true);
         setLastSyncAt(Date.now());
       }
@@ -53,6 +66,8 @@ export function useServerClock(intervalMs = 60_000): ServerClock {
     } finally {
       busy.current = false;
     }
+    onSyncRef.current?.(result, manual);
+    return result;
   }, []);
 
   useEffect(() => {
@@ -70,7 +85,8 @@ export function useServerClock(intervalMs = 60_000): ServerClock {
 
   const now = useCallback(() => Date.now() + offsetRef.current, []);
 
-  return { now, offsetMs, rttMs, synced, lastSyncAt, resync: sync };
+  const resync = useCallback(() => sync(true), [sync]);
+  return { now, offsetMs, rttMs, synced, lastSyncAt, resync };
 }
 
 /** Re-render komponen kecil setiap frame / interval tanpa membebani parent. */

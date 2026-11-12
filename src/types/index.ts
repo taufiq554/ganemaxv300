@@ -133,6 +133,12 @@ export interface BotSettings {
   notifySuccess: boolean;
   notifyError: boolean;
   notifyRateLimit: boolean;
+  /** Buka Shopee sekian ms sebelum detik 0 (kompensasi waktu buka app) */
+  openLeadMs?: number;
+  /** app = masuk aplikasi Shopee (Android), browser = buka di browser */
+  openMode?: 'app' | 'browser';
+  soundAlert?: boolean;
+  vibrateAlert?: boolean;
 }
 
 export type AnnouncementType = 'info' | 'promo' | 'warning' | 'maintenance';

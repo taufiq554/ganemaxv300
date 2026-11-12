@@ -276,126 +276,149 @@ router.post('/bot/ping-gateway', requireAuth, async (req: AuthenticatedRequest, 
   }
 });
 
-router.post('/bot/execute', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const {
-      region = 'ID',
-      targetTitle = 'Apple iPhone 15 Pro Max 256GB Natural Titanium',
-      targetPrice = 1000,
-      threadCount = 8,
-      paymentMethod = 'SHOPEEPAY',
-      jitterMs = -15,
-      targetUrl = '',
-    } = req.body || {};
+// Ambil shopid & itemid dari link produk Shopee
+function parseShopeeLink(url: string): { shopId: string; itemId: string } | null {
+  if (!url) return null;
+  const m1 = url.match(/-i\.(\d+)\.(\d+)/);
+  if (m1) return { shopId: m1[1], itemId: m1[2] };
+  const m2 = url.match(/\/product\/(\d+)\/(\d+)/);
+  if (m2) return { shopId: m2[1], itemId: m2[2] };
+  return null;
+}
 
-    // Tolak eksekusi jika lisensi user sudah habis / dinonaktifkan (token bisa masih berlaku)
-    if (req.user!.role !== 'admin') {
-      const dbUser: any = await storage.get('users', req.user!.id);
-      if (!dbUser || dbUser.status === 'disabled') {
-        return errorRes(res, 'Akun dinonaktifkan. Hubungi admin.', 403);
-      }
-      if (dbUser.expired_at) {
-        const exp = new Date(dbUser.expired_at).getTime();
-        if (!isNaN(exp) && exp < Date.now()) {
-          return errorRes(res, 'Masa aktif lisensi habis. Silakan perpanjang.', 403);
-        }
-      }
+async function assertLicenseActive(req: AuthenticatedRequest, res: Response): Promise<boolean> {
+  if (req.user!.role === 'admin') return true;
+  const dbUser: any = await storage.get('users', req.user!.id);
+  if (!dbUser || dbUser.status === 'disabled') {
+    errorRes(res, 'Akun dinonaktifkan. Hubungi admin.', 403);
+    return false;
+  }
+  if (dbUser.expired_at) {
+    const exp = new Date(dbUser.expired_at).getTime();
+    if (!isNaN(exp) && exp < Date.now()) {
+      errorRes(res, 'Masa aktif lisensi habis. Silakan perpanjang.', 403);
+      return false;
     }
+  }
+  return true;
+}
 
+// Cek data produk langsung ke Shopee (hasil apa adanya — Shopee bisa menolak request otomatis)
+router.post('/bot/check-item', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const region = String(req.body?.region || 'ID').toUpperCase();
+    const config = REGIONAL_DOMAINS[region] || REGIONAL_DOMAINS.ID;
+    const url = String(req.body?.url || '');
+    const ids = parseShopeeLink(url);
+    if (!ids) {
+      return successRes(res, { parsed: false, reachable: null, status: 0, latency_ms: 0, item: null, reason: 'Link tidak berisi ID produk (mungkin link pendek). Link tetap bisa dibuka.' });
+    }
+    const start = performance.now();
+    let status = 0;
+    let item: any = null;
+    let reason = '';
+    try {
+      const r = await fetch(`${config.domain}/api/v4/item/get?itemid=${ids.itemId}&shopid=${ids.shopId}`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36',
+          Accept: 'application/json',
+          Referer: `${config.domain}/`,
+        },
+        signal: AbortSignal.timeout(4000),
+      });
+      status = r.status;
+      const json: any = await r.json().catch(() => null);
+      const d = json?.data || json?.item;
+      if (r.ok && d && (d.name || d.title)) {
+        const div = 100000;
+        item = {
+          name: d.name || d.title,
+          price: d.price != null ? Math.round(Number(d.price) / div) : null,
+          price_before_discount: d.price_before_discount ? Math.round(Number(d.price_before_discount) / div) : null,
+          stock: d.stock ?? d.normal_stock ?? null,
+          flash_sale: d.flash_sale
+            ? {
+                price: d.flash_sale.price != null ? Math.round(Number(d.flash_sale.price) / div) : null,
+                stock: d.flash_sale.stock ?? null,
+                start_time: d.flash_sale.start_time ? new Date(Number(d.flash_sale.start_time) * 1000).toISOString() : null,
+                end_time: d.flash_sale.end_time ? new Date(Number(d.flash_sale.end_time) * 1000).toISOString() : null,
+              }
+            : null,
+        };
+      } else {
+        reason = json?.error ? `Shopee membalas kode error ${json.error}` : `Shopee tidak mengirim data produk (HTTP ${status})`;
+      }
+    } catch (e: any) {
+      reason = e?.name === 'TimeoutError' ? 'Timeout 4 dtk ke Shopee' : 'Server bot tidak bisa terhubung ke Shopee';
+    }
+    return successRes(res, {
+      parsed: true,
+      shop_id: ids.shopId,
+      item_id: ids.itemId,
+      reachable: status > 0,
+      status,
+      latency_ms: Math.round(performance.now() - start),
+      item,
+      reason,
+    });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
+// Cek lisensi sebelum sesi war dimulai
+router.post('/bot/session-start', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!(await assertLicenseActive(req, res))) return;
+    return successRes(res, { ok: true, server_time: Date.now() });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
+// Simpan hasil war yang DIKONFIRMASI user (pesanan nyata di app Shopee)
+router.post('/bot/confirm-order', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!(await assertLicenseActive(req, res))) return;
+    const { region = 'ID', targetTitle = '', price = 0, orderSn = '', paymentMethod = '', openDelayMs = null, targetUrl = '' } = req.body || {};
     const regUpper = String(region).toUpperCase();
     const config = REGIONAL_DOMAINS[regUpper] || REGIONAL_DOMAINS.ID;
-    const threads = Math.min(Math.max(Number(threadCount) || 8, 1), 24);
+    const sn = String(orderSn || '').trim().slice(0, 40);
+    const created = await storage.create('order_history', {
+      user_id: req.user!.id,
+      order_sn: sn || '-',
+      product_name: String(targetTitle).slice(0, 200),
+      price: Number(price) || 0,
+      payment_method: String(paymentMethod || '-').toUpperCase(),
+      speed_ms: openDelayMs != null ? Number(openDelayMs) : null,
+      region: regUpper,
+      target_url: String(targetUrl).slice(0, 500),
+      status: 'DIKONFIRMASI USER',
+      checkout_time: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    });
 
-    // 1. Real Network Handshake & Latency Measurement to Regional Shopee Gateway
-    const startTls = performance.now();
-    let edgeStatus = 200;
-    let edgeStatusText = 'OK';
-
-    try {
-      const testReq = await fetch(`${config.domain}/api/v4/item/get?itemid=0&shopid=0`, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-          'Referer': `${config.domain}/`,
-        },
-        signal: AbortSignal.timeout(3500),
-      });
-      edgeStatus = testReq.status;
-      edgeStatusText = testReq.statusText || 'OK';
-    } catch (_) {
-      edgeStatus = 200;
-      edgeStatusText = 'OK (Edge Pre-Warmed)';
-    }
-
-    const realLatencyMs = Math.max(3, Math.round(performance.now() - startTls));
-    const orderIdNum = Math.floor(Math.random() * 900000 + 100000);
-    const orderSn = `${regUpper}2609FS${orderIdNum}`;
-
-    // 2. Persist real order record into the database
-    let createdOrder: any = null;
-    try {
-      createdOrder = await storage.create('order_history', {
-        user_id: req.user!.id,
-        order_sn: orderSn,
-        product_title: targetTitle,
-        price: Number(targetPrice) || 1000,
-        status: 'PAID (200 OK)',
-        latency_ms: realLatencyMs,
-        region: regUpper,
-        payment_method: String(paymentMethod).toUpperCase(),
-        created_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn('Failed to insert order history:', e);
-    }
-
-    // 3. Send Real Telegram notification if user configured it
     try {
       const userPayments = await storage.list('shopee_payments', { user_id: req.user!.id }, { limit: 1 });
-      const paySetting = userPayments[0];
-      if (paySetting?.telegram_token && paySetting?.telegram_chat_id) {
-        const tgMsg =
-          `<b>⚡ BOT FLASH SALE BERHASIL CHECKOUT (REAL)!</b>\n\n` +
-          `Wilayah: [${regUpper}] Shopee ${config.name} (${config.domain})\n` +
-          `Order SN: <code>${orderSn}</code>\n` +
-          `Produk: ${targetTitle}\n` +
-          `Harga: ${config.currency} ${Number(targetPrice).toLocaleString('id-ID')}\n` +
-          `Real Gateway Latency: ${realLatencyMs}ms\n` +
-          `Threads: ${threads} Active Workers\n` +
-          `Status: 200 OK (Pesanan Berhasil Tersimpan di Database)`;
-
-        await fetch(`https://api.telegram.org/bot${paySetting.telegram_token}/sendMessage`, {
+      const pay = userPayments[0];
+      if (pay?.telegram_token && pay?.telegram_chat_id) {
+        const msg =
+          `<b>✅ Checkout flash sale dikonfirmasi</b>\n\n` +
+          `Produk: ${String(targetTitle).replace(/[<>]/g, '')}\n` +
+          `Harga: ${config.currency} ${Number(price).toLocaleString('id-ID')}\n` +
+          (sn ? `No. pesanan: <code>${sn.replace(/[<>]/g, '')}</code>\n` : '') +
+          `Wilayah: Shopee ${config.name}`;
+        await fetch(`https://api.telegram.org/bot${pay.telegram_token}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: paySetting.telegram_chat_id,
-            text: tgMsg,
-            parse_mode: 'HTML',
-          }),
+          body: JSON.stringify({ chat_id: pay.telegram_chat_id, text: msg, parse_mode: 'HTML' }),
         }).catch(() => {});
       }
     } catch (_) {}
 
-    return successRes(res, {
-      success: true,
-      order_sn: orderSn,
-      product_title: targetTitle,
-      price: Number(targetPrice) || 1000,
-      region: regUpper,
-      domain: config.domain,
-      latency_ms: realLatencyMs,
-      threads_used: threads,
-      jitter_offset_ms: jitterMs,
-      payment_method: paymentMethod,
-      order: createdOrder,
-      edge_cluster: `Shopee-Edge-${regUpper}-Cluster-0${Math.floor(Math.random() * 4) + 1}`,
-      edge_http_code: edgeStatus,
-      ntp_synchronized: true,
-      timestamp: new Date().toISOString(),
-    });
+    return successRes(res, created, 201);
   } catch (err: any) {
-    return errorRes(res, `Bot execution error: ${err.message}`, 500);
+    return errorRes(res, err.message, 500);
   }
 });
 

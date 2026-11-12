@@ -140,28 +140,20 @@ export const TopBar: React.FC<TopBarProps> = ({
   return (
     <header className="gx-topbar">
       <div className="gx-topbar__inner">
-        <div className="gx-brand">
-          <img
-            src="/ganemax-logo.jpg"
-            alt=""
-            onError={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')}
-          />
+        <div className="gx-greet">
+          <span className="gx-greet__avatar" title={`@${user.username} · ${lic.label}`}>
+            {user.username.slice(0, 1)}
+            <span className={`gx-greet__status ${isBotRunning ? 'gx-greet__status--run' : ''}`} />
+          </span>
           <div style={{ minWidth: 0 }}>
-            <div className="gx-brand__name">
-              GaneMaX<span>.Ai</span>
+            <div className="gx-greet__hi">
+              Halo,
+              {isBotRunning && <span style={{ color: 'var(--gx-brand)', fontWeight: 700 }}> · engine berjalan</span>}
+              {!isBotRunning && (lic.tone === 'bad' || lic.tone === 'warn') && (
+                <span style={{ color: lic.tone === 'bad' ? 'var(--gx-bad)' : 'var(--gx-warn)', fontWeight: 700 }}> · {lic.label}</span>
+              )}
             </div>
-            <div className="gx-brand__sub">
-              {isBotRunning ? 'Engine berjalan' : `@${user.username}`} ·{' '}
-              <span
-                style={{
-                  color:
-                    lic.tone === 'bad' ? 'var(--gx-bad)' : lic.tone === 'warn' ? 'var(--gx-warn)' : 'inherit',
-                  fontWeight: lic.tone === 'bad' || lic.tone === 'warn' ? 700 : 500,
-                }}
-              >
-                {lic.label}
-              </span>
-            </div>
+            <div className="gx-greet__name">{user.username}!</div>
           </div>
         </div>
 

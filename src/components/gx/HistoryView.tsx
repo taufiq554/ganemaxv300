@@ -20,8 +20,8 @@ export const HistoryView: React.FC<{
     [orders, q]
   );
   const speeds = orders.map((o) => o.speed).filter((v): v is number => typeof v === 'number');
-  const best = speeds.length ? Math.min(...speeds) : null;
-  const avg = speeds.length ? Math.round(speeds.reduce((a, b) => a + b, 0) / speeds.length) : null;
+  const best = speeds.length ? speeds.reduce((a, b) => (Math.abs(b) < Math.abs(a) ? b : a)) : null;
+  const avg = speeds.length ? Math.round(speeds.reduce((a, b) => a + Math.abs(b), 0) / speeds.length) : null;
   const lat = latency.history;
   const max = Math.max(1, ...lat);
 
@@ -30,7 +30,7 @@ export const HistoryView: React.FC<{
       <div className="gx-pagehead">
         <div>
           <h1>Riwayat & aktivitas</h1>
-          <p>Checkout yang tercatat di akunmu dan performa koneksi engine.</p>
+          <p>Checkout yang kamu konfirmasi dan performa koneksi.</p>
         </div>
       </div>
 
@@ -40,17 +40,17 @@ export const HistoryView: React.FC<{
           <div className="gx-kpi__v">{orders.length}</div>
         </div>
         <div className="gx-card gx-kpi">
-          <div className="gx-kpi__k">Respons tercepat</div>
-          <div className="gx-kpi__v">{best != null ? `${best} ms` : '—'}</div>
+          <div className="gx-kpi__k">Paling tepat waktu</div>
+          <div className="gx-kpi__v">{best != null ? `${best > 0 ? '+' : ''}${best} ms` : '—'}</div>
         </div>
         <div className="gx-card gx-kpi">
-          <div className="gx-kpi__k">Rata-rata respons</div>
+          <div className="gx-kpi__k">Rata-rata selisih buka</div>
           <div className="gx-kpi__v">{avg != null ? `${avg} ms` : '—'}</div>
         </div>
         <div className="gx-card gx-kpi">
           <div className="gx-kpi__k">Sesi ini</div>
           <div className="gx-kpi__v">{stats.success}/{stats.attempts}</div>
-          <div className="gx-kpi__d">sukses / request</div>
+          <div className="gx-kpi__d">berhasil / sesi dibuka</div>
         </div>
       </div>
 

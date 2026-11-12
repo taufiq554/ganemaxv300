@@ -168,32 +168,39 @@ export const api = {
     }
   },
 
-  async executeBot(params: {
-    region?: string;
-    targetTitle?: string;
-    targetPrice?: number;
-    threadCount?: number;
-    paymentMethod?: string;
-    jitterMs?: number;
-    targetUrl?: string;
-  }): Promise<ApiResponse<{
-    success: boolean;
-    order_sn: string;
-    product_title: string;
-    price: number;
-    region: string;
-    domain: string;
+  async checkItem(region: string, url: string): Promise<ApiResponse<{
+    parsed: boolean;
+    shop_id?: string;
+    item_id?: string;
+    reachable: boolean | null;
+    status: number;
     latency_ms: number;
-    threads_used: number;
-    jitter_offset_ms: number;
-    payment_method: string;
-    order?: any;
-    edge_cluster: string;
-    edge_http_code: number;
-    ntp_synchronized: boolean;
-    timestamp: string;
+    reason?: string;
+    item: null | {
+      name: string;
+      price: number | null;
+      price_before_discount: number | null;
+      stock: number | null;
+      flash_sale: null | { price: number | null; stock: number | null; start_time: string | null; end_time: string | null };
+    };
   }>> {
-    return api.post('bot/execute', params);
+    return api.post('bot/check-item', { region, url });
+  },
+
+  async sessionStart(): Promise<ApiResponse<{ ok: boolean; server_time: number }>> {
+    return api.post('bot/session-start', {});
+  },
+
+  async confirmOrder(params: {
+    region: string;
+    targetTitle: string;
+    price: number;
+    orderSn?: string;
+    paymentMethod?: string;
+    openDelayMs?: number | null;
+    targetUrl?: string;
+  }): Promise<ApiResponse<any>> {
+    return api.post('bot/confirm-order', params);
   },
 
   async pingGateway(region = 'ID'): Promise<ApiResponse<{

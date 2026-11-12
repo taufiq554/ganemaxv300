@@ -2,12 +2,18 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   CalendarClock,
+  CalendarDays,
   Check,
   CircleAlert,
+  Clock3,
   Copy,
+  Link2,
   Crosshair,
+  Eye,
+  EyeOff,
   FolderCode,
   MapPin,
+  Plus,
   Receipt,
   Server,
   ShieldCheck,
@@ -18,8 +24,6 @@ import {
   UserRound,
   Wallet,
   Zap,
-  Clock3,
-  ChevronRight,
   X,
 } from 'lucide-react';
 import {
@@ -41,6 +45,7 @@ import { ASEAN_REGIONS, formatAseanCurrency } from '../../constants/asean.ts';
 import { ServerClock, useTicker } from '../../lib/useServerClock.ts';
 import { getNextSession, getSessionSlots, pad, splitDuration, formatClock, tzParts, relativeTimeId } from '../../lib/time.ts';
 import { AnnouncementCard, licenseInfo } from './Shell.tsx';
+import { parseShopeeLink, isValidHttpUrl } from '../../lib/shopee.ts';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -106,7 +111,7 @@ interface DashboardViewProps {
   phase: EnginePhase;
   latency: LatencyState;
   botSettings: BotSettings;
-  effectiveThreads: number;
+  openLeadMs: number;
   armed: ArmState | null;
   onArm: (a: ArmState) => void;
   onDisarm: () => void;
@@ -118,16 +123,47 @@ interface DashboardViewProps {
   onOpenAccountModal: () => void;
   onOpenAddressModal: () => void;
   onGoTab: (t: AppTab) => void;
-  onOpenScript: () => void;
   onOpenQris: () => void;
   onCopied: (msg: string) => void;
 }
 
 /* ------------------------------------------------------------------ */
-/* Session hero (countdown sesi flash sale real-time)                  */
+/* Session card (kartu biru utama — countdown sesi flash sale)          */
 /* ------------------------------------------------------------------ */
 
-const SessionHero: React.FC<{
+const WaveLine: React.FC<{ data: number[] }> = ({ data }) => {
+  // Garis dekoratif: pakai data latensi kalau ada, kalau belum pakai gelombang halus
+  const w = 220;
+  const h = 70;
+  const src = data.length >= 4 ? data.slice(-18) : [30, 34, 28, 40, 36, 46, 42, 54, 50, 62, 58, 70];
+  const max = Math.max(...src);
+  const min = Math.min(...src);
+  const step = w / (src.length - 1);
+  // dibalik: latensi turun = garis naik (lebih bagus)
+  const y = (v: number) => (data.length >= 4 ? 8 + ((v - min) / (max - min || 1)) * (h - 16) : h - 8 - ((v - min) / (max - min || 1)) * (h - 16));
+  const pts = src.map((v, i) => [i * step, y(v)] as const);
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1];
+    const [x1, y1] = pts[i];
+    const cx = (x0 + x1) / 2;
+    d += ` C${cx},${y0} ${cx},${y1} ${x1},${y1}`;
+  }
+  return (
+    <svg className="gx-session__wave" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="gxWaveFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={`${d} L${w},${h} L0,${h} Z`} fill="url(#gxWaveFill)" />
+      <path d={d} fill="none" stroke="#fff" strokeOpacity="0.9" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+};
+
+const SessionCard: React.FC<{
   region: AseanCountryCode;
   clock: ServerClock;
   armed: ArmState | null;
@@ -135,175 +171,118 @@ const SessionHero: React.FC<{
   onDisarm: () => void;
   isBotRunning: boolean;
   phase: EnginePhase;
-  onStart: () => void;
-  onStop: () => void;
+  latencyHistory: number[];
   blocked: string | null;
-}> = ({ region, clock, armed, onArm, onDisarm, isBotRunning, phase, onStart, onStop, blocked }) => {
+}> = ({ region, clock, armed, onArm, onDisarm, isBotRunning, phase, latencyHistory, blocked }) => {
   useTicker(41);
   const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
+  const [showMs, setShowMs] = useState(true);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customVal, setCustomVal] = useState('');
   const now = clock.now();
-  const slots = getSessionSlots(now, reg.flashSaleSchedule, reg.timezone);
+  const todaySlots = getSessionSlots(now, reg.flashSaleSchedule, reg.timezone);
+  // Kalau semua sesi hari ini sudah lewat, tampilkan jadwal besok
+  const isTomorrow = todaySlots.length > 0 && todaySlots.every((s) => s.status === 'past');
+  const slots = isTomorrow ? getSessionSlots(now, reg.flashSaleSchedule, reg.timezone, now + 86_400_000) : todaySlots;
   const live = slots.find((s) => s.status === 'live');
   const next = getNextSession(now, reg.flashSaleSchedule, reg.timezone);
   const target = armed || next;
-  const remain = target ? target.epoch - now : 0;
-  const d = splitDuration(remain);
-  const [customOpen, setCustomOpen] = useState(false);
-  const [customVal, setCustomVal] = useState('');
+  const d = splitDuration(target ? target.epoch - now : 0);
 
-  const targetDayLabel = (() => {
+  const dayLabel = (() => {
     if (!target) return '';
     const a = tzParts(target.epoch, reg.timezone);
     const b = tzParts(now, reg.timezone);
     if (a.y === b.y && a.m === b.m && a.d === b.d) return 'hari ini';
-    return new Date(target.epoch).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', timeZone: reg.timezone });
+    return new Date(target.epoch).toLocaleDateString('id-ID', { weekday: 'long', timeZone: reg.timezone });
   })();
 
   const armCustom = () => {
-    if (!customVal) return;
     const epoch = new Date(customVal).getTime();
-    if (isNaN(epoch) || epoch <= now + 3000) return;
+    if (!customVal || isNaN(epoch) || epoch <= now + 3000) return;
     onArm({ epoch, label: formatClock(epoch, reg.timezone).slice(0, 5) });
     setCustomOpen(false);
+    setCustomVal('');
   };
 
-  let statusTag: React.ReactNode;
-  if (isBotRunning) {
-    statusTag = (
-      <span className="gx-tag gx-tag--flash">
-        <span className="gx-led gx-led--pulse" /> {phase === 'fire' ? 'Mengeksekusi' : 'Engine berjalan'}
-      </span>
-    );
-  } else if (armed) {
-    statusTag = (
-      <span className="gx-tag gx-tag--brand">
-        <span className="gx-led gx-led--pulse" /> Auto-start terjadwal
-      </span>
-    );
-  } else if (live) {
-    statusTag = (
-      <span className="gx-tag gx-tag--flash">
-        <span className="gx-led gx-led--pulse" /> Sesi {live.label} berlangsung
-      </span>
-    );
-  } else {
-    statusTag = <span className="gx-tag">Standby</span>;
-  }
+  const status = isBotRunning
+    ? { text: phase === 'fire' ? 'Mengeksekusi…' : 'Engine berjalan', pulse: true }
+    : armed
+    ? { text: `Auto-start ${armed.label} aktif`, pulse: true }
+    : live
+    ? { text: `Sesi ${live.label} berlangsung`, pulse: true }
+    : { text: 'Standby', pulse: false };
 
   return (
-    <section className="gx-hero" aria-label="Countdown sesi flash sale" style={{ order: 1 }}>
-      <div className="gx-hero__top">
-        <span className="gx-hero__label">{armed ? 'Auto-start dalam' : 'Sesi berikutnya dalam'}</span>
-        <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {statusTag}
-          <span className="gx-tag" title={clock.synced ? `Jam tersinkron server, selisih ${clock.offsetMs} ms` : 'Belum tersinkron'}>
-            <span className="gx-led" style={{ color: clock.synced ? '#4fe08f' : '#f0a92a' }} />
-            {clock.synced ? 'Jam sinkron' : 'Sinkron…'}
-          </span>
+    <section className="gx-session" aria-label="Countdown sesi flash sale" style={{ order: 1 }}>
+      <div className="gx-session__top">
+        <span className="gx-session__label">{armed ? 'Auto-start dalam' : 'Sesi berikutnya dalam'}</span>
+        <button type="button" className="gx-session__eye" onClick={() => setShowMs((v) => !v)} aria-label={showMs ? 'Sembunyikan milidetik' : 'Tampilkan milidetik'}>
+          {showMs ? <Eye size={16} /> : <EyeOff size={16} />}
+        </button>
+      </div>
+
+      <div className="gx-session__count" aria-live="off">
+        {pad(d.h)}:{pad(d.m)}:{pad(d.s)}
+        {showMs && <span>.{pad(d.ms, 3)}</span>}
+      </div>
+
+      <div className="gx-session__sub">
+        <span className="gx-session__pill">
+          <span className={`gx-led ${status.pulse ? 'gx-led--pulse' : ''}`} />
+          {status.text}
+        </span>
+        <span>
+          Target <b>{target?.label || '--:--'}</b> {reg.timezoneLabel.split(' ')[0]} · {dayLabel}
         </span>
       </div>
 
-      <div className="gx-count" aria-live="off">
-        <span>{pad(d.h)}</span>
-        <span className="gx-count__sep">:</span>
-        <span>{pad(d.m)}</span>
-        <span className="gx-count__sep">:</span>
-        <span>{pad(d.s)}</span>
-        <span className="gx-count__ms">.{pad(d.ms, 3)}</span>
-      </div>
+      <WaveLine data={latencyHistory} />
 
-      <div className="gx-hero__meta">
-        <span>
-          Target <b>{target?.label || '--:--'} {reg.timezoneLabel.split(' ')[0]}</b> {targetDayLabel}
-        </span>
-        <span>
-          Jam server <b className="gx-mono">{formatClock(now, reg.timezone)}</b>
-        </span>
-        <span>
-          Shopee <b>{reg.name}</b>
-        </span>
-      </div>
-
-      <div className="gx-slots" role="list" aria-label="Jadwal sesi flash sale hari ini">
+      <div className="gx-session__slots" role="list" aria-label={isTomorrow ? "Jadwal sesi besok" : "Jadwal sesi hari ini"}>
         {slots.map((s) => {
-          const isArmed = armed && Math.abs(armed.epoch - s.epoch) < 1000;
-          const cls = ['gx-slot', `gx-slot--${s.status}`, isArmed ? 'gx-slot--armed' : ''].join(' ');
-          const sub = isArmed ? 'Terjadwal' : s.status === 'past' ? 'Selesai' : s.status === 'live' ? 'Live' : s.status === 'next' ? 'Berikutnya' : 'Nanti';
+          const isArmed = !!armed && Math.abs(armed.epoch - s.epoch) < 1000;
           return (
             <button
               key={s.label}
               type="button"
               role="listitem"
-              className={cls}
-              disabled={s.status === 'past' || s.status === 'live'}
+              className={`gx-sslot gx-sslot--${s.status} ${isArmed ? 'gx-sslot--armed' : ''}`}
+              disabled={s.status === 'past' || s.status === 'live' || isBotRunning}
               onClick={() => (isArmed ? onDisarm() : onArm({ epoch: s.epoch, label: s.label }))}
-              title={s.status === 'past' ? 'Sesi sudah lewat' : isArmed ? 'Klik untuk batalkan' : `Jadwalkan auto-start sesi ${s.label}`}
+              title={s.status === 'past' ? 'Sesi sudah lewat' : isArmed ? 'Klik untuk batalkan' : `Jadwalkan auto-start ${s.label}`}
             >
               {s.label}
-              <small>{sub}</small>
             </button>
           );
         })}
       </div>
 
-      {blocked && (
-        <div className="gx-note gx-note--bad" style={{ marginTop: 12, background: 'rgba(229,56,59,.12)', color: '#ffd6d7' }}>
-          <CircleAlert size={16} />
-          <span>{blocked}</span>
-        </div>
-      )}
-
-      <div className="gx-hero__actions">
-        {isBotRunning ? (
-          <button type="button" className="gx-btn gx-btn--lg gx-btn--danger" onClick={onStop}>
-            <Square size={16} fill="currentColor" /> Hentikan engine
-          </button>
-        ) : (
-          <button type="button" className="gx-btn gx-btn--lg gx-btn--flash" onClick={onStart} disabled={!!blocked}>
-            <Zap size={18} fill="currentColor" /> Jalankan sekarang
-          </button>
-        )}
-        {armed ? (
-          <button type="button" className="gx-btn gx-btn--lg gx-btn--armed" onClick={onDisarm}>
-            <X size={16} /> Batalkan jadwal {armed.label}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="gx-btn gx-btn--lg"
-            disabled={!next || !!blocked || isBotRunning}
-            onClick={() => next && onArm(next)}
-            title="Bot otomatis mulai beberapa detik sebelum sesi agar trigger tepat di detik 0"
-          >
-            <CalendarClock size={17} /> Auto-start sesi {next?.label || ''}
-          </button>
-        )}
-      </div>
-
-      <div className="gx-hero__custom">
+      <div className="gx-session__foot">
+        <span className="gx-session__clock">
+          <span className="gx-led" style={{ color: clock.synced ? '#7CF5B5' : '#FFD27A' }} />
+          Jam server <b>{formatClock(now, reg.timezone)}</b>
+        </span>
         {customOpen ? (
-          <>
-            <input type="datetime-local" value={customVal} onChange={(e) => setCustomVal(e.target.value)} aria-label="Waktu target custom" />
-            <button type="button" className="gx-btn gx-btn--sm" onClick={armCustom} disabled={!customVal}>
-              Jadwalkan
+          <span className="gx-session__custom">
+            <input type="datetime-local" value={customVal} onChange={(e) => setCustomVal(e.target.value)} aria-label="Waktu custom" />
+            <button type="button" onClick={armCustom} disabled={!customVal}>
+              Set
             </button>
-            <button type="button" className="gx-btn gx-btn--sm gx-btn--ghost" style={{ color: '#8f93ad' }} onClick={() => setCustomOpen(false)}>
-              Batal
+            <button type="button" onClick={() => setCustomOpen(false)} aria-label="Batal">
+              <X size={14} />
             </button>
-          </>
+          </span>
         ) : (
-          <>
-            <Clock3 size={14} />
-            <span>Pre-fire otomatis {ARM_LEAD_MS / 1000} dtk sebelum target.</span>
-            <button type="button" className="gx-link" style={{ color: '#aeb1ff' }} onClick={() => setCustomOpen(true)}>
-              Atur jam custom
-            </button>
-          </>
+          <button type="button" className="gx-session__link" onClick={() => setCustomOpen(true)} disabled={!!blocked}>
+            Jam custom
+          </button>
         )}
       </div>
     </section>
   );
 };
+
 
 /* ------------------------------------------------------------------ */
 /* Engine monitor                                                      */
@@ -311,10 +290,10 @@ const SessionHero: React.FC<{
 
 const PHASES: { id: EnginePhase; label: string }[] = [
   { id: 'sync', label: 'Sinkron' },
-  { id: 'warm', label: 'Pre-warm' },
+  { id: 'warm', label: 'Cek produk' },
   { id: 'armed', label: 'Standby' },
-  { id: 'fire', label: 'Eksekusi' },
-  { id: 'done', label: 'Selesai' },
+  { id: 'fire', label: 'Buka Shopee' },
+  { id: 'done', label: 'Konfirmasi' },
 ];
 
 const Sparkline: React.FC<{ data: number[] }> = ({ data }) => {
@@ -341,10 +320,10 @@ const EngineMonitor: React.FC<{
   isBotRunning: boolean;
   latency: LatencyState;
   clock: ServerClock;
-  threads: number;
+  leadMs: number;
   mode: string;
   region: AseanCountryCode;
-}> = ({ phase, isBotRunning, latency, clock, threads, mode, region }) => {
+}> = ({ phase, isBotRunning, latency, clock, leadMs, mode, region }) => {
   const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
   const idx = PHASES.findIndex((p) => p.id === phase);
   const tone = (v: number | null, good: number, ok: number) =>
@@ -352,7 +331,7 @@ const EngineMonitor: React.FC<{
   const avg = latency.history.length ? Math.round(latency.history.reduce((a, b) => a + b, 0) / latency.history.length) : null;
 
   return (
-    <section className="gx-card" style={{ order: 4 }}>
+    <section className="gx-card" style={{ order: 6 }}>
       <div className="gx-card__head">
         <h2 className="gx-card__title">
           <Activity size={16} /> Monitor engine
@@ -431,9 +410,9 @@ const EngineMonitor: React.FC<{
 
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <span className="gx-tag">
-            <Server size={12} /> {threads} thread
+            <Server size={12} /> Buka −{leadMs} ms
           </span>
-          <span className="gx-tag">Mode {mode}</span>
+          <span className="gx-tag">{mode === 'browser' ? 'Buka di browser' : 'Buka app Shopee'}</span>
           <span className="gx-tag">NTP {reg.ntpServer}</span>
         </div>
         {Math.abs(clock.offsetMs) > 1000 && (
@@ -451,7 +430,7 @@ const EngineMonitor: React.FC<{
 };
 
 /* ------------------------------------------------------------------ */
-/* Target + readiness                                                  */
+/* Setup list, quick actions, readiness donut                          */
 /* ------------------------------------------------------------------ */
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -460,74 +439,12 @@ const PAYMENT_LABEL: Record<string, string> = {
   spinjam: 'SPinjam',
 };
 
-const TargetCard: React.FC<{
-  targets: TargetUrl[];
-  selected: TargetUrl | null;
-  onSelect: (id: string) => void;
-  region: AseanCountryCode;
-  onEdit: (t?: TargetUrl) => void;
-}> = ({ targets, selected, onSelect, region, onEdit }) => {
-  const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
-  const priceRegion = ((selected?.region as AseanCountryCode) || region) as AseanCountryCode;
-  return (
-    <section className="gx-card" style={{ order: 2 }}>
-      <div className="gx-card__head">
-        <h2 className="gx-card__title">
-          <Crosshair size={16} /> Target produk
-        </h2>
-        <div className="gx-card__aside">
-          <button type="button" className="gx-link" onClick={() => onEdit()}>
-            + Tambah
-          </button>
-        </div>
-      </div>
-      <div className="gx-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {selected ? (
-          <div className="gx-target">
-            <div className="gx-target__thumb">
-              <ShoppingBag size={22} />
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div className="gx-target__title">{selected.title}</div>
-              <div className="gx-target__price">
-                <b>{formatAseanCurrency(Number(selected.target_price) || 0, priceRegion)}</b>
-                {selected.variant && <span className="gx-tag">{selected.variant}</span>}
-              </div>
-              <div style={{ marginTop: 6, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                {selected.url && (
-                  <a className="gx-link" href={selected.url} target="_blank" rel="noopener noreferrer">
-                    Buka di Shopee <ChevronRight size={13} />
-                  </a>
-                )}
-                <button type="button" className="gx-link" onClick={() => onEdit(selected)}>
-                  Edit
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="gx-empty">
-            Belum ada target. Tempel link produk Shopee {reg.name} yang mau di-war.
-            <div style={{ marginTop: 10 }}>
-              <button type="button" className="gx-btn gx-btn--sm gx-btn--primary" onClick={() => onEdit()}>
-                Tambah target
-              </button>
-            </div>
-          </div>
-        )}
-        {targets.length > 1 && (
-          <select className="gx-select" value={selected?.id || ''} onChange={(e) => onSelect(e.target.value)} aria-label="Pilih target aktif">
-            {targets.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.title}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
-    </section>
-  );
-};
+const SectionHead: React.FC<{ title: string; action?: React.ReactNode }> = ({ title, action }) => (
+  <div className="gx-sechead">
+    <h2>{title}</h2>
+    {action}
+  </div>
+);
 
 interface CheckItem {
   key: string;
@@ -535,52 +452,186 @@ interface CheckItem {
   value: string;
   ok: boolean;
   icon: React.ComponentType<any>;
+  color: string;
   action?: () => void;
-  actionLabel?: string;
 }
+
+const SetupList: React.FC<{
+  items: CheckItem[];
+  targets: TargetUrl[];
+  selected: TargetUrl | null;
+  onSelect: (id: string) => void;
+  region: AseanCountryCode;
+  onSeeAll: () => void;
+}> = ({ items, targets, selected, onSelect, region, onSeeAll }) => {
+  const priceRegion = ((selected?.region as AseanCountryCode) || region) as AseanCountryCode;
+  return (
+    <section style={{ order: 3 }}>
+      <SectionHead
+        title="Setup war"
+        action={
+          <button type="button" className="gx-link" onClick={onSeeAll}>
+            Lihat semua
+          </button>
+        }
+      />
+      <div className="gx-card gx-acclist">
+        {items
+          .filter((i) => i.key !== 'license')
+          .map((it) => {
+            const Icon = it.icon;
+            const right =
+              it.key === 'target' && selected
+                ? formatAseanCurrency(Number(selected.target_price) || 0, priceRegion)
+                : it.ok
+                ? 'Siap'
+                : 'Atur';
+            return (
+              <button key={it.key} type="button" className="gx-acc" onClick={it.action}>
+                <span className="gx-acc__icon" style={{ background: `${it.color}1A`, color: it.color }}>
+                  <Icon size={18} />
+                </span>
+                <span className="gx-acc__main">
+                  <span className="gx-acc__t">{it.label}</span>
+                  <span className="gx-acc__s">{it.value}</span>
+                </span>
+                <span className={`gx-acc__v ${it.ok ? '' : 'gx-acc__v--todo'}`}>{right}</span>
+              </button>
+            );
+          })}
+        {targets.length > 1 && (
+          <div style={{ padding: '4px 16px 14px' }}>
+            <select className="gx-select" value={selected?.id || ''} onChange={(e) => onSelect(e.target.value)} aria-label="Ganti target aktif">
+              {targets.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const QuickActions: React.FC<{
+  isBotRunning: boolean;
+  armed: ArmState | null;
+  next: { label: string; epoch: number } | null;
+  blocked: string | null;
+  onStart: () => void;
+  onStop: () => void;
+  onArm: (a: ArmState) => void;
+  onDisarm: () => void;
+  onTarget: () => void;
+  onHistory: () => void;
+}> = ({ isBotRunning, armed, next, blocked, onStart, onStop, onArm, onDisarm, onTarget, onHistory }) => (
+  <section style={{ order: 2 }}>
+    <SectionHead title="Aksi cepat" />
+    <div className="gx-qa">
+      <button
+        type="button"
+        className={`gx-qa__btn ${isBotRunning ? 'gx-qa__btn--stop' : 'gx-qa__btn--go'}`}
+        onClick={isBotRunning ? onStop : onStart}
+        disabled={!isBotRunning && !!blocked}
+      >
+        <span className="gx-qa__icon">{isBotRunning ? <Square size={18} fill="currentColor" /> : <Zap size={19} fill="currentColor" />}</span>
+        <span>{isBotRunning ? 'Stop' : 'Jalankan'}</span>
+      </button>
+      <button
+        type="button"
+        className={`gx-qa__btn ${armed ? 'gx-qa__btn--on' : ''}`}
+        onClick={() => (armed ? onDisarm() : next && onArm(next))}
+        disabled={!armed && (!next || !!blocked || isBotRunning)}
+      >
+        <span className="gx-qa__icon">{armed ? <X size={18} /> : <CalendarClock size={18} />}</span>
+        <span>{armed ? `Batal ${armed.label}` : `Auto ${next?.label || ''}`}</span>
+      </button>
+      <button type="button" className="gx-qa__btn" onClick={onTarget}>
+        <span className="gx-qa__icon">
+          <Crosshair size={18} />
+        </span>
+        <span>Target</span>
+      </button>
+      <button type="button" className="gx-qa__btn" onClick={onHistory}>
+        <span className="gx-qa__icon">
+          <Receipt size={18} />
+        </span>
+        <span>Riwayat</span>
+      </button>
+    </div>
+    {blocked && !isBotRunning && (
+      <div className="gx-note gx-note--warn" style={{ marginTop: 10 }}>
+        <CircleAlert size={15} />
+        <span>{blocked}</span>
+      </div>
+    )}
+  </section>
+);
+
+const Donut: React.FC<{ items: CheckItem[] }> = ({ items }) => {
+  const r = 42;
+  const c = 2 * Math.PI * r;
+  const gap = 5;
+  const seg = c / items.length;
+  return (
+    <svg viewBox="0 0 110 110" className="gx-donut" role="img" aria-label="Diagram kesiapan">
+      <circle cx="55" cy="55" r={r} fill="none" stroke="var(--gx-surface-3)" strokeWidth="14" />
+      {items.map((it, i) => (
+        <circle
+          key={it.key}
+          cx="55"
+          cy="55"
+          r={r}
+          fill="none"
+          stroke={it.ok ? it.color : 'var(--gx-line-strong)'}
+          strokeWidth="14"
+          strokeDasharray={`${seg - gap} ${c - seg + gap}`}
+          strokeDashoffset={-i * seg}
+          transform="rotate(-90 55 55)"
+          style={{ transition: 'stroke .3s' }}
+        />
+      ))}
+    </svg>
+  );
+};
 
 const ReadinessCard: React.FC<{ items: CheckItem[] }> = ({ items }) => {
   const done = items.filter((i) => i.ok).length;
   const pct = Math.round((done / items.length) * 100);
   return (
-    <section className="gx-card" style={{ order: 3 }}>
-      <div className="gx-card__head">
-        <h2 className="gx-card__title">
-          <ShieldCheck size={16} /> Kesiapan war
-        </h2>
-        <div className="gx-card__aside">
-          <span className={`gx-tag ${pct === 100 ? 'gx-tag--ok' : 'gx-tag--warn'}`}>
-            {done}/{items.length} siap
+    <section className="gx-card gx-ready" style={{ order: 4 }}>
+      <div className="gx-ready__top">
+        <div>
+          <div className="gx-ready__k">Kesiapan war</div>
+          <div className="gx-ready__v">{pct}%</div>
+          <div className={`gx-ready__d ${pct === 100 ? 'is-ok' : ''}`}>
+            {pct === 100 ? <Check size={13} strokeWidth={3} /> : <CircleAlert size={13} />}
+            {done} dari {items.length} siap
+          </div>
+        </div>
+        <div className="gx-ready__chart">
+          <Donut items={items} />
+          <span className="gx-ready__center">
+            <ShieldCheck size={20} />
           </span>
         </div>
       </div>
-      <div className="gx-card__body">
-        <div className="gx-meter" style={{ marginBottom: 10 }}>
-          <span style={{ width: `${pct}%`, background: pct === 100 ? 'var(--gx-ok)' : 'var(--gx-warn)' }} />
-        </div>
-        <ul className="gx-checklist">
-          {items.map((it) => {
-            const Icon = it.icon;
-            return (
-              <li key={it.key} className={`gx-check ${it.ok ? '' : 'gx-check--todo'}`}>
-                <span className="gx-check__icon">{it.ok ? <Check size={15} strokeWidth={3} /> : <Icon size={15} />}</span>
-                <div className="gx-check__txt">
-                  <div className="gx-check__k">{it.label}</div>
-                  <div className="gx-check__v">{it.value}</div>
-                </div>
-                {it.action && (
-                  <button type="button" className="gx-btn gx-btn--xs" onClick={it.action}>
-                    {it.actionLabel || (it.ok ? 'Ubah' : 'Atur')}
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+      <ul className="gx-legend">
+        {items.map((it) => (
+          <li key={it.key}>
+            <span className="gx-legend__dot" style={{ background: it.ok ? it.color : 'var(--gx-line-strong)' }} />
+            <span className="gx-legend__k">{it.label}</span>
+            <span className="gx-legend__v">{it.value}</span>
+            <span className={`gx-legend__s ${it.ok ? 'is-ok' : ''}`}>{it.ok ? 'OK' : 'Belum'}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 };
+
 
 /* ------------------------------------------------------------------ */
 /* Live console                                                        */
@@ -673,34 +724,39 @@ export const LiveConsole: React.FC<{
 };
 
 /* ------------------------------------------------------------------ */
-/* Orders                                                              */
+/* Orders (gaya "recent transactions")                                 */
 /* ------------------------------------------------------------------ */
 
 export const OrdersList: React.FC<{ orders: NormalizedOrder[]; limit?: number; region: AseanCountryCode }> = ({ orders, limit, region }) => {
   const list = limit ? orders.slice(0, limit) : orders;
   if (!list.length) return <div className="gx-empty">Belum ada checkout tercatat.</div>;
   return (
-    <ul className="gx-list">
+    <ul className="gx-list gx-tx">
       {list.map((o) => (
         <li key={o.id} className="gx-row">
-          <span className="gx-check__icon" style={{ background: 'var(--gx-flash-soft)', color: 'var(--gx-flash)' }}>
-            <Receipt size={14} />
+          <span className="gx-tx__icon">
+            <ShoppingBag size={17} />
           </span>
           <div className="gx-row__main">
             <div className="gx-row__t">{o.name}</div>
-            <div className="gx-row__s gx-mono">
-              {o.sn} · {o.method} · {relativeTimeId(o.time)}
+            <div className="gx-row__s">
+              {o.time ? new Date(o.time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'} · {o.method} · <span className="gx-mono">{o.sn}</span>
             </div>
           </div>
           <div className="gx-row__end">
-            <b>{formatAseanCurrency(o.price, ((o.region as AseanCountryCode) || region) as AseanCountryCode)}</b>
-            {o.speed != null && <span className="gx-muted gx-mono" style={{ fontSize: 11 }}>{o.speed} ms</span>}
+            <b className="gx-tx__amt">{formatAseanCurrency(o.price, ((o.region as AseanCountryCode) || region) as AseanCountryCode)}</b>
+            {o.speed != null && (
+              <span className="gx-muted gx-mono" style={{ fontSize: 11 }}>
+                {o.speed} ms
+              </span>
+            )}
           </div>
         </li>
       ))}
     </ul>
   );
 };
+
 
 /* ------------------------------------------------------------------ */
 /* Dashboard                                                           */
@@ -714,14 +770,12 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
       ? 'Masa aktif lisensi habis. Perpanjang via QRIS untuk menjalankan engine.'
       : !p.selectedTarget
       ? 'Belum ada target produk. Tambahkan dulu link produk yang mau di-war.'
-      : p.accounts.length === 0
-      ? 'Belum ada akun Shopee eksekutor. Tambahkan akun di tab Target.'
+      : !isValidHttpUrl(p.selectedTarget.url)
+      ? 'Link target belum valid. Edit target dan tempel link produk Shopee.'
       : null;
 
-  const pay = p.paymentSettings;
-  const payMethod = pay?.payment_method ? PAYMENT_LABEL[pay.payment_method] || pay.payment_method : '';
-  const needsPin = pay?.payment_method === 'shopeepay';
-  const defaultAddress = p.addresses.find((a) => a.is_default) || p.addresses[0];
+  const ids = parseShopeeLink(p.selectedTarget?.url);
+  const linkOk = isValidHttpUrl(p.selectedTarget?.url);
 
   const checklist: CheckItem[] = [
     {
@@ -730,58 +784,59 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
       value: p.selectedTarget ? p.selectedTarget.title : 'Belum dipilih',
       ok: !!p.selectedTarget,
       icon: Crosshair,
+      color: '#2F6BFF',
       action: () => p.onOpenTargetModal(p.selectedTarget || undefined),
     },
     {
-      key: 'account',
-      label: 'Akun Shopee',
-      value: p.accounts.length ? `${p.accounts.length} akun · ${p.accounts[0].nickname}` : 'Belum ada akun',
-      ok: p.accounts.length > 0,
-      icon: UserRound,
-      action: p.accounts.length ? () => p.onGoTab('targets') : p.onOpenAccountModal,
+      key: 'link',
+      label: 'Link produk',
+      value: !p.selectedTarget ? '—' : ids ? `ID ${ids.shopId}.${ids.itemId}` : linkOk ? 'Link pendek (dibuka apa adanya)' : 'Link tidak valid',
+      ok: linkOk,
+      icon: Link2,
+      color: '#7B61FF',
+      action: () => p.onOpenTargetModal(p.selectedTarget || undefined),
     },
     {
-      key: 'address',
-      label: 'Alamat pengiriman',
-      value: defaultAddress ? `${defaultAddress.label} · ${defaultAddress.recipient_name}` : 'Belum ada alamat',
-      ok: !!defaultAddress,
-      icon: MapPin,
-      action: defaultAddress ? () => p.onGoTab('targets') : p.onOpenAddressModal,
-    },
-    {
-      key: 'payment',
-      label: 'Pembayaran',
-      value: payMethod ? `${payMethod}${needsPin ? (pay?.shopeepay_pin ? ' · PIN tersimpan' : ' · PIN belum diisi') : ''}` : 'Belum diatur',
-      ok: !!payMethod && (!needsPin || !!pay?.shopeepay_pin),
-      icon: Wallet,
-      action: () => p.onGoTab('targets'),
+      key: 'clock',
+      label: 'Jam server',
+      value: p.clock.synced ? `Sinkron · selisih ${p.clock.offsetMs > 0 ? '+' : ''}${p.clock.offsetMs} ms` : 'Menyinkronkan…',
+      ok: p.clock.synced,
+      icon: Clock3,
+      color: '#19B6E6',
+      action: () => p.clock.resync(),
     },
     {
       key: 'license',
       label: 'Lisensi',
-      value: lic.label + (p.user.expired_at ? ` · s/d ${new Date(p.user.expired_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''),
+      value: lic.label,
       ok: lic.tone !== 'bad',
       icon: Timer,
+      color: '#16B07A',
       action: p.user.role !== 'admin' ? p.onOpenQris : undefined,
-      actionLabel: 'Perpanjang',
     },
   ];
 
-  const todayKey = (() => {
-    const t = tzParts(p.clock.now(), reg.timezone);
-    return `${t.y}-${t.m}-${t.d}`;
-  })();
-  const todayCount = p.orders.filter((o) => {
-    const t = new Date(o.time).getTime();
-    if (isNaN(t)) return false;
-    const z = tzParts(t, reg.timezone);
-    return `${z.y}-${z.m}-${z.d}` === todayKey;
-  }).length;
-  const speeds = p.orders.map((o) => o.speed).filter((v): v is number => typeof v === 'number');
-  const avgSpeed = speeds.length ? Math.round(speeds.reduce((a, b) => a + b, 0) / speeds.length) : null;
+  const nowEpoch = p.clock.now();
+  const next = getNextSession(nowEpoch, reg.flashSaleSchedule, reg.timezone);
+  const todayLabel = new Date(nowEpoch).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: reg.timezone });
 
   return (
     <>
+      <div className="gx-overview">
+        <div>
+          <h1>Ringkasan</h1>
+          <p>Pantau sesi flash sale & engine kamu di sini</p>
+        </div>
+        <div className="gx-overview__row">
+          <span className="gx-datepill">
+            <CalendarDays size={15} /> {todayLabel}
+          </span>
+          <button type="button" className="gx-btn gx-btn--primary gx-btn--pill" onClick={() => p.onOpenTargetModal()}>
+            <Plus size={16} /> Target
+          </button>
+        </div>
+      </div>
+
       {p.announcements.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {p.announcements.slice(0, 3).map((a) => (
@@ -792,7 +847,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
 
       <div className="gx-dash">
         <div className="gx-col">
-          <SessionHero
+          <SessionCard
             region={p.region}
             clock={p.clock}
             armed={p.armed}
@@ -800,62 +855,53 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
             onDisarm={p.onDisarm}
             isBotRunning={p.isBotRunning}
             phase={p.phase}
-            onStart={p.onStart}
-            onStop={p.onStop}
+            latencyHistory={p.latency.history}
             blocked={blocked}
           />
-
-          <div className="gx-card" style={{ order: 5 }}>
-            <div className="gx-metrics gx-metrics--4" style={{ border: 0 }}>
-              <div className="gx-metric">
-                <div className="gx-metric__k">Checkout tercatat</div>
-                <div className="gx-metric__v">{p.orders.length}</div>
-              </div>
-              <div className="gx-metric">
-                <div className="gx-metric__k">Hari ini</div>
-                <div className="gx-metric__v">{todayCount}</div>
-              </div>
-              <div className="gx-metric">
-                <div className="gx-metric__k">Rata-rata respons</div>
-                <div className="gx-metric__v">
-                  {avgSpeed ?? '—'}
-                  {avgSpeed != null && <small>ms</small>}
-                </div>
-              </div>
-              <div className="gx-metric">
-                <div className="gx-metric__k">Request sesi ini</div>
-                <div className="gx-metric__v">{p.stats.attempts}</div>
-              </div>
-            </div>
-          </div>
-
-          <LiveConsole logs={p.logs} onClear={p.onClearLogs} onOpenScript={p.onOpenScript} onCopied={p.onCopied} style={{ order: 6 }} />
-        </div>
-
-        <div className="gx-col">
-          <TargetCard targets={p.targets} selected={p.selectedTarget} onSelect={p.onSelectTarget} region={p.region} onEdit={p.onOpenTargetModal} />
-          <ReadinessCard items={checklist} />
+          <QuickActions
+            isBotRunning={p.isBotRunning}
+            armed={p.armed}
+            next={next}
+            blocked={blocked}
+            onStart={p.onStart}
+            onStop={p.onStop}
+            onArm={p.onArm}
+            onDisarm={p.onDisarm}
+            onTarget={() => p.onGoTab('targets')}
+            onHistory={() => p.onGoTab('analytics')}
+          />
           <EngineMonitor
             phase={p.phase}
             isBotRunning={p.isBotRunning}
             latency={p.latency}
             clock={p.clock}
-            threads={p.effectiveThreads}
-            mode={p.botSettings.botMode}
+            leadMs={p.openLeadMs}
+            mode={p.botSettings.openMode || 'app'}
             region={p.region}
           />
-          <section className="gx-card" style={{ order: 7 }}>
-            <div className="gx-card__head">
-              <h2 className="gx-card__title">
-                <Receipt size={16} /> Checkout terakhir
-              </h2>
-              <div className="gx-card__aside">
+          <LiveConsole logs={p.logs} onClear={p.onClearLogs} onCopied={p.onCopied} style={{ order: 7 }} />
+        </div>
+
+        <div className="gx-col">
+          <SetupList
+            items={checklist}
+            targets={p.targets}
+            selected={p.selectedTarget}
+            onSelect={p.onSelectTarget}
+            region={p.region}
+            onSeeAll={() => p.onGoTab('targets')}
+          />
+          <ReadinessCard items={checklist} />
+          <section style={{ order: 5 }}>
+            <SectionHead
+              title="Checkout terakhir"
+              action={
                 <button type="button" className="gx-link" onClick={() => p.onGoTab('analytics')}>
-                  Semua <ChevronRight size={13} />
+                  Lihat semua
                 </button>
-              </div>
-            </div>
-            <div className="gx-card__body">
+              }
+            />
+            <div className="gx-card" style={{ padding: '4px 16px' }}>
               <OrdersList orders={p.orders} limit={4} region={p.region} />
             </div>
           </section>
@@ -864,4 +910,3 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
     </>
   );
 };
-

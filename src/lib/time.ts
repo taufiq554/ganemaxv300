@@ -52,9 +52,9 @@ export interface SessionSlot {
 export const LIVE_WINDOW_MS = 2 * 60 * 1000;
 
 /** Hitung semua slot sesi hari ini (zona waktu wilayah) beserta statusnya. */
-export function getSessionSlots(now: number, schedule: string[], tz: string): SessionSlot[] {
-  const offset = tzOffsetMs(now, tz);
-  const p = tzParts(now, tz);
+export function getSessionSlots(now: number, schedule: string[], tz: string, dayRef: number = now): SessionSlot[] {
+  const offset = tzOffsetMs(dayRef, tz);
+  const p = tzParts(dayRef, tz);
   const slots = schedule
     .map((label) => {
       const [h, mi] = label.split(':').map(Number);
@@ -80,7 +80,7 @@ export function getNextSession(now: number, schedule: string[], tz: string): { l
   if (!schedule.length) return null;
   const today = getSessionSlots(now, schedule, tz).find((s) => s.epoch > now);
   if (today) return { label: today.label, epoch: today.epoch };
-  const tomorrow = getSessionSlots(now + 24 * 3600 * 1000, schedule, tz)[0];
+  const tomorrow = getSessionSlots(now, schedule, tz, now + 24 * 3600 * 1000)[0];
   // slot pertama besok
   return tomorrow ? { label: tomorrow.label, epoch: tomorrow.epoch } : null;
 }
