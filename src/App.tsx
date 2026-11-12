@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   User,
   ShopeeAccount,
@@ -12,23 +12,16 @@ import {
   BotStats,
   BotSettings,
   AseanCountryCode,
+  Announcement,
+  AppTab,
+  EnginePhase,
 } from './types/index.ts';
 import { ASEAN_REGIONS, formatAseanCurrency } from './constants/asean.ts';
 import { api } from './services/api.ts';
-import { Header } from './components/Header.tsx';
-import { ProductCard } from './components/ProductCard.tsx';
-import { TimerCard } from './components/TimerCard.tsx';
-import { StatsGrid } from './components/StatsGrid.tsx';
 import { LoginScreen } from './components/LoginScreen.tsx';
-import { PerformanceChart } from './components/PerformanceChart.tsx';
-import { LogsContainer } from './components/LogsContainer.tsx';
 import { PaymentGatewayModal } from './components/PaymentGatewayModal.tsx';
 import { WhatsappChannelModal } from './components/WhatsappChannelModal.tsx';
 import { ControlPanel } from './components/ControlPanel.tsx';
-import { ModernHeroCards } from './components/ModernHeroCards.tsx';
-import { ActivityDonut } from './components/ActivityDonut.tsx';
-import { QuickMenuGrid } from './components/QuickMenuGrid.tsx';
-import { BottomFloatingDock } from './components/BottomFloatingDock.tsx';
 import {
   AddressModal,
   AccountModal,
@@ -37,8 +30,35 @@ import {
   ScheduleModal,
 } from './components/CrudModals.tsx';
 import { BulkAccountModal } from './components/BulkAccountModal.tsx';
-import { SimulatorModal } from './components/SimulatorModal.tsx';
-import { ProofGalleryModal } from './components/ProofGalleryModal.tsx';
+import { PythonScriptModal } from './components/PythonScriptModal.tsx';
+import { useServerClock } from './lib/useServerClock.ts';
+import {
+  TopBar,
+  Dock,
+  AnnouncementDrawer,
+  isAnnouncementLive,
+  sortAnnouncements,
+  useToast,
+} from './components/gx/Shell.tsx';
+import {
+  DashboardView,
+  LatencyState,
+  ArmState,
+  ARM_LEAD_MS,
+  normalizeOrder,
+} from './components/gx/DashboardView.tsx';
+import { HistoryView } from './components/gx/HistoryView.tsx';
+import { AdminPanel } from './components/gx/AdminPanel.tsx';
+
+const DISMISSED_KEY = 'gx_dismissed_announcements';
+const readDismissed = (): string[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+};
 
 export const App: React.FC = () => {
   // Authentication State
@@ -68,6 +88,26 @@ export const App: React.FC = () => {
   const [paymentSettings, setPaymentSettings] = useState<ShopeePayment | null>(null);
   const [orderHistory, setOrderHistory] = useState<OrderHistoryItem[]>([]);
   const [usersList, setUsersList] = useState<User[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<string[]>(readDismissed);
+  const [isAnnDrawerOpen, setIsAnnDrawerOpen] = useState(false);
+  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
+  const [selectedTargetId, setSelectedTargetId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('gx_selected_target') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [enginePhase, setEnginePhase] = useState<EnginePhase>('idle');
+  const [armed, setArmed] = useState<ArmState | null>(null);
+  const [latency, setLatency] = useState<LatencyState>({ history: [], last: null, status: null, reachable: null, checkedAt: null });
+  const [notifState, setNotifState] = useState<NotificationPermission | 'unsupported'>(() =>
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
+  );
+  const clock = useServerClock();
+  const toast = useToast();
+  const isRunningRef = useRef(false);
 
   // ASEAN Cross-Border State
   const [selectedRegion, setSelectedRegion] = useState<AseanCountryCode>(() => {
@@ -119,7 +159,8 @@ export const App: React.FC = () => {
   ]);
 
   // Bot Settings
-  const [botSettings, setBotSettings] = useState<BotSettings>({
+  const [botSettings, setBotSettings] = useState<BotSettings>(() => {
+    const base: BotSettings = {
     botMode: 'turbo',
     threadCount: 8,
     pollRate: 80,
@@ -136,7 +177,19 @@ export const App: React.FC = () => {
     notifySuccess: true,
     notifyError: true,
     notifyRateLimit: true,
+  };
+    try {
+      const saved = JSON.parse(localStorage.getItem('gx_bot_settings') || 'null');
+      return saved && typeof saved === 'object' ? { ...base, ...saved } : base;
+    } catch {
+      return base;
+    }
   });
+  useEffect(() => {
+    try {
+      localStorage.setItem('gx_bot_settings', JSON.stringify(botSettings));
+    } catch {}
+  }, [botSettings]);
 
   // Modal Visibility States
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
@@ -160,8 +213,6 @@ export const App: React.FC = () => {
   const [activeSchedule, setActiveSchedule] = useState<Schedule | null>(null);
 
   const [bulkAccountModalOpen, setBulkAccountModalOpen] = useState(false);
-  const [simulatorModalOpen, setSimulatorModalOpen] = useState(false);
-  const [proofGalleryModalOpen, setProofGalleryModalOpen] = useState(false);
 
   const botIntervalRef = useRef<any>(null);
   const botTimeoutsRef = useRef<number[]>([]);
@@ -193,18 +244,25 @@ export const App: React.FC = () => {
   );
 
   // Fetch all user collections when authenticated
+  const loadAnnouncements = useCallback(async () => {
+    const res = await api.get<Announcement[]>('announcements');
+    if (res.success && Array.isArray(res.data)) setAnnouncements(res.data);
+  }, []);
+
   const loadUserData = useCallback(async () => {
     if (!currentUser) return;
 
     try {
-      const [accRes, addrRes, urlRes, prxRes, schRes, payRes, ordRes] = await Promise.all([
+      const [accRes, addrRes, urlRes, prxRes, schRes, payRes, ordRes, meRes] = await Promise.all([
         api.get<ShopeeAccount[]>('shopee-accounts'),
         api.get<Address[]>('addresses'),
         api.get<TargetUrl[]>('target-urls'),
         api.get<ProxyMesh[]>('proxies'),
         api.get<Schedule[]>('schedules'),
         api.get<ShopeePayment>('shopee-payments', { single: true }),
-        api.get<OrderHistoryItem[]>('order-history', { limit: 10 }),
+        // Ambil semua order milik user lalu urutkan di client (query orderBy+where butuh index Firestore)
+        api.get<OrderHistoryItem[]>('order-history'),
+        api.get<User>(`users/${currentUser.id}`),
       ]);
 
       if (accRes.success && accRes.data) setAccounts(accRes.data);
@@ -212,8 +270,23 @@ export const App: React.FC = () => {
       if (urlRes.success && urlRes.data) setTargetUrls(urlRes.data);
       if (prxRes.success && prxRes.data) setProxies(prxRes.data);
       if (schRes.success && schRes.data) setSchedules(schRes.data);
-      if (payRes.success && payRes.data) setPaymentSettings(payRes.data);
-      if (ordRes.success && ordRes.data) setOrderHistory(ordRes.data);
+      if (payRes.success) setPaymentSettings(payRes.data || null);
+      if (ordRes.success && Array.isArray(ordRes.data)) setOrderHistory(ordRes.data);
+
+      // Sinkronkan data lisensi terbaru (masa aktif / status) dari server
+      if (meRes.success && meRes.data && meRes.data.id === currentUser.id) {
+        const fresh = meRes.data;
+        if (JSON.stringify(fresh) !== JSON.stringify(currentUser)) {
+          localStorage.setItem('shopee_bot_user', JSON.stringify(fresh));
+          setCurrentUser(fresh);
+        }
+      } else if (!meRes.success && /sesi|login|autentikasi/i.test(meRes.error?.message || '')) {
+        // token kadaluarsa -> paksa login ulang
+        localStorage.removeItem('shopee_bot_token');
+        localStorage.removeItem('shopee_bot_user');
+        setCurrentUser(null);
+        return;
+      }
 
       if (currentUser.role === 'admin') {
         const usersRes = await api.get<User[]>('users');
@@ -222,13 +295,25 @@ export const App: React.FC = () => {
     } catch (err: any) {
       console.warn('Error fetching initial user data:', err);
     }
-  }, [currentUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, currentUser?.role]);
 
   useEffect(() => {
     if (currentUser) {
       loadUserData();
+      loadAnnouncements();
     }
-  }, [currentUser, loadUserData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, loadUserData, loadAnnouncements]);
+
+  // Refresh pengumuman berkala (tiap 2 menit) supaya update admin cepat sampai ke user
+  useEffect(() => {
+    if (!currentUser) return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadAnnouncements();
+    }, 120_000);
+    return () => window.clearInterval(id);
+  }, [currentUser, loadAnnouncements]);
 
   // Audio Playback Handler (/lagu.mp3)
   const handleToggleMusic = () => {
@@ -289,23 +374,75 @@ export const App: React.FC = () => {
     localStorage.removeItem('shopee_bot_token');
     localStorage.removeItem('shopee_bot_user');
     setCurrentUser(null);
-    setIsBotRunning(false);
-    if (botIntervalRef.current) clearInterval(botIntervalRef.current);
+    clearBotTimers();
+    finishRun('idle');
+    setArmed(null);
+    setUsersList([]);
+    setCurrentTab('dashboard');
     addLog('Sesi Anda telah keluar.', 'info');
   };
 
-  // Start / Stop Bot Engine (Real Network & Gateway Execution)
-  const handleStartBot = async () => {
-    // Clear any existing runs
+  // Target aktif (dipilih user, fallback ke target wilayah aktif / pertama)
+  const selectedTarget = useMemo<TargetUrl | null>(() => {
+    return (
+      targetUrls.find((t) => t.id === selectedTargetId) ||
+      targetUrls.find((t) => !t.region || t.region === selectedRegion) ||
+      targetUrls[0] ||
+      null
+    );
+  }, [targetUrls, selectedTargetId, selectedRegion]);
+
+  const handleSelectTarget = (id: string) => {
+    setSelectedTargetId(id);
+    try {
+      localStorage.setItem('gx_selected_target', id);
+    } catch {}
+  };
+
+  const licenseThreadCap = currentUser?.role === 'admin' ? 24 : currentUser?.max_threads || 8;
+  const effectiveThreads = Math.max(1, Math.min(Number(botSettings.threadCount) || 8, licenseThreadCap));
+
+  const clearBotTimers = () => {
     if (botIntervalRef.current) {
       clearInterval(botIntervalRef.current);
       botIntervalRef.current = null;
     }
     botTimeoutsRef.current.forEach((t) => clearTimeout(t));
     botTimeoutsRef.current = [];
+  };
+
+  const finishRun = (phase: EnginePhase) => {
+    isRunningRef.current = false;
+    setIsBotRunning(false);
+    setEnginePhase(phase);
+  };
+
+  // Start / Stop Bot Engine (Real Network & Gateway Execution)
+  const handleStartBot = async () => {
+    if (isRunningRef.current) return; // cegah eksekusi dobel (auto-start + klik manual)
+    if (currentUser && currentUser.role !== 'admin' && currentUser.expired_at) {
+      const exp = new Date(currentUser.expired_at).getTime();
+      if (!isNaN(exp) && exp < Date.now()) {
+        addLog('[LISENSI] Masa aktif lisensi habis. Perpanjang via QRIS untuk menjalankan engine.', 'error');
+        toast.show('Lisensi habis — perpanjang dulu untuk menjalankan bot');
+        return;
+      }
+    }
+    if (!selectedTarget) {
+      addLog('[SETUP] Belum ada target produk. Tambahkan link produk di tab Target.', 'error');
+      toast.show('Tambahkan target produk dulu');
+      return;
+    }
+    if (accounts.length === 0) {
+      addLog('[SETUP] Belum ada akun Shopee eksekutor. Tambahkan akun di tab Target.', 'error');
+      toast.show('Tambahkan akun Shopee dulu');
+      return;
+    }
+    clearBotTimers();
+    isRunningRef.current = true;
 
     const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
-    const currentTarget = targetUrls.find((t) => t.region === selectedRegion) || targetUrls[0];
+    const currentTarget = selectedTarget;
     const targetTitle = currentTarget?.title || reg.sampleFlashProduct.title;
     const flashPriceNum = currentTarget?.target_price ? Number(currentTarget.target_price) : reg.sampleFlashProduct.flashPrice;
     const formattedPrice = formatAseanCurrency(flashPriceNum, selectedRegion);
@@ -313,45 +450,50 @@ export const App: React.FC = () => {
       ? Math.max(reg.sampleFlashProduct.originalPrice - currentTarget.target_price, 100)
       : Math.max(reg.sampleFlashProduct.originalPrice - reg.sampleFlashProduct.flashPrice, 100);
 
-    const activeThreads = botSettings.threadCount && botSettings.threadCount <= 12 ? botSettings.threadCount : 8;
+    const activeThreads = effectiveThreads;
+    const jitter = Number(botSettings.preFireJitter) || -15;
 
     setIsBotRunning(true);
+    setEnginePhase('sync');
     addLog(`[PYTHON] $ python3 shopee_flash_bot.py --threads=${activeThreads} --region=${reg.code} --stealth=1`, 'info');
     addLog(`[WEBDRIVER] Undetected-ChromeDriver stealth options loaded (${activeThreads} worker threads ready)`, 'info');
-    addLog(`[NTP-SYNC] Menghubungkan ke ${reg.ntpServer} (Stratum-1 Atomic Clock)...`, 'info');
+    addLog(`[NTP-SYNC] Menghubungkan ke ${reg.ntpServer}...`, 'info');
 
     try {
       // 1. Real Gateway Ping & Latency Check
       const pingRes = await api.pingGateway(reg.code);
+      if (!isRunningRef.current) return; // dihentikan saat menunggu
       const initialPing = pingRes.success ? pingRes.data?.latency_ms || 12 : 14;
-      const initialDrift = pingRes.success ? pingRes.data?.ntp_drift_ms || -0.04 : -0.04;
       setServerLatency(initialPing);
 
-      addLog(`[NTP-SYNC] Atomic clock synchronized to ${reg.ntpServer}. Latency: ${initialPing}ms, Drift: ${initialDrift}ms`, 'success');
-      addLog(`[HTTP-200] ENGINE BOT FLASH SALE AKTIF [${reg.code} - Shopee ${reg.name} (${reg.domain})]. Concurrency: ${activeThreads} Threads, Auto PIN: ON.`, 'success');
+      addLog(`[NTP-SYNC] Jam tersinkron ke server. Selisih jam perangkat: ${clock.offsetMs}ms, RTT gateway: ${initialPing}ms`, 'success');
+      addLog(`[ENGINE] ENGINE BOT FLASH SALE AKTIF [${reg.code} - Shopee ${reg.name} (${reg.domain})]. Concurrency: ${activeThreads} Threads.`, 'success');
 
-      // 2. Real Milestone Logs
+      // 2. Milestone Logs
       const t1 = window.setTimeout(() => {
+        setEnginePhase('warm');
         addLog(`[TLS-HANDSHAKE] TLS 1.3 session pre-established dengan Shopee Edge Gateway (${reg.domain})`, 'info');
-        addLog(`[PRE-WARM] Socket pool ${activeThreads} workers keep-alive OK. Memuat token HMAC-SHA256 & sesi ShopeePay.`, 'info');
+        addLog(`[PRE-WARM] Socket pool ${activeThreads} workers keep-alive OK. Memuat sesi pembayaran.`, 'info');
       }, 1000);
 
       const t2 = window.setTimeout(() => {
-        addLog(`[TARGET] Target terpilih: ${targetTitle} | Wilayah: Shopee ${reg.name} | Target Checkout: ${formattedPrice}`, 'info');
-        addLog(`[GATEWAY] Memantau status flash sale endpoint /api/v4/item/get... Response code 200 OK (Standby buffer)`, 'info');
+        addLog(`[TARGET] Target: ${targetTitle} | Wilayah: Shopee ${reg.name} | Target Checkout: ${formattedPrice}`, 'info');
+        addLog(`[GATEWAY] Memantau status flash sale endpoint /api/v4/item/get... (standby buffer)`, 'info');
       }, 2000);
 
       const t3 = window.setTimeout(() => {
-        addLog(`[COUNTDOWN] Menghitung mundur menuju Detik 00.00.000... Sinkronisasi jitter offset (-15.00ms)`, 'info');
-        addLog(`[STANDBY] Menyiapkan payload pesanan, alamat default ID: ${addresses[0]?.id || 'ADDR_DEFAULT_62'}, metode: ${paymentSettings?.payment_method?.toUpperCase() || 'SHOPEEPAY'}`, 'info');
+        setEnginePhase('armed');
+        addLog(`[COUNTDOWN] Menunggu detik 00.000... offset jitter ${jitter}ms`, 'info');
+        addLog(`[STANDBY] Payload siap, alamat: ${addresses[0]?.label || 'default'}, metode: ${paymentSettings?.payment_method?.toUpperCase() || 'SHOPEEPAY'}`, 'info');
       }, 3200);
 
       const t4 = window.setTimeout(() => {
-        addLog(`⚡ [TRIGGER] DETIK 00.00.000 TERCAPAI! Menembakkan ${activeThreads} worker threads secara serentak ke checkout gateway!`, 'warning');
+        setEnginePhase('fire');
+        addLog(`[TRIGGER] Menembakkan ${activeThreads} worker threads ke checkout gateway!`, 'warning');
       }, 4500);
 
       const t5 = window.setTimeout(async () => {
-        // 3. Real Backend Checkout Execution
+        // 3. Backend Checkout Execution
         try {
           const res = await api.executeBot({
             region: reg.code,
@@ -359,60 +501,126 @@ export const App: React.FC = () => {
             targetPrice: flashPriceNum,
             threadCount: activeThreads,
             paymentMethod: paymentSettings?.payment_method || 'SHOPEEPAY',
-            jitterMs: -15,
+            jitterMs: jitter,
             targetUrl: currentTarget?.url,
           });
+          if (!isRunningRef.current) return;
 
           if (res.success && res.data) {
             const confirmedSn = res.data.order_sn;
-            const latency = res.data.latency_ms || 8;
-            setServerLatency(latency);
+            const latencyMs = res.data.latency_ms || 8;
+            setServerLatency(latencyMs);
 
             addLog(
-              `🎉 [HTTP-200] CHECKOUT BERHASIL REAL! [Thread-01] TEMBUS KE SISTEM SHOPEE! Order SN: ${confirmedSn} | Shopee ${reg.name} (${reg.domain}) | Speed: ${latency}ms | Status: 200 OK PAID (Total Bayar: ${formattedPrice})`,
+              `[HTTP-200] CHECKOUT BERHASIL! Order SN: ${confirmedSn} | Shopee ${reg.name} | Speed: ${latencyMs}ms | Total: ${formattedPrice}`,
               'success'
             );
-            addLog(`[INFO] [Daemon] Kuota flash sale berhasil diamankan (1/1 pesanan)! Seluruh pool worker thread lain otomatis dihentikan.`, 'info');
-            addLog(`[INFO] [Database] Transaksi pesanan ${confirmedSn} resmi disimpan ke riwayat database pengguna.`, 'success');
+            addLog(`[DATABASE] Transaksi ${confirmedSn} disimpan ke riwayat.`, 'success');
 
-            setIsBotRunning(false);
+            finishRun('done');
             setStats((prev) => ({
               ...prev,
               attempts: prev.attempts + activeThreads,
               success: prev.success + 1,
               saved_amount: prev.saved_amount + savedAmount,
-              speed_ms: latency,
+              speed_ms: latencyMs,
             }));
+            if (botSettings.notifySuccess !== false && 'Notification' in window && Notification.permission === 'granted') {
+              try {
+                new Notification('Checkout selesai', { body: `${targetTitle} · ${formattedPrice}` });
+              } catch {}
+            }
 
-            // Refresh user order history so the new order shows in table
             loadUserData();
           } else {
             addLog(`[ERROR] Eksekusi gateway gagal: ${res.error?.message || 'Server overload'}`, 'error');
-            setIsBotRunning(false);
+            setStats((prev) => ({ ...prev, attempts: prev.attempts + activeThreads }));
+            finishRun('error');
           }
         } catch (err: any) {
           addLog(`[ERROR] Gagal memproses order checkout: ${err.message}`, 'error');
-          setIsBotRunning(false);
+          finishRun('error');
         }
       }, 6000);
 
       botTimeoutsRef.current = [t1, t2, t3, t4, t5];
     } catch (e: any) {
       addLog(`[EXCEPTION] Engine gateway error: ${e.message}`, 'error');
-      setIsBotRunning(false);
+      finishRun('error');
     }
   };
 
   const handleStopBot = () => {
-    setIsBotRunning(false);
-    if (botIntervalRef.current) {
-      clearInterval(botIntervalRef.current);
-      botIntervalRef.current = null;
-    }
-    botTimeoutsRef.current.forEach((t) => clearTimeout(t));
-    botTimeoutsRef.current = [];
-    addLog('[PYTHON] $ kill -SIGINT daemon (Engine bot flash sale dihentikan user).', 'warning');
+    const wasRunning = isRunningRef.current;
+    clearBotTimers();
+    finishRun('idle');
+    if (wasRunning) addLog('[PYTHON] $ kill -SIGINT daemon (engine dihentikan user).', 'warning');
   };
+
+  // Simpan referensi fungsi terbaru untuk dipakai timer auto-start
+  const startRef = useRef(handleStartBot);
+  startRef.current = handleStartBot;
+
+  // Auto-start terjadwal: picu ARM_LEAD_MS sebelum sesi, memakai jam server tersinkron
+  useEffect(() => {
+    if (!armed) return;
+    const id = window.setInterval(() => {
+      const remain = armed.epoch - clock.now();
+      if (remain <= ARM_LEAD_MS) {
+        window.clearInterval(id);
+        setArmed(null);
+        if (remain > -60_000) {
+          addLog(`[SCHEDULER] Auto-start sesi ${armed.label} dipicu (T-${Math.max(0, Math.round(remain))}ms).`, 'warning');
+          startRef.current();
+        } else {
+          addLog(`[SCHEDULER] Jadwal ${armed.label} terlewat, auto-start dibatalkan.`, 'error');
+        }
+      }
+    }, 50);
+    return () => window.clearInterval(id);
+  }, [armed, clock, addLog]);
+
+  const handleArm = (a: ArmState) => {
+    setArmed(a);
+    addLog(`[SCHEDULER] Auto-start dijadwalkan untuk sesi ${a.label}. Biarkan tab ini tetap terbuka.`, 'info');
+    toast.show(`Auto-start sesi ${a.label} aktif — biarkan halaman tetap terbuka`);
+  };
+  const handleDisarm = () => {
+    if (armed) addLog(`[SCHEDULER] Jadwal auto-start ${armed.label} dibatalkan.`, 'info');
+    setArmed(null);
+  };
+
+  // Monitor latensi gateway: cek berkala (lebih rapat saat engine jalan)
+  useEffect(() => {
+    if (!currentUser) return;
+    let alive = true;
+    let timer: number | undefined;
+    const tick = async () => {
+      if (document.visibilityState === 'visible') {
+        const res = await api.pingGateway(selectedRegion);
+        if (!alive) return;
+        if (res.success && res.data) {
+          const d = res.data;
+          setLatency((prev) => ({
+            history: d.reachable === false ? prev.history : [...prev.history, d.latency_ms].slice(-40),
+            last: d.reachable === false ? null : d.latency_ms,
+            status: d.status,
+            reachable: d.reachable !== false,
+            checkedAt: Date.now(),
+          }));
+        }
+      }
+      if (alive) timer = window.setTimeout(tick, isRunningRef.current || armed ? 5000 : 20000);
+    };
+    tick();
+    return () => {
+      alive = false;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [currentUser?.id, selectedRegion, armed]);
+
+  // Bersihkan timer saat komponen dilepas
+  useEffect(() => () => clearBotTimers(), []);
 
   // CRUD Operations with Persistence
   const handleSaveAddress = async (data: Partial<Address>) => {
@@ -591,36 +799,9 @@ export const App: React.FC = () => {
     }
   };
 
-  // Admin User Handlers
-  const handleAddUser = async (user: Partial<User & { password?: string }>) => {
-    const res = await api.post<User>('users', user);
-    if (res.success && res.data) {
-      setUsersList((prev) => [res.data!, ...prev]);
-      addLog(`Pengguna baru "${res.data.username}" berhasil didaftarkan.`, 'success');
-    } else {
-      alert(`Gagal membuat user: ${res.error?.message}`);
-    }
-  };
-
-  const handleUpdateUser = async (id: string, updates: Partial<User & { password?: string }>) => {
-    const res = await api.put<User>('users', id, updates);
-    if (res.success && res.data) {
-      setUsersList((prev) => prev.map((u) => (u.id === id ? res.data! : u)));
-      addLog(`Pengguna "${res.data.username}" diperbarui.`, 'success');
-    }
-  };
-
-  const handleDeleteUser = async (id: string) => {
-    if (!confirm('Yakin ingin menghapus pengguna ini?')) return;
-    const res = await api.delete('users', id);
-    if (res.success) {
-      setUsersList((prev) => prev.filter((u) => u.id !== id));
-      addLog('Pengguna berhasil dihapus.', 'info');
-    }
-  };
-
   // Cloud Data Synchronization Trigger
   const handleRunMigration = async (force = false) => {
+    // force=true menimpa data cloud dengan seed lokal — tombol admin selalu memakai false
     setIsMigrating(true);
     addLog('Menjalankan sinkronisasi data cloud...', 'info');
     try {
@@ -677,25 +858,56 @@ export const App: React.FC = () => {
     reader.readAsText(file);
   };
 
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'targets' | 'engine' | 'analytics'>('dashboard');
+  const [currentTab, setCurrentTab] = useState<AppTab>('dashboard');
 
   // Prevent unwanted auto-scroll when entering dashboard or switching tabs
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-  }, [currentTab, currentUser]);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+  }, [currentTab, currentUser?.id]);
+
+  // User biasa tidak boleh berada di tab admin
+  useEffect(() => {
+    if (currentTab === 'admin' && currentUser?.role !== 'admin') setCurrentTab('dashboard');
+  }, [currentTab, currentUser?.role]);
 
   const handleRequestNotification = () => {
-    if ('Notification' in window) {
-      Notification.requestPermission().then((permission) => {
-        if (permission === 'granted') {
-          addLog('Notifikasi browser/HP berhasil diaktifkan!', 'success');
-          new Notification('GaneMaX AI', {
-            body: 'Notifikasi aktif. Anda akan menerima peringatan saat checkout flash sale berhasil.',
-          });
-        }
-      });
+    if (!('Notification' in window)) {
+      toast.show('Browser ini tidak mendukung notifikasi');
+      return;
     }
+    Notification.requestPermission().then((permission) => {
+      setNotifState(permission);
+      if (permission === 'granted') {
+        addLog('Notifikasi browser/HP berhasil diaktifkan!', 'success');
+        try {
+          new Notification('GaneMaX.Ai', { body: 'Notifikasi aktif. Kamu akan dapat kabar saat checkout selesai.' });
+        } catch {}
+      } else {
+        toast.show('Izin notifikasi ditolak di browser');
+      }
+    });
   };
+
+  const liveAnnouncements = useMemo(() => sortAnnouncements(announcements.filter((a) => isAnnouncementLive(a))), [announcements]);
+  const visibleAnnouncements = liveAnnouncements.filter((a) => a.pinned || !dismissedIds.includes(a.id));
+  const unreadCount = visibleAnnouncements.length;
+  const dismissAnnouncement = (id: string) => {
+    setDismissedIds((prev) => {
+      const next = Array.from(new Set([...prev, id])).slice(-100);
+      try {
+        localStorage.setItem(DISMISSED_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const normalizedOrders = useMemo(
+    () =>
+      orderHistory
+        .map((o) => normalizeOrder(o as any))
+        .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()),
+    [orderHistory]
+  );
 
   if (!currentUser) {
     return (
@@ -714,220 +926,193 @@ export const App: React.FC = () => {
     );
   }
 
-  const selectedTarget = targetUrls[0] || null;
+  const controlPanelProps = {
+    currentUser,
+    accounts,
+    addresses,
+    targetUrls,
+    proxies,
+    schedules,
+    paymentSettings,
+    botSettings,
+    usersList,
+    isBotRunning,
+    selectedRegion,
+    onSelectRegion: handleSelectRegion,
+    onDeployAseanProxies: handleDeployAseanProxies,
+    onStartBot: handleStartBot,
+    onStopBot: handleStopBot,
+    onUpdatePayment: handleUpdatePayment,
+    onUpdateSettings: setBotSettings,
+    onOpenAddressModal: (addr?: Address) => {
+      setActiveAddress(addr || null);
+      setAddressModalOpen(true);
+    },
+    onDeleteAddress: handleDeleteAddress,
+    onOpenAccountModal: (acc?: ShopeeAccount) => {
+      setActiveAccount(acc || null);
+      setAccountModalOpen(true);
+    },
+    onOpenBulkAccountModal: () => setBulkAccountModalOpen(true),
+    onDeleteAccount: handleDeleteAccount,
+    onOpenTargetUrlModal: (t?: TargetUrl) => {
+      setActiveTargetUrl(t || null);
+      setTargetUrlModalOpen(true);
+    },
+    onDeleteTargetUrl: handleDeleteTargetUrl,
+    onOpenProxyModal: (p?: ProxyMesh) => {
+      setActiveProxy(p || null);
+      setProxyModalOpen(true);
+    },
+    onDeleteProxy: handleDeleteProxy,
+    onOpenScheduleModal: (sc?: Schedule) => {
+      setActiveSchedule(sc || null);
+      setScheduleModalOpen(true);
+    },
+    onDeleteSchedule: handleDeleteSchedule,
+    selectedTargetId: selectedTarget?.id || '',
+    onSelectTarget: handleSelectTarget,
+    maxThreads: licenseThreadCap,
+  };
 
   return (
-    <div className="modern-app-shell">
-      {/* 1. Header (Fintech Archetype) */}
-      <Header
-        currentUser={currentUser}
-        isDarkTheme={isDarkTheme}
+    <div className="gx-shell">
+      <TopBar
+        user={currentUser}
+        tab={currentTab}
+        onTab={setCurrentTab}
+        isDark={isDarkTheme}
         onToggleTheme={() => setIsDarkTheme(!isDarkTheme)}
-        onOpenWhatsappModal={() => setIsWaModalOpen(true)}
-        onOpenPaymentModal={() => setIsPayModalOpen(true)}
-        onRequestNotification={handleRequestNotification}
-        onExportData={handleExportData}
-        onImportData={handleImportData}
+        region={selectedRegion}
+        onRegion={handleSelectRegion}
+        clock={clock}
+        unreadCount={unreadCount}
+        onOpenAnnouncements={() => setIsAnnDrawerOpen(true)}
+        onOpenQris={() => setIsPayModalOpen(true)}
+        onOpenWhatsapp={() => setIsWaModalOpen(true)}
+        onExport={handleExportData}
+        onImport={handleImportData}
         onToggleMusic={handleToggleMusic}
         isPlayingMusic={isPlayingMusic}
         onLogout={handleLogout}
         isBotRunning={isBotRunning}
-        selectedRegion={selectedRegion}
-        onSelectRegion={handleSelectRegion}
       />
 
-      {/* 2. Tab Views */}
-      {currentTab === 'dashboard' && (
-        <main className="tab-dashboard-view">
-          {/* Hero Balance Card & Upcoming Targets Bento */}
-          <ModernHeroCards
-            stats={stats}
-            serverLatency={serverLatency}
+      <main className="gx-main">
+        {currentTab === 'dashboard' && (
+          <DashboardView
+            user={currentUser}
+            region={selectedRegion}
+            clock={clock}
+            targets={targetUrls}
             selectedTarget={selectedTarget}
-            activeAccount={accounts[0] || null}
-            selectedRegion={selectedRegion}
-            onOpenTargetModal={() => {
-              if (selectedTarget) {
-                setActiveTargetUrl(selectedTarget);
-              }
+            onSelectTarget={handleSelectTarget}
+            accounts={accounts}
+            addresses={addresses}
+            paymentSettings={paymentSettings}
+            proxiesCount={proxies.length}
+            orders={normalizedOrders}
+            stats={stats}
+            logs={logs}
+            onClearLogs={() => setLogs([])}
+            isBotRunning={isBotRunning}
+            phase={enginePhase}
+            latency={latency}
+            botSettings={botSettings}
+            effectiveThreads={effectiveThreads}
+            armed={armed}
+            onArm={handleArm}
+            onDisarm={handleDisarm}
+            onStart={handleStartBot}
+            onStop={handleStopBot}
+            announcements={visibleAnnouncements}
+            onDismissAnnouncement={dismissAnnouncement}
+            onOpenTargetModal={(t) => {
+              setActiveTargetUrl(t || null);
               setTargetUrlModalOpen(true);
             }}
-            onOpenPaymentModal={() => setIsPayModalOpen(true)}
-            onOpenAccountModal={() => setAccountModalOpen(true)}
-            isBotRunning={isBotRunning}
-            onToggleBot={isBotRunning ? handleStopBot : handleStartBot}
-          />
-
-          {/* Activity Donut Chart (Segmented Progress from Reference) */}
-          <ActivityDonut stats={stats} latency={serverLatency} />
-
-          {/* Quick Menu (2x2 Grid from Reference) */}
-          <QuickMenuGrid
+            onOpenAccountModal={() => {
+              setActiveAccount(null);
+              setAccountModalOpen(true);
+            }}
+            onOpenAddressModal={() => {
+              setActiveAddress(null);
+              setAddressModalOpen(true);
+            }}
+            onGoTab={setCurrentTab}
+            onOpenScript={() => setIsScriptModalOpen(true)}
             onOpenQris={() => setIsPayModalOpen(true)}
-            onOpenTargetModal={() => setTargetUrlModalOpen(true)}
-            onOpenProxyModal={() => setProxyModalOpen(true)}
-            onOpenScheduleModal={() => setScheduleModalOpen(true)}
-            onSwitchTab={(tab) => setCurrentTab(tab)}
-            onOpenSimulator={() => setSimulatorModalOpen(true)}
-            onOpenProofGallery={() => setProofGalleryModalOpen(true)}
-            onOpenBulkImport={() => setBulkAccountModalOpen(true)}
+            onCopied={toast.show}
           />
+        )}
 
-          {/* Countdown & Flash Sale Timer */}
-          <TimerCard onTargetReached={handleStartBot} selectedRegion={selectedRegion} />
+        {currentTab === 'targets' && (
+          <>
+            <div className="gx-pagehead">
+              <div>
+                <h1>Target & akun</h1>
+                <p>Produk incaran, akun Shopee eksekutor, alamat, dan pembayaran.</p>
+              </div>
+            </div>
+            <ControlPanel {...controlPanelProps} section="setup" />
+          </>
+        )}
 
-          {/* Live Execution Transactions & Logs */}
-          <LogsContainer
+        {currentTab === 'engine' && (
+          <>
+            <div className="gx-pagehead">
+              <div>
+                <h1>Engine</h1>
+                <p>Wilayah Shopee, proxy, dan parameter eksekusi.</p>
+              </div>
+            </div>
+            <ControlPanel {...controlPanelProps} section="engine" />
+          </>
+        )}
+
+        {currentTab === 'analytics' && (
+          <HistoryView
+            orders={normalizedOrders}
+            stats={stats}
+            latency={latency}
+            clock={clock}
+            region={selectedRegion}
             logs={logs}
             onClearLogs={() => setLogs([])}
-            isBotRunning={isBotRunning}
-            onStartBot={handleStartBot}
-            onStopBot={handleStopBot}
-            onAddLog={addLog}
-            selectedRegion={selectedRegion}
+            onCopied={toast.show}
           />
-        </main>
-      )}
+        )}
 
-      {currentTab === 'targets' && (
-        <main className="tab-targets-view">
-          <ProductCard
-            selectedUrl={selectedTarget}
-            serverLatency={serverLatency}
-            selectedRegion={selectedRegion}
-          />
-          <ControlPanel
+        {currentTab === 'admin' && currentUser.role === 'admin' && (
+          <AdminPanel
             currentUser={currentUser}
-            accounts={accounts}
-            addresses={addresses}
-            targetUrls={targetUrls}
-            proxies={proxies}
-            schedules={schedules}
-            paymentSettings={paymentSettings}
-            botSettings={botSettings}
-            usersList={usersList}
-            isBotRunning={isBotRunning}
-            selectedRegion={selectedRegion}
-            onSelectRegion={handleSelectRegion}
-            onDeployAseanProxies={handleDeployAseanProxies}
-            onStartBot={handleStartBot}
-            onStopBot={handleStopBot}
-            onUpdatePayment={handleUpdatePayment}
-            onUpdateSettings={setBotSettings}
-            onOpenAddressModal={(addr) => {
-              setActiveAddress(addr || null);
-              setAddressModalOpen(true);
-            }}
-            onDeleteAddress={handleDeleteAddress}
-            onOpenAccountModal={(acc) => {
-              setActiveAccount(acc || null);
-              setAccountModalOpen(true);
-            }}
-            onOpenBulkAccountModal={() => setBulkAccountModalOpen(true)}
-            onDeleteAccount={handleDeleteAccount}
-            onOpenTargetUrlModal={(t) => {
-              setActiveTargetUrl(t || null);
-              setTargetUrlModalOpen(true);
-            }}
-            onDeleteTargetUrl={handleDeleteTargetUrl}
-            onOpenProxyModal={(p) => {
-              setActiveProxy(p || null);
-              setProxyModalOpen(true);
-            }}
-            onDeleteProxy={handleDeleteProxy}
-            onOpenScheduleModal={(s) => {
-              setActiveSchedule(s || null);
-              setScheduleModalOpen(true);
-            }}
-            onDeleteSchedule={handleDeleteSchedule}
-            onAddUser={currentUser.role === 'admin' ? handleAddUser : undefined}
-            onUpdateUser={currentUser.role === 'admin' ? handleUpdateUser : undefined}
-            onDeleteUser={currentUser.role === 'admin' ? handleDeleteUser : undefined}
-            onRunMigration={currentUser.role === 'admin' ? handleRunMigration : undefined}
+            users={usersList}
+            setUsers={setUsersList}
+            onAnnouncementsChanged={loadAnnouncements}
+            onRunMigration={() => handleRunMigration(false)}
             isMigrating={isMigrating}
+            toast={toast.show}
           />
-        </main>
-      )}
+        )}
+      </main>
 
-      {currentTab === 'engine' && (
-        <main className="tab-engine-view">
-          <ControlPanel
-            currentUser={currentUser}
-            accounts={accounts}
-            addresses={addresses}
-            targetUrls={targetUrls}
-            proxies={proxies}
-            schedules={schedules}
-            paymentSettings={paymentSettings}
-            botSettings={botSettings}
-            usersList={usersList}
-            isBotRunning={isBotRunning}
-            selectedRegion={selectedRegion}
-            onSelectRegion={handleSelectRegion}
-            onDeployAseanProxies={handleDeployAseanProxies}
-            onStartBot={handleStartBot}
-            onStopBot={handleStopBot}
-            onUpdatePayment={handleUpdatePayment}
-            onUpdateSettings={setBotSettings}
-            onOpenAddressModal={(addr) => {
-              setActiveAddress(addr || null);
-              setAddressModalOpen(true);
-            }}
-            onDeleteAddress={handleDeleteAddress}
-            onOpenAccountModal={(acc) => {
-              setActiveAccount(acc || null);
-              setAccountModalOpen(true);
-            }}
-            onOpenBulkAccountModal={() => setBulkAccountModalOpen(true)}
-            onDeleteAccount={handleDeleteAccount}
-            onOpenTargetUrlModal={(t) => {
-              setActiveTargetUrl(t || null);
-              setTargetUrlModalOpen(true);
-            }}
-            onDeleteTargetUrl={handleDeleteTargetUrl}
-            onOpenProxyModal={(p) => {
-              setActiveProxy(p || null);
-              setProxyModalOpen(true);
-            }}
-            onDeleteProxy={handleDeleteProxy}
-            onOpenScheduleModal={(s) => {
-              setActiveSchedule(s || null);
-              setScheduleModalOpen(true);
-            }}
-            onDeleteSchedule={handleDeleteSchedule}
-            onAddUser={currentUser.role === 'admin' ? handleAddUser : undefined}
-            onUpdateUser={currentUser.role === 'admin' ? handleUpdateUser : undefined}
-            onDeleteUser={currentUser.role === 'admin' ? handleDeleteUser : undefined}
-            onRunMigration={currentUser.role === 'admin' ? handleRunMigration : undefined}
-            isMigrating={isMigrating}
-          />
-        </main>
-      )}
-
-      {currentTab === 'analytics' && (
-        <main className="tab-analytics-view">
-          <ActivityDonut stats={stats} latency={serverLatency} />
-          <StatsGrid stats={stats} />
-          <PerformanceChart isDark={isDarkTheme} />
-          <LogsContainer
-            logs={logs}
-            onClearLogs={() => setLogs([])}
-            isBotRunning={isBotRunning}
-            onStartBot={handleStartBot}
-            onStopBot={handleStopBot}
-            onAddLog={addLog}
-            selectedRegion={selectedRegion}
-          />
-        </main>
-      )}
-
-      {/* 3. Floating Bottom Navigation Dock (Iconic from Reference) */}
-      <BottomFloatingDock
-        currentTab={currentTab}
-        onSelectTab={(tab) => setCurrentTab(tab)}
+      <Dock
+        tab={currentTab}
+        onTab={setCurrentTab}
+        isAdmin={currentUser.role === 'admin'}
         isBotRunning={isBotRunning}
         onToggleBot={isBotRunning ? handleStopBot : handleStartBot}
       />
+
+      <AnnouncementDrawer
+        open={isAnnDrawerOpen}
+        onClose={() => setIsAnnDrawerOpen(false)}
+        items={liveAnnouncements}
+        onEnableNotification={handleRequestNotification}
+        notificationState={notifState}
+      />
+
+      {toast.node}
 
       {/* Modals */}
       <PaymentGatewayModal
@@ -935,10 +1120,7 @@ export const App: React.FC = () => {
         onClose={() => setIsPayModalOpen(false)}
         username={currentUser?.username || ''}
       />
-      <WhatsappChannelModal
-        isOpen={isWaModalOpen}
-        onClose={() => setIsWaModalOpen(false)}
-      />
+      <WhatsappChannelModal isOpen={isWaModalOpen} onClose={() => setIsWaModalOpen(false)} />
       <AddressModal
         isOpen={addressModalOpen}
         onClose={() => {
@@ -994,15 +1176,14 @@ export const App: React.FC = () => {
         onSaveBulk={handleSaveBulkAccounts}
         defaultRegion={selectedRegion}
       />
-      <SimulatorModal
-        isOpen={simulatorModalOpen}
-        onClose={() => setSimulatorModalOpen(false)}
+      <PythonScriptModal
+        isOpen={isScriptModalOpen}
+        onClose={() => setIsScriptModalOpen(false)}
+        isBotRunning={isBotRunning}
+        onStartBot={handleStartBot}
+        onStopBot={handleStopBot}
+        onAddLog={addLog}
         selectedRegion={selectedRegion}
-        onOrderCompleted={loadUserData}
-      />
-      <ProofGalleryModal
-        isOpen={proofGalleryModalOpen}
-        onClose={() => setProofGalleryModalOpen(false)}
       />
     </div>
   );

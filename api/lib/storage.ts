@@ -49,7 +49,9 @@ export type TableName =
   | 'schedules'
   | 'shopee_payments'
   | 'order_history'
-  | 'logs';
+  | 'logs'
+  | 'announcements'
+  | 'revenues';
 
 export const VALID_TABLES: TableName[] = [
   'users',
@@ -61,6 +63,8 @@ export const VALID_TABLES: TableName[] = [
   'shopee_payments',
   'order_history',
   'logs',
+  'announcements',
+  'revenues',
 ];
 
 const TABLE_ALIAS_MAP: Record<string, TableName> = {
@@ -77,6 +81,8 @@ const TABLE_ALIAS_MAP: Record<string, TableName> = {
   'order-history': 'order_history',
   'order_history': 'order_history',
   'logs': 'logs',
+  'announcements': 'announcements',
+  'revenues': 'revenues',
 };
 
 export function normalizeTableName(table: string): TableName | null {
@@ -393,8 +399,9 @@ class StorageManager {
   private adapter: StorageAdapter;
 
   constructor() {
+    const forceLocal = String(process.env.STORAGE_PROVIDER || '').toLowerCase() === 'local';
     const firestoreAdapter = new FirestoreStorageAdapter();
-    if (firestoreAdapter.isAvailable()) {
+    if (!forceLocal && firestoreAdapter.isAvailable()) {
       this.adapter = firestoreAdapter;
       console.log(`[Storage] Active Provider: ${this.adapter.name}`);
     } else {

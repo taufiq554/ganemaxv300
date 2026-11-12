@@ -200,6 +200,7 @@ export const api = {
     region: string;
     domain: string;
     status: number;
+    reachable?: boolean;
     latency_ms: number;
     ntp_server: string;
     ntp_drift_ms: number;

@@ -70,6 +70,12 @@ router.get('/health', async (_req: Request, res: Response) => {
   });
 });
 
+// 1.5 Server clock (dipakai dashboard untuk sinkron jam real-time)
+router.get('/time', (_req: Request, res: Response) => {
+  res.set('Cache-Control', 'no-store');
+  return successRes(res, { now: Date.now(), iso: new Date().toISOString() });
+});
+
 // 2. Authentication: Login
 router.post('/login', async (req: Request, res: Response) => {
   try {
@@ -237,7 +243,8 @@ router.post('/bot/ping-gateway', requireAuth, async (req: AuthenticatedRequest, 
     const config = REGIONAL_DOMAINS[region] || REGIONAL_DOMAINS.ID;
 
     const start = performance.now();
-    let status = 200;
+    let status = 0;
+    let reachable = true;
     try {
       const pingRes = await fetch(`${config.domain}/api/v4/item/get?itemid=0&shopid=0`, {
         method: 'GET',
@@ -250,7 +257,7 @@ router.post('/bot/ping-gateway', requireAuth, async (req: AuthenticatedRequest, 
       });
       status = pingRes.status;
     } catch (_) {
-      status = 200;
+      reachable = false;
     }
     const latencyMs = Math.max(2, Math.round(performance.now() - start));
 
@@ -258,6 +265,7 @@ router.post('/bot/ping-gateway', requireAuth, async (req: AuthenticatedRequest, 
       region,
       domain: config.domain,
       status,
+      reachable,
       latency_ms: latencyMs,
       ntp_server: config.ntp,
       ntp_drift_ms: Number((Math.random() * 0.18 - 0.09).toFixed(3)),
@@ -279,6 +287,20 @@ router.post('/bot/execute', requireAuth, async (req: AuthenticatedRequest, res: 
       jitterMs = -15,
       targetUrl = '',
     } = req.body || {};
+
+    // Tolak eksekusi jika lisensi user sudah habis / dinonaktifkan (token bisa masih berlaku)
+    if (req.user!.role !== 'admin') {
+      const dbUser: any = await storage.get('users', req.user!.id);
+      if (!dbUser || dbUser.status === 'disabled') {
+        return errorRes(res, 'Akun dinonaktifkan. Hubungi admin.', 403);
+      }
+      if (dbUser.expired_at) {
+        const exp = new Date(dbUser.expired_at).getTime();
+        if (!isNaN(exp) && exp < Date.now()) {
+          return errorRes(res, 'Masa aktif lisensi habis. Silakan perpanjang.', 403);
+        }
+      }
+    }
 
     const regUpper = String(region).toUpperCase();
     const config = REGIONAL_DOMAINS[regUpper] || REGIONAL_DOMAINS.ID;
@@ -438,7 +460,30 @@ router.post('/users', requireAuth, requireAdmin, async (req: AuthenticatedReques
       expired_at: payload.expired_at || null,
     };
     delete (newUserPayload as any).password;
+    const revenueAmount = Number((newUserPayload as any).revenue_amount) || 0;
+    const revenueNote = (newUserPayload as any).revenue_note;
+    delete (newUserPayload as any).revenue_amount;
+    delete (newUserPayload as any).revenue_note;
     const created = await storage.create('users', newUserPayload);
+
+    // Catat pendapatan sewa otomatis saat admin mengaktifkan lisensi berbayar
+    if (revenueAmount > 0) {
+      try {
+        await storage.create('revenues', {
+          user_id: created.id,
+          username: created.username,
+          plan: created.license_plan || null,
+          amount: revenueAmount,
+          type: 'new',
+          method: 'QRIS',
+          note: revenueNote || 'Aktivasi lisensi baru',
+          paid_at: new Date().toISOString(),
+          created_by: req.user!.id,
+        });
+      } catch (e) {
+        console.warn('Gagal mencatat pendapatan:', e);
+      }
+    }
     return successRes(res, sanitizeUser(created), 201);
   } catch (err: any) {
     return errorRes(res, err.message, 500);
@@ -456,10 +501,14 @@ router.put('/users/:id', requireAuth, async (req: AuthenticatedRequest, res: Res
 
     const updates = { ...(req.body || {}) };
     if (!isAdmin) {
-      delete updates.role;
-      delete updates.status;
-      delete updates.expired_at;
+      // User biasa hanya boleh mengganti password & preferensi wilayahnya sendiri
+      const allowed: Record<string, any> = {};
+      if (updates.password) allowed.password = updates.password;
+      if (updates.preferred_region) allowed.preferred_region = updates.preferred_region;
+      for (const k of Object.keys(updates)) delete updates[k];
+      Object.assign(updates, allowed);
     }
+    delete updates.id;
 
     if (updates.password || updates.password_hash) {
       const raw = updates.password || updates.password_hash;
@@ -506,7 +555,29 @@ const USER_SCOPED_TABLES: TableName[] = [
   'logs',
 ];
 
-router.get('/:table', validateTableParam, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+// Tabel yang hanya boleh dibaca & ditulis admin
+const ADMIN_ONLY_TABLES: TableName[] = ['revenues'];
+// Tabel yang boleh dibaca semua user login, tapi hanya admin yang boleh menulis
+const ADMIN_WRITE_TABLES: TableName[] = ['announcements', 'revenues'];
+
+function guardTableAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const table = normalizeTableName(req.params.table);
+  if (!table || !req.user) return next();
+  const isAdmin = req.user.role === 'admin';
+  if (isAdmin) return next();
+  if (table === 'users' && req.method !== 'GET') {
+    return errorRes(res, 'Akses ditolak: hanya administrator.', 403);
+  }
+  if (ADMIN_ONLY_TABLES.includes(table)) {
+    return errorRes(res, 'Akses ditolak: data ini khusus administrator.', 403);
+  }
+  if (req.method !== 'GET' && ADMIN_WRITE_TABLES.includes(table)) {
+    return errorRes(res, 'Akses ditolak: hanya administrator yang dapat mengubah data ini.', 403);
+  }
+  next();
+}
+
+router.get('/:table', validateTableParam, requireAuth, guardTableAccess, async (req: AuthenticatedRequest, res: Response) => {
   const table = normalizeTableName(req.params.table)!;
   if (table === 'users') {
     if (req.user!.role !== 'admin') {
@@ -543,7 +614,7 @@ router.get('/:table', validateTableParam, requireAuth, async (req: Authenticated
   }
 });
 
-router.get('/:table/:id', validateTableParam, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:table/:id', validateTableParam, requireAuth, guardTableAccess, async (req: AuthenticatedRequest, res: Response) => {
   const table = normalizeTableName(req.params.table)!;
   try {
     const record = await storage.get(table, req.params.id);
@@ -566,7 +637,7 @@ router.get('/:table/:id', validateTableParam, requireAuth, async (req: Authentic
   }
 });
 
-router.post('/:table/bulk', validateTableParam, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/:table/bulk', validateTableParam, requireAuth, guardTableAccess, async (req: AuthenticatedRequest, res: Response) => {
   const table = normalizeTableName(req.params.table)!;
   try {
     const rawItems = Array.isArray(req.body) ? req.body : req.body.items || [];
@@ -600,7 +671,7 @@ router.post('/:table/bulk', validateTableParam, requireAuth, async (req: Authent
   }
 });
 
-router.post('/:table', validateTableParam, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/:table', validateTableParam, requireAuth, guardTableAccess, async (req: AuthenticatedRequest, res: Response) => {
   const table = normalizeTableName(req.params.table)!;
   try {
     const payload = Array.isArray(req.body) ? req.body[0] : req.body;
@@ -621,7 +692,7 @@ router.post('/:table', validateTableParam, requireAuth, async (req: Authenticate
   }
 });
 
-router.put('/:table/:id', validateTableParam, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.put('/:table/:id', validateTableParam, requireAuth, guardTableAccess, async (req: AuthenticatedRequest, res: Response) => {
   const table = normalizeTableName(req.params.table)!;
   try {
     const payload = req.body || {};
@@ -654,7 +725,7 @@ router.put('/:table/:id', validateTableParam, requireAuth, async (req: Authentic
   }
 });
 
-router.delete('/:table/:id', validateTableParam, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/:table/:id', validateTableParam, requireAuth, guardTableAccess, async (req: AuthenticatedRequest, res: Response) => {
   const table = normalizeTableName(req.params.table)!;
   try {
     const id = req.params.id;

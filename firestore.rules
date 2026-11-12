@@ -64,6 +64,17 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isValidId(logId);
     }
+
+    // Pengumuman dashboard (ditulis admin via API)
+    match /announcements/{annId} {
+      allow read: if true;
+      allow write: if isValidId(annId);
+    }
+
+    // Catatan pendapatan sewa bot (ditulis admin via API)
+    match /revenues/{revId} {
+      allow read: if true;
+      allow write: if isValidId(revId);
+    }
   }
 }
-

@@ -134,3 +134,38 @@ export interface BotSettings {
   notifyError: boolean;
   notifyRateLimit: boolean;
 }
+
+export type AnnouncementType = 'info' | 'promo' | 'warning' | 'maintenance';
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  type: AnnouncementType;
+  is_active: boolean;
+  pinned?: boolean;
+  cta_label?: string;
+  cta_url?: string;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RevenueEntry {
+  id: string;
+  user_id?: string | null;
+  username?: string | null;
+  plan?: string | null;
+  amount: number;
+  type: 'new' | 'renewal' | 'upgrade' | 'manual';
+  method?: string;
+  note?: string;
+  paid_at: string;
+  created_by?: string;
+  created_at?: string;
+}
+
+export type AppTab = 'dashboard' | 'targets' | 'engine' | 'analytics' | 'admin';
+
+export type EnginePhase = 'idle' | 'sync' | 'warm' | 'armed' | 'fire' | 'done' | 'error';
