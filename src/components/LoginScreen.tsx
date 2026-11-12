@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Eye, EyeOff, LogIn, QrCode, Send, ShieldCheck, Zap, Clock3, Globe } from 'lucide-react';
+import { useLang } from '../lib/i18n.tsx';
 
 interface LoginScreenProps {
   onLogin: (username: string, password: string) => Promise<boolean>;
@@ -6,11 +8,8 @@ interface LoginScreenProps {
   isLoading: boolean;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({
-  onLogin,
-  onOpenPaymentModal,
-  isLoading,
-}) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onOpenPaymentModal, isLoading }) => {
+  const { L, lang, setLang } = useLang();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -19,170 +18,113 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      setError('Silakan masukkan username dan password lisensi Anda.');
+      setError(L('Masukkan username dan password lisensi kamu.', 'Enter your license username and password.'));
       return;
     }
     setError('');
     const ok = await onLogin(username.trim(), password.trim());
-    if (!ok) {
-      setError('Username atau password tidak cocok / masa aktif lisensi berakhir.');
-    }
+    if (!ok) setError(L('Username/password salah atau masa aktif lisensi berakhir.', 'Wrong username/password or your license has expired.'));
   };
 
   return (
-    <div className="modern-auth-viewport">
-      {/* Background Soft Ambient Lights */}
-      <div className="modern-auth-glow glow-top"></div>
-      <div className="modern-auth-glow glow-bottom"></div>
-
-      <div className="modern-auth-container">
-        {/* Main Card */}
-        <div className="modern-auth-card">
-          {/* Logo & Header */}
-          <div className="modern-auth-header">
-            <div className="modern-logo-wrapper">
-              <img
-                src="/ganemax-logo.jpg"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = 'https://files.catbox.moe/pi1r45.jpg';
-                }}
-                alt="Logo GaneMaX.Ai"
-                className="modern-logo-img"
-              />
-              <span className="modern-logo-pulse"></span>
-            </div>
-            <div className="modern-brand-text">
-              <h1 className="modern-title">GaneMaX AI</h1>
-              <p className="modern-subtitle">Flash Sale Engine & Auto Checkout</p>
+    <div className="gx-login">
+      <div className="gx-login__card">
+        <div className="gx-login__top">
+          <div className="gx-login__brand">
+            <img
+              src="/ganemax-logo.jpg"
+              alt=""
+              onError={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')}
+            />
+            <div>
+              <div className="gx-brand__name">
+                GaneMaX<span>.Ai</span>
+              </div>
+              <div className="gx-brand__sub">{L('Bot Flash Sale Shopee ASEAN', 'Shopee ASEAN Flash Sale Bot')}</div>
             </div>
           </div>
-
-          {/* Error Notice */}
-          {error && (
-            <div className="modern-error-pill" role="alert">
-              <i className="fa-solid fa-circle-exclamation"></i>
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="modern-form" noValidate>
-            <div className="modern-field">
-              <label htmlFor="auth-username" className="modern-field-label">
-                Username Lisensi
-              </label>
-              <div className="modern-input-wrapper">
-                <i className="fa-solid fa-user-tag modern-input-icon"></i>
-                <input
-                  id="auth-username"
-                  type="text"
-                  className="modern-input"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Masukkan username akun"
-                  disabled={isLoading}
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <div className="modern-field">
-              <div className="modern-field-row">
-                <label htmlFor="auth-password" className="modern-field-label">
-                  Password
-                </label>
-                <a
-                  href="https://t.me/mrpangeranz"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="modern-forgot-link"
-                >
-                  Bantuan / Lupa?
-                </a>
-              </div>
-              <div className="modern-input-wrapper">
-                <i className="fa-solid fa-lock modern-input-icon"></i>
-                <input
-                  id="auth-password"
-                  type={showPassword ? 'text' : 'password'}
-                  className="modern-input"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  disabled={isLoading}
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  className="modern-pwd-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
-                  tabIndex={-1}
-                >
-                  <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                </button>
-              </div>
-            </div>
-
-            {/* Primary Action Button */}
-            <button
-              type="submit"
-              className="modern-submit-btn"
-              disabled={isLoading}
-              id="btnLoginSubmit"
-            >
-              {isLoading ? (
-                <>
-                  <i className="fa-solid fa-circle-notch fa-spin"></i>
-                  <span>Mengautentikasi...</span>
-                </>
-              ) : (
-                <>
-                  <span>Masuk ke Dashboard</span>
-                  <i className="fa-solid fa-arrow-right"></i>
-                </>
-              )}
+          <div className="gx-seg" role="group" aria-label="Language">
+            <button type="button" aria-pressed={lang === 'id'} onClick={() => setLang('id')}>
+              ID
             </button>
-          </form>
+            <button type="button" aria-pressed={lang === 'en'} onClick={() => setLang('en')}>
+              EN
+            </button>
+          </div>
+        </div>
 
-          {/* Secondary Actions / QRIS Sewa */}
-          <div className="modern-auth-footer">
-            <div className="modern-divider">
-              <span>atau aktivasi lisensi baru</span>
-            </div>
+        <div className="gx-login__hero">
+          <h1>{L('Masuk ke dashboard bot', 'Sign in to the bot dashboard')}</h1>
+          <p>{L('Jam tersinkron server, auto-start sesi, dan buka produk tepat di detik 0.', 'Server-synced clock, session auto-start, and product opening right at second zero.')}</p>
+          <div className="gx-login__chips">
+            <span>
+              <Clock3 size={13} /> {L('Presisi milidetik', 'Millisecond precision')}
+            </span>
+            <span>
+              <Zap size={13} /> Auto-start
+            </span>
+            <span>
+              <Globe size={13} /> 6 {L('negara ASEAN', 'ASEAN countries')}
+            </span>
+          </div>
+        </div>
 
-            <div className="modern-actions-grid">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <label className="gx-field">
+            <span>{L('Username lisensi', 'License username')}</span>
+            <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={L('Masukkan username', 'Enter username')} autoComplete="username" disabled={isLoading} />
+          </label>
+          <label className="gx-field">
+            <span style={{ display: 'flex', justifyContent: 'space-between' }}>
+              Password
+              <a href="https://t.me/mrpangeranz" target="_blank" rel="noopener noreferrer" className="gx-link">
+                {L('Lupa password?', 'Forgot password?')}
+              </a>
+            </span>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                disabled={isLoading}
+                style={{ paddingRight: 42 }}
+              />
               <button
                 type="button"
-                className="modern-secondary-btn qris-btn"
-                onClick={onOpenPaymentModal}
-                id="btnOpenQrisModal"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? L('Sembunyikan password', 'Hide password') : L('Lihat password', 'Show password')}
+                style={{ position: 'absolute', right: 8, top: 8, border: 0, background: 'none', color: 'var(--gx-ink-3)', cursor: 'pointer', padding: 4 }}
               >
-                <i className="fa-solid fa-qrcode"></i>
-                <span>Sewa via QRIS Instant</span>
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
               </button>
-
-              <a
-                href="https://t.me/mrpangeranz"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="modern-secondary-btn wa-btn"
-                style={{ background: '#0284c7', color: '#ffffff' }}
-              >
-                <i className="fa-brands fa-telegram"></i>
-                <span>DM Telegram Admin</span>
-              </a>
             </div>
-          </div>
-        </div>
+          </label>
+          {error && (
+            <div className="gx-note gx-note--bad" role="alert">
+              {error}
+            </div>
+          )}
+          <button type="submit" className="gx-btn gx-btn--lg gx-btn--primary gx-btn--block" disabled={isLoading}>
+            <LogIn size={18} /> {isLoading ? L('Memeriksa…', 'Checking…') : L('Masuk', 'Sign in')}
+          </button>
+        </form>
 
-        {/* Security Badge */}
-        <div className="modern-auth-trust">
-          <i className="fa-solid fa-shield-check"></i>
-          <span>Sesi terenkripsi & auto-sync cloud aman</span>
+        <div className="gx-login__divider">
+          <span>{L('belum punya lisensi?', "don't have a license?")}</span>
         </div>
+        <div className="gx-login__actions">
+          <button type="button" className="gx-btn" onClick={onOpenPaymentModal}>
+            <QrCode size={16} /> {L('Sewa via QRIS', 'Rent via QRIS')}
+          </button>
+          <a className="gx-btn" href="https://t.me/mrpangeranz" target="_blank" rel="noopener noreferrer">
+            <Send size={15} /> {L('Telegram admin', 'Telegram admin')}
+          </a>
+        </div>
+      </div>
+      <div className="gx-login__trust">
+        <ShieldCheck size={14} /> {L('Login aman · data tersimpan di cloud', 'Secure login · data stored in the cloud')}
       </div>
     </div>
   );

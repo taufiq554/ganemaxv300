@@ -16,7 +16,8 @@ import {
   AppTab,
   EnginePhase,
 } from './types/index.ts';
-import { ASEAN_REGIONS, formatAseanCurrency } from './constants/asean.ts';
+import { ASEAN_REGIONS, formatAseanCurrency, isAseanCode, paymentFamily } from './constants/asean.ts';
+import { useLang, readLang } from './lib/i18n.tsx';
 import { api } from './services/api.ts';
 import { LoginScreen } from './components/LoginScreen.tsx';
 import { PaymentGatewayModal } from './components/PaymentGatewayModal.tsx';
@@ -61,7 +62,26 @@ const readDismissed = (): string[] => {
   }
 };
 
+/** Rapikan nilai pengaturan lama / hasil impor supaya selalu dalam batas yang valid */
+function normalizeSettings(x: BotSettings): BotSettings {
+  const num = (v: any, d: number, min: number, max: number) => {
+    const n = Number(v);
+    return isFinite(n) ? Math.max(min, Math.min(max, n)) : d;
+  };
+  return {
+    ...x,
+    botMode: ['turbo', 'stealth', 'ai'].includes(x.botMode as any) ? x.botMode : 'turbo',
+    threadCount: num(x.threadCount, 4, 1, 24),
+    pollRate: Number(x.pollRate) < 2000 ? 5000 : num(x.pollRate, 5000, 2000, 60000),
+    maxRetry: num(x.maxRetry, 2, 0, 9),
+    retryDelay: num(x.retryDelay, 300, 0, 5000),
+    openLeadMs: num(x.openLeadMs, 800, 0, 3000),
+    openMode: x.openMode === 'browser' ? 'browser' : 'app',
+  };
+}
+
 export const App: React.FC = () => {
+  const { lang, setLang, L, locale } = useLang();
   // Authentication State
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
@@ -110,35 +130,77 @@ export const App: React.FC = () => {
   const toast = useToast();
   const isRunningRef = useRef(false);
 
-  // ASEAN Cross-Border State
+  // ASEAN Cross-Border State (divalidasi: nilai localStorage rusak tidak bikin crash)
   const [selectedRegion, setSelectedRegion] = useState<AseanCountryCode>(() => {
-    const saved = localStorage.getItem('ganemax_asean_region');
-    return (saved as AseanCountryCode) || 'ID';
+    try {
+      const saved = localStorage.getItem('ganemax_asean_region');
+      return isAseanCode(saved) ? saved : 'ID';
+    } catch {
+      return 'ID';
+    }
   });
 
-  const handleSelectRegion = (region: AseanCountryCode) => {
-    setSelectedRegion(region);
-    localStorage.setItem('ganemax_asean_region', region);
-    const reg = ASEAN_REGIONS[region];
-    if (reg) {
-      addLog(`🌏 Switch Wilayah Shopee ASEAN: [${reg.code}] ${reg.name} (${reg.domain}). Mata Uang: ${reg.currency} (${reg.currencySymbol}) • Timezone: ${reg.timezoneLabel} • NTP: ${reg.ntpServer}`, 'info');
+  // Akun & alamat yang dipakai saat war (disimpan per perangkat)
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('gx_selected_account') || '';
+    } catch {
+      return '';
     }
+  });
+  const [selectedAddressId, setSelectedAddressId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('gx_selected_address') || '';
+    } catch {
+      return '';
+    }
+  });
+  const handleSelectAccount = (id: string) => {
+    setSelectedAccountId(id);
+    try {
+      localStorage.setItem('gx_selected_account', id);
+    } catch {}
+  };
+  const handleSelectAddress = (id: string) => {
+    setSelectedAddressId(id);
+    try {
+      localStorage.setItem('gx_selected_address', id);
+    } catch {}
   };
 
-  const handleDeployAseanProxies = async (region: AseanCountryCode) => {
+  // Pakai wilayah yang tersimpan di akun kalau perangkat ini belum pernah memilih
+  useEffect(() => {
+    let hasLocal = false;
+    try {
+      hasLocal = !!localStorage.getItem('ganemax_asean_region');
+    } catch {}
+    if (!hasLocal && isAseanCode(currentUser?.preferred_region)) setSelectedRegion(currentUser!.preferred_region!);
+  }, [currentUser?.preferred_region]);
+
+  const handleSelectRegion = (region: AseanCountryCode) => {
+    if (!isAseanCode(region) || region === selectedRegion) return;
     const reg = ASEAN_REGIONS[region];
-    if (!reg) return;
-    addLog(`🚀 Memasang preset Residential Proxy Mesh Shopee ${reg.name} [${reg.code}] (${reg.domain})...`, 'info');
-    for (const preset of reg.proxyPreset) {
-      await handleSaveProxy({
-        host: preset.host,
-        port: preset.port,
-        region: reg.code,
-        status: 'active',
-        latency_ms: 12,
-      });
+    // Jadwal auto-start dihitung dari zona waktu wilayah lama → batalkan supaya tidak meleset
+    if (armed) {
+      setArmed(null);
+      addLog(L('[SCHEDULER] Jadwal auto-start dibatalkan karena wilayah diganti. Pilih ulang sesi.', '[SCHEDULER] Auto-start cancelled because region changed. Pick the session again.'), 'warning');
     }
-    addLog(`✅ Berhasil menambahkan node proxy residential Shopee ${reg.name} ke Cloud Network!`, 'success');
+    setSelectedRegion(region);
+    setLatency({ history: [], last: null, status: null, reachable: null, checkedAt: null });
+    try {
+      localStorage.setItem('ganemax_asean_region', region);
+    } catch {}
+    addLog(
+      L(
+        `[WILAYAH] Shopee ${reg.name} (${reg.domain}) · mata uang ${reg.currency} · zona ${reg.timezoneLabel} · sesi ${reg.flashSaleSchedule.join(', ')}`,
+        `[REGION] Shopee ${reg.name} (${reg.domain}) · currency ${reg.currency} · timezone ${reg.timezoneLabel} · sessions ${reg.flashSaleSchedule.join(', ')}`
+      ),
+      'info'
+    );
+    // Simpan preferensi wilayah ke akun (dipakai di perangkat lain)
+    if (currentUser) {
+      api.put('users', currentUser.id, { preferred_region: region }).catch(() => {});
+    }
   };
 
   // Bot Status & Stats State
@@ -154,7 +216,7 @@ export const App: React.FC = () => {
     {
       id: 'init_log',
       time: `${new Date().toLocaleTimeString('id-ID', { hour12: false })}.${String(new Date().getMilliseconds()).padStart(3, '0')}`,
-      text: '[SYSTEM] Dashboard GaneMaX.Ai siap. Monitor gateway & jam server berjalan.',
+      text: readLang() === 'en' ? '[SYSTEM] GaneMaX.Ai dashboard ready. Gateway & server clock monitor running.' : '[SYSTEM] Dashboard GaneMaX.Ai siap. Monitor gateway & jam server berjalan.',
       type: 'info',
     },
   ]);
@@ -163,16 +225,16 @@ export const App: React.FC = () => {
   const [botSettings, setBotSettings] = useState<BotSettings>(() => {
     const base: BotSettings = {
     botMode: 'turbo',
-    threadCount: 8,
-    pollRate: 80,
+    threadCount: 4,
+    pollRate: 5000,
     smartFallback: 'spaylater',
     preFireJitter: -15,
     multiAccMode: 'single',
     userAgentPreset: 'android_app_v2',
     capSolverApiKey: '',
     executionMode: 'aggressive',
-    maxRetry: 5,
-    retryDelay: 50,
+    maxRetry: 2,
+    retryDelay: 300,
     whitelist: '',
     blacklist: '',
     notifySuccess: true,
@@ -185,7 +247,7 @@ export const App: React.FC = () => {
   };
     try {
       const saved = JSON.parse(localStorage.getItem('gx_bot_settings') || 'null');
-      return saved && typeof saved === 'object' ? { ...base, ...saved } : base;
+      return normalizeSettings(saved && typeof saved === 'object' ? { ...base, ...saved } : base);
     } catch {
       return base;
     }
@@ -340,13 +402,13 @@ export const App: React.FC = () => {
       if (isPlayingMusic) {
         audioRef.current.pause();
         setIsPlayingMusic(false);
-        addLog('🎵 Musik latar (lagu.mp3) dihentikan.', 'info');
+        addLog(L('[SYSTEM] Musik latar dihentikan.', '[SYSTEM] Background music stopped.'), 'info');
       } else {
         audioRef.current
           .play()
           .then(() => {
             setIsPlayingMusic(true);
-            addLog('🎵 Memutar musik latar (lagu.mp3) sukses.', 'info');
+            addLog(L('[SYSTEM] Musik latar diputar.', '[SYSTEM] Background music playing.'), 'info');
           })
           .catch((e) => {
             console.log('Audio autoplay prevented:', e);
@@ -367,12 +429,12 @@ export const App: React.FC = () => {
         localStorage.setItem('shopee_bot_token', res.data.token);
         localStorage.setItem('shopee_bot_user', JSON.stringify(res.data.user));
         setCurrentUser(res.data.user);
-        addLog(`Selamat datang, ${res.data.user.username}! Sesi bot aktif.`, 'success');
+        addLog(L(`[SYSTEM] Selamat datang, ${res.data.user.username}!`, `[SYSTEM] Welcome, ${res.data.user.username}!`), 'success');
         setIsLoginLoading(false);
         return true;
       }
     } catch (err: any) {
-      addLog(`Login gagal: ${err.message}`, 'error');
+      addLog(L(`[SYSTEM] Login gagal: ${err.message}`, `[SYSTEM] Login failed: ${err.message}`), 'error');
     }
     setIsLoginLoading(false);
     return false;
@@ -387,7 +449,7 @@ export const App: React.FC = () => {
     setArmed(null);
     setUsersList([]);
     setCurrentTab('dashboard');
-    addLog('Sesi Anda telah keluar.', 'info');
+    addLog(L('[SYSTEM] Kamu sudah keluar.', '[SYSTEM] You have logged out.'), 'info');
   };
 
   // Target aktif (dipilih user, fallback ke target wilayah aktif / pertama)
@@ -413,7 +475,25 @@ export const App: React.FC = () => {
   // ENGINE "ASISTEN WAR" — semua log adalah kejadian nyata
   // ================================================================
   const targetPriceFor = (t: TargetUrl | null) => (t?.target_price ? Number(t.target_price) : 0);
-  const openLeadMs = Math.max(0, Math.min(5000, Number(botSettings.openLeadMs ?? 800)));
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId) || accounts.find((a) => !a.region || a.region === selectedRegion) || accounts[0] || null;
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId) || addresses.find((a) => a.is_default) || addresses[0] || null;
+  const botMode = botSettings.botMode || 'turbo';
+  const avgLatency = latency.history.length ? latency.history.reduce((x, y) => x + y, 0) / latency.history.length : null;
+  const manualLead = Math.max(0, Math.min(5000, Number(botSettings.openLeadMs ?? 800)));
+  // Mode AI: jeda buka dihitung dari latensi gateway yang terukur
+  const openLeadMs = botMode === 'ai' && avgLatency != null ? Math.round(Math.max(300, Math.min(2500, 500 + avgLatency * 2)) / 50) * 50 : manualLead;
+  const standbyPollMs = botMode === 'stealth' ? 30000 : Math.max(2000, Number(botSettings.pollRate) || 5000);
+  const pingSamples = Math.max(1, Math.min(8, Number(botSettings.threadCount) || 1, licenseThreadCap));
+  const tz = (code: AseanCountryCode) => (ASEAN_REGIONS[code] || ASEAN_REGIONS.ID).timezone;
+  const stamp = (n: number) => `${formatClock(n, tz(selectedRegion))}.${String(n % 1000).padStart(3, '0')}`;
+
+  const notify = (kind: 'success' | 'error' | 'ratelimit', title: string, body: string) => {
+    const allowed = kind === 'success' ? botSettings.notifySuccess !== false : kind === 'error' ? botSettings.notifyError !== false : botSettings.notifyRateLimit !== false;
+    if (!allowed || !('Notification' in window) || Notification.permission !== 'granted') return;
+    try {
+      new Notification(title, { body });
+    } catch {}
+  };
 
   const clearBotTimers = () => {
     if (botIntervalRef.current) {
@@ -430,7 +510,7 @@ export const App: React.FC = () => {
     setEnginePhase(phase);
   };
 
-  // --- Suara, getar, wake lock (butuh sentuhan user untuk aktif) ---
+  // --- Suara, getar, wake lock ---
   const audioCtxRef = useRef<AudioContext | null>(null);
   const wakeLockRef = useRef<any>(null);
   const primeAlerts = () => {
@@ -467,13 +547,13 @@ export const App: React.FC = () => {
     try {
       const wl = (navigator as any).wakeLock;
       if (!wl) {
-        addLog('[SYSTEM] Browser tidak mendukung Wake Lock — jaga layar HP tetap menyala manual.', 'warning');
+        addLog(L('[SYSTEM] Browser tidak mendukung Wake Lock — jaga layar tetap menyala.', '[SYSTEM] Browser does not support Wake Lock — keep the screen on.'), 'warning');
         return;
       }
       wakeLockRef.current = await wl.request('screen');
-      addLog('[SYSTEM] Wake Lock aktif: layar tidak akan mati selama menunggu sesi.', 'info');
+      addLog(L('[SYSTEM] Wake Lock aktif: layar tidak akan mati selama menunggu sesi.', '[SYSTEM] Wake Lock on: screen stays awake until the session.'), 'info');
     } catch (e: any) {
-      addLog(`[SYSTEM] Wake Lock ditolak browser (${e?.name || 'error'}).`, 'warning');
+      addLog(L(`[SYSTEM] Wake Lock ditolak browser (${e?.name || 'error'}).`, `[SYSTEM] Wake Lock denied by browser (${e?.name || 'error'}).`), 'warning');
     }
   };
   const releaseWakeLock = () => {
@@ -483,73 +563,99 @@ export const App: React.FC = () => {
     wakeLockRef.current = null;
   };
 
-  // --- Overlay detik 0 ---
   const [fireState, setFireState] = useState<FireState | null>(null);
 
-  // --- Pemeriksaan sebelum war (sinkron jam, lisensi, gateway, data produk) ---
+  // --- Pemeriksaan sebelum war ---
   const runPrechecks = async (): Promise<boolean> => {
     const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
     const t = selectedTarget;
+    const acc = selectedAccount;
     setEnginePhase('sync');
-    addLog(`[WAR] Sesi war dimulai · Shopee ${reg.name} (${reg.domain}) · target: ${t?.title || '-'}`, 'info');
-    addLog('[NTP] Sinkronisasi jam ke server bot (3 sampel)…', 'info');
+    addLog(L(`[WAR] Sesi war dimulai · Shopee ${reg.name} (${reg.domain}) · mode ${botMode.toUpperCase()}`, `[WAR] War session started · Shopee ${reg.name} (${reg.domain}) · ${botMode.toUpperCase()} mode`), 'info');
+    addLog(L(`[WAR] Target: ${t?.title || '-'}`, `[WAR] Target: ${t?.title || '-'}`), 'info');
+    if (t && isAseanCode(t.region) && t.region !== reg.code) {
+      addLog(L(`[WILAYAH] Target ini dari Shopee ${ASEAN_REGIONS[t.region].name}, sedangkan wilayah aktif ${reg.name}. Jam sesi mengikuti wilayah aktif.`, `[REGION] This target is from Shopee ${ASEAN_REGIONS[t.region].name}, but the active region is ${reg.name}. Session times follow the active region.`), 'warning');
+    }
+    addLog(
+      acc ? L(`[AKUN] Memakai akun ${acc.nickname} (@${acc.username})${acc.cookies ? ' · cookies tersedia' : ' · tanpa cookies'}`, `[ACCOUNT] Using ${acc.nickname} (@${acc.username})${acc.cookies ? ' · cookies available' : ' · no cookies'}`) : L('[AKUN] Belum ada akun dipilih — cek produk tanpa login.', '[ACCOUNT] No account selected — product check without login.'),
+      acc ? 'info' : 'warning'
+    );
+    if (selectedAddress) addLog(L(`[ALAMAT] ${selectedAddress.label} · ${selectedAddress.recipient_name}`, `[ADDRESS] ${selectedAddress.label} · ${selectedAddress.recipient_name}`), 'info');
+    if (paymentSettings?.payment_method) addLog(L(`[BAYAR] Metode ${paymentSettings.payment_method.toUpperCase()}${paymentSettings.custom_voucher_code ? ` · voucher ${paymentSettings.custom_voucher_code}` : ''}`, `[PAYMENT] Method ${paymentSettings.payment_method.toUpperCase()}${paymentSettings.custom_voucher_code ? ` · voucher ${paymentSettings.custom_voucher_code}` : ''}`), 'info');
+
+    addLog(L('[NTP] Sinkronisasi jam ke server bot (3 sampel)…', '[NTP] Syncing clock with bot server (3 samples)…'), 'info');
     const sync = await clock.resync();
     if (!isRunningRef.current) return false;
-    sync.samples.forEach((s, i) => addLog(`[NTP] Sampel #${i + 1}: RTT ${s.rtt} ms · selisih jam ${s.offset > 0 ? '+' : ''}${s.offset} ms`, 'info'));
-    if (sync.best) {
-      addLog(`[NTP] Jam terkunci ke server (sampel terbaik RTT ${sync.best.rtt} ms). Akurasi ±${Math.ceil(sync.best.rtt / 2)} ms.`, 'success');
-    } else {
-      addLog('[NTP] Gagal sinkron ke server — memakai jam perangkat.', 'warning');
-    }
+    sync.samples.forEach((sm, i) => addLog(L(`[NTP] Sampel #${i + 1}: RTT ${sm.rtt} ms · selisih ${sm.offset > 0 ? '+' : ''}${sm.offset} ms`, `[NTP] Sample #${i + 1}: RTT ${sm.rtt} ms · offset ${sm.offset > 0 ? '+' : ''}${sm.offset} ms`), 'info'));
+    if (sync.best) addLog(L(`[NTP] Jam terkunci ke server. Akurasi ±${Math.ceil(sync.best.rtt / 2)} ms.`, `[NTP] Clock locked to server. Accuracy ±${Math.ceil(sync.best.rtt / 2)} ms.`), 'success');
+    else addLog(L('[NTP] Gagal sinkron — memakai jam perangkat.', '[NTP] Sync failed — using device clock.'), 'warning');
 
     const lic = await api.sessionStart();
     if (!isRunningRef.current) return false;
     if (!lic.success) {
-      addLog(`[LISENSI] ${lic.error?.message || 'Lisensi tidak valid'}`, 'error');
-      toast.show(lic.error?.message || 'Lisensi tidak valid');
+      addLog(`[LICENSE] ${lic.error?.message || 'invalid'}`, 'error');
+      toast.show(lic.error?.message || L('Lisensi tidak valid', 'Invalid license'));
+      notify('error', 'GaneMaX.Ai', lic.error?.message || '');
       finishRun('error');
       return false;
     }
-    addLog('[LISENSI] Lisensi aktif terverifikasi di server.', 'success');
+    addLog(L('[LISENSI] Lisensi aktif terverifikasi di server.', '[LICENSE] Active license verified by server.'), 'success');
 
     setEnginePhase('warm');
-    const ping = await api.pingGateway(reg.code);
+    addLog(L(`[GATEWAY] Mengukur ${reg.domain} dengan ${pingSamples} request paralel…`, `[GATEWAY] Measuring ${reg.domain} with ${pingSamples} parallel requests…`), 'info');
+    const pings = await Promise.all(Array.from({ length: pingSamples }, () => api.pingGateway(reg.code)));
     if (!isRunningRef.current) return false;
-    if (ping.success && ping.data) {
-      setServerLatency(ping.data.latency_ms);
-      if (ping.data.reachable === false) {
-        addLog(`[GATEWAY] ${reg.domain} tidak terjangkau dari server bot. Shopee tetap dibuka langsung dari HP kamu.`, 'warning');
-      } else {
-        addLog(`[GATEWAY] ${reg.domain} → HTTP ${ping.data.status} · ${ping.data.latency_ms} ms`, 'info');
+    const okPings = pings.filter((p) => p.success && p.data && p.data.reachable !== false).map((p) => p.data!);
+    if (okPings.length) {
+      const lats = okPings.map((p) => p.latency_ms);
+      const min = Math.min(...lats);
+      const avg = Math.round(lats.reduce((x, y) => x + y, 0) / lats.length);
+      setServerLatency(min);
+      addLog(L(`[GATEWAY] ${okPings.length}/${pingSamples} terjawab · HTTP ${okPings[0].status} · min ${min} ms · rata-rata ${avg} ms`, `[GATEWAY] ${okPings.length}/${pingSamples} answered · HTTP ${okPings[0].status} · min ${min} ms · avg ${avg} ms`), 'info');
+      if (okPings.some((p) => p.status === 429)) {
+        addLog(L('[GATEWAY] Shopee membatasi request (HTTP 429). Kurangi thread paralel.', '[GATEWAY] Shopee is rate limiting (HTTP 429). Lower parallel threads.'), 'warning');
+        notify('ratelimit', 'GaneMaX.Ai', 'HTTP 429');
       }
+    } else {
+      addLog(L(`[GATEWAY] ${reg.domain} tidak terjangkau dari server bot. Shopee tetap dibuka langsung dari HP kamu.`, `[GATEWAY] ${reg.domain} unreachable from bot server. Shopee will still open directly on your phone.`), 'warning');
     }
+    if (botMode === 'ai') addLog(L(`[AI] Jeda buka otomatis: ${openLeadMs} ms (dari latensi terukur).`, `[AI] Auto open lead: ${openLeadMs} ms (from measured latency).`), 'info');
 
     if (t?.url) {
       const ids = parseShopeeLink(t.url);
-      addLog(ids ? `[PRODUK] Link valid · shopid ${ids.shopId} · itemid ${ids.itemId}` : '[PRODUK] Link tanpa ID produk (link pendek) — akan dibuka apa adanya.', ids ? 'info' : 'warning');
-      if (ids) {
-        addLog('[PRODUK] Mengambil data produk dari Shopee…', 'info');
-        const ck = await api.checkItem(reg.code, t.url);
-        if (!isRunningRef.current) return false;
-        const d = ck.data;
-        if (ck.success && d?.item) {
-          const it = d.item;
-          addLog(`[PRODUK] ${it.name}`, 'success');
-          if (it.price != null) addLog(`[PRODUK] Harga sekarang ${formatAseanCurrency(it.price, selectedRegion)}${it.stock != null ? ` · stok ${it.stock}` : ''}`, 'info');
-          if (it.flash_sale) {
-            const fs = it.flash_sale;
-            addLog(
-              `[FLASH] Flash sale terdeteksi${fs.price != null ? ` · harga ${formatAseanCurrency(fs.price, selectedRegion)}` : ''}${fs.stock != null ? ` · kuota ${fs.stock}` : ''}${fs.start_time ? ` · mulai ${new Date(fs.start_time).toLocaleTimeString('id-ID')}` : ''}`,
-              'success'
-            );
+      addLog(ids ? L(`[PRODUK] Link valid · shopid ${ids.shopId} · itemid ${ids.itemId}`, `[PRODUCT] Valid link · shopid ${ids.shopId} · itemid ${ids.itemId}`) : L('[PRODUK] Link pendek — dibuka apa adanya.', '[PRODUCT] Short link — opened as is.'), ids ? 'info' : 'warning');
+      if (ids && botMode !== 'stealth') {
+        const tries = Math.max(1, Math.min(10, (Number(botSettings.maxRetry) || 0) + 1));
+        let got = false;
+        for (let i = 1; i <= tries && !got; i++) {
+          addLog(L(`[PRODUK] Mengambil data produk dari Shopee (percobaan ${i}/${tries})…`, `[PRODUCT] Fetching product data from Shopee (attempt ${i}/${tries})…`), 'info');
+          const tRegion = isAseanCode(t.region) ? t.region : reg.code;
+          const ck = await api.checkItem(tRegion, t.url, acc?.id);
+          if (!isRunningRef.current) return false;
+          const d = ck.data;
+          if (ck.success && d?.item) {
+            got = true;
+            const it = d.item;
+            addLog(`[PRODUK] ${it.name}${d.with_cookies ? L(' · via akun', ' · via account') : ''}`, 'success');
+            if (it.price != null) addLog(L(`[PRODUK] Harga sekarang ${formatAseanCurrency(it.price, tRegion)}${it.stock != null ? ` · stok ${it.stock}` : ''}`, `[PRODUCT] Current price ${formatAseanCurrency(it.price, tRegion)}${it.stock != null ? ` · stock ${it.stock}` : ''}`), 'info');
+            if (it.flash_sale) {
+              const fs = it.flash_sale;
+              addLog(
+                L(
+                  `[FLASH] Flash sale terdeteksi${fs.price != null ? ` · harga ${formatAseanCurrency(fs.price, tRegion)}` : ''}${fs.stock != null ? ` · kuota ${fs.stock}` : ''}${fs.start_time ? ` · mulai ${new Date(fs.start_time).toLocaleTimeString(locale)}` : ''}`,
+                  `[FLASH] Flash sale detected${fs.price != null ? ` · price ${formatAseanCurrency(fs.price, tRegion)}` : ''}${fs.stock != null ? ` · quota ${fs.stock}` : ''}${fs.start_time ? ` · starts ${new Date(fs.start_time).toLocaleTimeString(locale)}` : ''}`
+                ),
+                'success'
+              );
+            } else addLog(L('[FLASH] Belum ada data flash sale untuk produk ini.', '[FLASH] No flash sale data for this product yet.'), 'info');
           } else {
-            addLog('[FLASH] Belum ada data flash sale aktif untuk produk ini.', 'info');
+            const why = d ? d.reason || `HTTP ${d.status}` : ck.error?.message || 'error';
+            addLog(L(`[PRODUK] Ditolak/gagal: ${why}`, `[PRODUCT] Refused/failed: ${why}`), 'warning');
+            if (d?.status === 429) notify('ratelimit', 'GaneMaX.Ai', 'HTTP 429');
+            if (i < tries) await new Promise((r) => setTimeout(r, Math.max(0, Number(botSettings.retryDelay) || 0)));
           }
-        } else if (d) {
-          addLog(`[PRODUK] Data produk tidak bisa diambil: ${d.reason || `HTTP ${d.status}`} (${d.latency_ms} ms). Lanjut tanpa data stok.`, 'warning');
-        } else {
-          addLog(`[PRODUK] Cek produk gagal: ${ck.error?.message || 'error'}`, 'warning');
         }
+        if (!got) addLog(L('[PRODUK] Lanjut tanpa data stok.', '[PRODUCT] Continuing without stock data.'), 'info');
       }
     }
     setEnginePhase('armed');
@@ -558,10 +664,9 @@ export const App: React.FC = () => {
 
   // --- Detik 0: buka Shopee ---
   const fire = (scheduledEpoch: number | null) => {
-    const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
     const t = selectedTarget;
     if (!t?.url) {
-      addLog('[ERROR] Target tidak punya link produk.', 'error');
+      addLog(L('[ERROR] Target tidak punya link produk.', '[ERROR] Target has no product link.'), 'error');
       finishRun('error');
       return;
     }
@@ -569,22 +674,20 @@ export const App: React.FC = () => {
     const now = clock.now();
     const delta = scheduledEpoch != null ? now - scheduledEpoch : null;
     const mode = botSettings.openMode === 'browser' ? 'browser' : 'app';
-    const { href, via } = buildOpenUrl(t.url, selectedRegion, mode);
+    const targetRegion = isAseanCode(t.region) ? t.region : selectedRegion;
+    const { href, via } = buildOpenUrl(t.url, targetRegion, mode);
     beep(1320, 220);
     vibrate([200, 80, 200]);
     if (scheduledEpoch != null) {
-      addLog(
-        `[FIRE] Membuka Shopee ${openLeadMs} ms sebelum sesi · jam server ${formatClock(now, reg.timezone)}.${String(now % 1000).padStart(3, '0')} · presisi timer ${delta! >= 0 ? '+' : ''}${delta} ms`,
-        'warning'
-      );
+      addLog(L(`[FIRE] Membuka Shopee ${openLeadMs} ms sebelum sesi · jam server ${stamp(now)} · presisi timer ${delta! >= 0 ? '+' : ''}${delta} ms`, `[FIRE] Opening Shopee ${openLeadMs} ms before session · server time ${stamp(now)} · timer precision ${delta! >= 0 ? '+' : ''}${delta} ms`), 'warning');
       const zeroAt = scheduledEpoch + openLeadMs;
       const tZero = window.setTimeout(() => {
         const n = clock.now();
-        addLog(`[T-0] Detik 0 sesi · jam server ${formatClock(n, reg.timezone)}.${String(n % 1000).padStart(3, '0')} (selisih ${n - zeroAt >= 0 ? '+' : ''}${n - zeroAt} ms)`, 'warning');
+        addLog(L(`[T-0] Detik 0 sesi · jam server ${stamp(n)} (selisih ${n - zeroAt >= 0 ? '+' : ''}${n - zeroAt} ms)`, `[T-0] Second zero · server time ${stamp(n)} (offset ${n - zeroAt >= 0 ? '+' : ''}${n - zeroAt} ms)`), 'warning');
       }, Math.max(0, zeroAt - now));
       botTimeoutsRef.current.push(tZero);
     } else {
-      addLog(`[FIRE] Buka manual · jam server ${formatClock(now, reg.timezone)}.${String(now % 1000).padStart(3, '0')}`, 'warning');
+      addLog(L(`[FIRE] Buka manual · jam server ${stamp(now)}`, `[FIRE] Manual open · server time ${stamp(now)}`), 'warning');
     }
 
     let autoOpened = false;
@@ -602,11 +705,12 @@ export const App: React.FC = () => {
         autoOpened = false;
       }
     }
-    if (autoOpened) {
-      addLog(`[OPEN] Shopee dibuka otomatis lewat ${via}. Selesaikan checkout di Shopee.`, 'success');
-    } else {
-      addLog(`[OPEN] Tekan tombol "Buka Shopee" di layar — ${href.startsWith('intent:') ? 'Android butuh satu sentuhan untuk masuk app' : 'browser memblokir pembukaan otomatis'}.`, 'warning');
-    }
+    addLog(
+      autoOpened
+        ? L(`[OPEN] Shopee dibuka otomatis lewat ${via}.`, `[OPEN] Shopee opened automatically via ${via}.`)
+        : L(`[OPEN] Tekan tombol "Buka Shopee" — ${href.startsWith('intent:') ? 'Android butuh satu sentuhan untuk masuk app' : 'browser memblokir pembukaan otomatis'}.`, `[OPEN] Tap "Open Shopee" — ${href.startsWith('intent:') ? 'Android needs one tap to enter the app' : 'the browser blocked auto-open'}.`),
+      autoOpened ? 'success' : 'warning'
+    );
     releaseWakeLock();
     setStats((p) => ({ ...p, attempts: p.attempts + 1 }));
     setFireState({
@@ -616,42 +720,41 @@ export const App: React.FC = () => {
       autoOpened,
       scheduledEpoch,
       firedAt: now,
-      region: selectedRegion,
+      region: targetRegion,
+      accountLabel: selectedAccount ? `${selectedAccount.nickname} (@${selectedAccount.username})` : '',
+      addressLabel: selectedAddress ? `${selectedAddress.label} · ${selectedAddress.recipient_name}` : '',
+      paymentLabel: paymentSettings?.payment_method ? paymentSettings.payment_method.split('_')[0].toUpperCase() : '',
+      voucher: paymentSettings?.custom_voucher_code || '',
     });
     isRunningRef.current = false;
     setIsBotRunning(false);
     setEnginePhase('done');
-    addLog('[WAR] Menunggu konfirmasi hasil checkout dari kamu…', 'info');
-    if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
-      try {
-        new Notification('Sesi flash sale dimulai!', { body: `Buka Shopee sekarang: ${t.title}` });
-      } catch {}
-    }
+    addLog(L('[WAR] Menunggu konfirmasi hasil checkout…', '[WAR] Waiting for checkout result confirmation…'), 'info');
+    if (document.visibilityState !== 'visible') notify('success', L('Sesi flash sale dimulai!', 'Flash sale session started!'), t.title);
   };
 
   const guardStart = (): boolean => {
     if (currentUser && currentUser.role !== 'admin' && currentUser.expired_at) {
       const exp = new Date(currentUser.expired_at).getTime();
       if (!isNaN(exp) && exp < Date.now()) {
-        addLog('[LISENSI] Masa aktif lisensi habis. Perpanjang via QRIS untuk memakai bot.', 'error');
-        toast.show('Lisensi habis — perpanjang dulu');
+        addLog(L('[LISENSI] Masa aktif lisensi habis. Perpanjang via QRIS.', '[LICENSE] License expired. Renew via QRIS.'), 'error');
+        toast.show(L('Lisensi habis — perpanjang dulu', 'License expired — renew first'));
         return false;
       }
     }
     if (!selectedTarget) {
-      addLog('[SETUP] Belum ada target produk. Tambahkan link produk di tab Target.', 'error');
-      toast.show('Tambahkan target produk dulu');
+      addLog(L('[SETUP] Belum ada target produk. Tambahkan di tab Target.', '[SETUP] No target product yet. Add one in the Target tab.'), 'error');
+      toast.show(L('Tambahkan target produk dulu', 'Add a target product first'));
       return false;
     }
     if (!isValidHttpUrl(selectedTarget.url)) {
-      addLog('[SETUP] Link target tidak valid. Edit target dan tempel link produk Shopee.', 'error');
-      toast.show('Link target tidak valid');
+      addLog(L('[SETUP] Link target tidak valid.', '[SETUP] Target link is invalid.'), 'error');
+      toast.show(L('Link target tidak valid', 'Invalid target link'));
       return false;
     }
     return true;
   };
 
-  // Tombol "Jalankan": cek semua lalu langsung buka Shopee
   const handleStartBot = async () => {
     if (isRunningRef.current) return;
     if (!guardStart()) return;
@@ -669,7 +772,7 @@ export const App: React.FC = () => {
     clearBotTimers();
     finishRun('idle');
     releaseWakeLock();
-    if (wasRunning) addLog('[WAR] Sesi dihentikan oleh kamu.', 'warning');
+    if (wasRunning) addLog(L('[WAR] Sesi dihentikan.', '[WAR] Session stopped.'), 'warning');
   };
 
   // --- Auto-start terjadwal ---
@@ -679,51 +782,52 @@ export const App: React.FC = () => {
   fireRef.current = fire;
   const precheckRef = useRef(runPrechecks);
   precheckRef.current = runPrechecks;
+  const logRef = useRef({ addLog, L, beep });
+  logRef.current = { addLog, L, beep };
 
   useEffect(() => {
     if (!armed) return;
     precheckStartedRef.current = false;
     milestonesRef.current = new Set();
     const id = window.setInterval(() => {
+      const { addLog: log, L: tr, beep: bp } = logRef.current;
       const remain = armed.epoch - clock.now();
       const fireAt = remain - openLeadMs;
       const mark = (k: string, text: string, type: 'info' | 'warning' = 'info') => {
         if (milestonesRef.current.has(k)) return;
         milestonesRef.current.add(k);
-        addLog(text, type);
+        log(text, type);
       };
-
-      // Hitung mundur ke sesi
       for (const m of [600, 300, 120, 60, 30]) {
-        if (remain <= m * 1000 && remain > (m - 1) * 1000) mark(`m${m}`, `[COUNTDOWN] T-${m >= 60 ? `${m / 60} menit` : `${m} dtk`} menuju sesi ${armed.label}`);
+        if (remain <= m * 1000 && remain > (m - 1) * 1000) {
+          const lbl = m >= 60 ? tr(`${m / 60} menit`, `${m / 60} min`) : tr(`${m} dtk`, `${m} s`);
+          mark(`m${m}`, tr(`[COUNTDOWN] T-${lbl} menuju sesi ${armed.label}`, `[COUNTDOWN] T-${lbl} to session ${armed.label}`));
+        }
       }
       if (remain <= 10_000 && remain > 0) {
         const sec = Math.ceil(remain / 1000);
         if (!milestonesRef.current.has(`s${sec}`)) {
           mark(`s${sec}`, `[COUNTDOWN] T-${sec}`, sec <= 3 ? 'warning' : 'info');
-          if (sec <= 3) beep(880, 90);
+          if (sec <= 3) bp(880, 90);
         }
       }
-
-      // Mulai cek 60 dtk sebelum sesi
       if (remain <= 60_000 && !precheckStartedRef.current) {
         precheckStartedRef.current = true;
         isRunningRef.current = true;
         setIsBotRunning(true);
         precheckRef.current().then((ok) => {
-          if (ok) addLog(`[STANDBY] Semua siap. Shopee dibuka ${openLeadMs} ms sebelum ${armed.label} supaya pas detik 0.`, 'success');
+          if (ok) log(tr(`[STANDBY] Semua siap. Shopee dibuka ${openLeadMs} ms sebelum ${armed.label}.`, `[STANDBY] All set. Shopee opens ${openLeadMs} ms before ${armed.label}.`), 'success');
         });
       }
-
       if (fireAt <= 0) {
         window.clearInterval(id);
         setArmed(null);
         if (remain > -60_000) {
-          if (!isRunningRef.current && precheckStartedRef.current) return; // dihentikan user
+          if (!isRunningRef.current && precheckStartedRef.current) return;
           isRunningRef.current = true;
           fireRef.current(armed.epoch - openLeadMs);
         } else {
-          addLog(`[SCHEDULER] Jadwal ${armed.label} terlewat (HP tidur / tab tertutup). Auto-start dibatalkan.`, 'error');
+          log(tr(`[SCHEDULER] Jadwal ${armed.label} terlewat (HP tidur / tab tertutup).`, `[SCHEDULER] Schedule ${armed.label} missed (phone asleep / tab closed).`), 'error');
           finishRun('error');
         }
       }
@@ -734,21 +838,36 @@ export const App: React.FC = () => {
 
   const handleArm = (a: ArmState) => {
     if (!guardStart()) return;
+    if (a.epoch - clock.now() <= openLeadMs + 1000) {
+      toast.show(L('Waktu terlalu dekat, pilih sesi lain', 'Too close, pick another session'));
+      return;
+    }
     primeAlerts();
     setArmed(a);
-    addLog(`[SCHEDULER] Auto-start dijadwalkan untuk sesi ${a.label}. Pemeriksaan mulai T-60 dtk, Shopee dibuka ${openLeadMs} ms sebelum detik 0.`, 'info');
-    addLog('[SCHEDULER] Biarkan halaman ini terbuka & layar menyala sampai sesi dimulai.', 'info');
+    addLog(L(`[SCHEDULER] Auto-start sesi ${a.label}. Cek mulai T-60 dtk, Shopee dibuka ${openLeadMs} ms sebelum detik 0.`, `[SCHEDULER] Auto-start for ${a.label}. Checks start at T-60 s, Shopee opens ${openLeadMs} ms before second zero.`), 'info');
+    addLog(L('[SCHEDULER] Biarkan halaman ini terbuka & layar menyala.', '[SCHEDULER] Keep this page open and the screen on.'), 'info');
     requestWakeLock();
-    toast.show(`Auto-start sesi ${a.label} aktif — biarkan halaman tetap terbuka`);
+    toast.show(L(`Auto-start ${a.label} aktif — biarkan halaman terbuka`, `Auto-start ${a.label} on — keep this page open`));
   };
   const handleDisarm = () => {
-    if (armed) addLog(`[SCHEDULER] Jadwal auto-start ${armed.label} dibatalkan.`, 'info');
+    if (armed) addLog(L(`[SCHEDULER] Jadwal ${armed.label} dibatalkan.`, `[SCHEDULER] Schedule ${armed.label} cancelled.`), 'info');
     setArmed(null);
     releaseWakeLock();
     if (isRunningRef.current) finishRun('idle');
   };
 
-  // --- Konfirmasi hasil dari user ---
+  // Jadwal tersimpan → auto-start
+  const handleUseSchedule = (sc: Schedule) => {
+    const epoch = new Date(sc.target_time).getTime();
+    if (isNaN(epoch) || epoch <= clock.now() + openLeadMs + 1000) {
+      toast.show(L('Jadwal ini sudah lewat', 'This schedule has passed'));
+      return;
+    }
+    handleArm({ epoch, label: formatClock(epoch, tz(selectedRegion)).slice(0, 5) });
+    setCurrentTab('dashboard');
+  };
+
+  // --- Konfirmasi hasil ---
   const handleConfirmResult = async (r: { success: boolean; orderSn?: string; price?: number; note?: string }) => {
     if (!fireState) return;
     const t = fireState.target;
@@ -758,25 +877,28 @@ export const App: React.FC = () => {
         targetTitle: t.title,
         price: r.price ?? targetPriceFor(t),
         orderSn: r.orderSn,
-        paymentMethod: paymentSettings?.payment_method || '',
+        paymentMethod: paymentSettings?.payment_method ? paymentFamily(paymentSettings.payment_method) : '',
         openDelayMs: fireState.scheduledEpoch != null ? fireState.firedAt - fireState.scheduledEpoch : null,
         targetUrl: t.url,
       });
       if (res.success) {
-        addLog(`[HASIL] Checkout dikonfirmasi${r.orderSn ? ` · no. pesanan ${r.orderSn}` : ''} · tersimpan di riwayat.`, 'success');
+        addLog(L(`[HASIL] Checkout dikonfirmasi${r.orderSn ? ` · no. pesanan ${r.orderSn}` : ''} · tersimpan di riwayat.`, `[RESULT] Checkout confirmed${r.orderSn ? ` · order no. ${r.orderSn}` : ''} · saved to history.`), 'success');
         setStats((p) => ({ ...p, success: p.success + 1 }));
+        notify('success', L('Checkout berhasil', 'Checkout success'), t.title);
         loadUserData();
       } else {
-        addLog(`[HASIL] Gagal menyimpan: ${res.error?.message || 'error'}`, 'error');
+        addLog(L(`[HASIL] Gagal menyimpan: ${res.error?.message || 'error'}`, `[RESULT] Failed to save: ${res.error?.message || 'error'}`), 'error');
+        toast.show(res.error?.message || 'Error');
+        return;
       }
     } else {
-      addLog(`[HASIL] Tidak dapat${r.note ? `: ${r.note}` : ''}. Coba sesi berikutnya.`, 'warning');
+      addLog(L('[HASIL] Tidak dapat (kehabisan / gagal). Coba sesi berikutnya.', '[RESULT] Missed (sold out / failed). Try the next session.'), 'warning');
     }
     setFireState(null);
     setEnginePhase('idle');
   };
 
-  // --- Monitor nyala terus: gateway, jam, tab, jaringan ---
+  // --- Monitor nyala terus ---
   useEffect(() => {
     if (!currentUser) return;
     let alive = true;
@@ -786,6 +908,7 @@ export const App: React.FC = () => {
       if (document.visibilityState === 'visible') {
         const res = await api.pingGateway(selectedRegion);
         if (!alive) return;
+        const { addLog: log, L: tr } = logRef.current;
         if (res.success && res.data) {
           const d = res.data;
           setLatency((prev) => ({
@@ -795,17 +918,15 @@ export const App: React.FC = () => {
             reachable: d.reachable !== false,
             checkedAt: Date.now(),
           }));
-          addLog(
-            d.reachable === false
-              ? `[GATEWAY] ${reg.domain} tidak terjangkau dari server bot (${d.latency_ms} ms)`
-              : `[GATEWAY] ${reg.domain} → HTTP ${d.status} · ${d.latency_ms} ms`,
+          log(
+            d.reachable === false ? tr(`[GATEWAY] ${reg.domain} tidak terjangkau dari server bot (${d.latency_ms} ms)`, `[GATEWAY] ${reg.domain} unreachable from bot server (${d.latency_ms} ms)`) : `[GATEWAY] ${reg.domain} → HTTP ${d.status} · ${d.latency_ms} ms`,
             d.reachable === false ? 'warning' : 'info'
           );
         } else {
-          addLog(`[GATEWAY] Server bot tidak merespons: ${res.error?.message || 'error'}`, 'error');
+          log(tr(`[GATEWAY] Server bot tidak merespons: ${res.error?.message || 'error'}`, `[GATEWAY] Bot server not responding: ${res.error?.message || 'error'}`), 'error');
         }
       }
-      if (alive) timer = window.setTimeout(tick, isRunningRef.current || armed ? 5000 : 20000);
+      if (alive) timer = window.setTimeout(tick, isRunningRef.current || armed ? standbyPollMs : 20000);
     };
     tick();
     return () => {
@@ -813,17 +934,18 @@ export const App: React.FC = () => {
       if (timer) window.clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser?.id, selectedRegion, armed]);
+  }, [currentUser?.id, selectedRegion, armed, standbyPollMs]);
 
-  // Status sesi tiap menit
   useEffect(() => {
     if (!currentUser) return;
     const id = window.setInterval(() => {
+      const { addLog: log, L: tr } = logRef.current;
       const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
       const nxt = getNextSession(clock.now(), reg.flashSaleSchedule, reg.timezone);
       if (!nxt) return;
       const mins = Math.max(0, Math.round((nxt.epoch - clock.now()) / 60000));
-      addLog(`[MONITOR] Sesi berikutnya ${nxt.label} ${reg.timezoneLabel.split(' ')[0]} · ${mins >= 60 ? `${Math.floor(mins / 60)} jam ${mins % 60} mnt` : `${mins} mnt`} lagi${armed ? ' · auto-start AKTIF' : ''}`, 'info');
+      const dur = mins >= 60 ? tr(`${Math.floor(mins / 60)} jam ${mins % 60} mnt`, `${Math.floor(mins / 60)} h ${mins % 60} min`) : tr(`${mins} mnt`, `${mins} min`);
+      log(tr(`[MONITOR] Sesi berikutnya ${nxt.label} ${reg.timezoneLabel.split(' ')[0]} · ${dur} lagi${armed ? ' · auto-start AKTIF' : ''}`, `[MONITOR] Next session ${nxt.label} ${reg.timezoneLabel.split(' ')[0]} · in ${dur}${armed ? ' · auto-start ON' : ''}`), 'info');
     }, 60_000);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -832,14 +954,15 @@ export const App: React.FC = () => {
   useEffect(() => {
     const onVis = () => {
       if (!armed && !isRunningRef.current) return;
-      if (document.visibilityState === 'hidden') addLog('[SYSTEM] Tab disembunyikan — browser bisa memperlambat timer. Kembali ke tab ini sebelum sesi.', 'warning');
+      const { addLog: log, L: tr } = logRef.current;
+      if (document.visibilityState === 'hidden') log(tr('[SYSTEM] Tab disembunyikan — timer browser bisa melambat. Kembali sebelum sesi.', '[SYSTEM] Tab hidden — browser timers may slow down. Come back before the session.'), 'warning');
       else {
-        addLog('[SYSTEM] Tab aktif kembali. Menyinkronkan ulang jam…', 'info');
+        log(tr('[SYSTEM] Tab aktif kembali. Sinkron ulang jam…', '[SYSTEM] Tab active again. Re-syncing clock…'), 'info');
         if (armed) requestWakeLock();
       }
     };
-    const onOff = () => addLog('[NETWORK] Koneksi internet terputus!', 'error');
-    const onOn = () => addLog('[NETWORK] Koneksi internet kembali.', 'success');
+    const onOff = () => logRef.current.addLog(logRef.current.L('[NETWORK] Koneksi internet terputus!', '[NETWORK] Internet connection lost!'), 'error');
+    const onOn = () => logRef.current.addLog(logRef.current.L('[NETWORK] Koneksi internet kembali.', '[NETWORK] Internet connection restored.'), 'success');
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('offline', onOff);
     window.addEventListener('online', onOn);
@@ -851,10 +974,9 @@ export const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [armed]);
 
-  // Log sinkron jam berkala (dipanggil oleh hook jam)
   clockLogRef.current = (r: SyncResult, manual: boolean) => {
     if (manual || !r.best) return;
-    addLog(`[NTP] Jam disinkron ulang · RTT ${r.best.rtt} ms · selisih ${r.best.offset > 0 ? '+' : ''}${r.best.offset} ms`, 'info');
+    addLog(L(`[NTP] Jam disinkron ulang · RTT ${r.best.rtt} ms · selisih ${r.best.offset > 0 ? '+' : ''}${r.best.offset} ms`, `[NTP] Clock re-synced · RTT ${r.best.rtt} ms · offset ${r.best.offset > 0 ? '+' : ''}${r.best.offset} ms`), 'info');
   };
 
   // Bersihkan timer saat komponen dilepas
@@ -866,197 +988,189 @@ export const App: React.FC = () => {
 
 
   // CRUD Operations with Persistence
+  // ---------------- CRUD (melempar error supaya modal menampilkan pesan & tidak tertutup) ----------------
+  const failMsg = (res: { error?: { message?: string } }) => res.error?.message || L('Gagal menyimpan ke server.', 'Failed to save to server.');
+
   const handleSaveAddress = async (data: Partial<Address>) => {
-    if (activeAddress?.id) {
-      const res = await api.put<Address>('addresses', activeAddress.id, data);
-      if (res.success && res.data) {
-        setAddresses((prev) => prev.map((a) => (a.id === activeAddress.id ? res.data! : a)));
-        addLog(`Alamat "${res.data.label}" berhasil diperbarui.`, 'success');
-      }
-    } else {
-      const res = await api.post<Address>('addresses', data);
-      if (res.success && res.data) {
-        setAddresses((prev) => [res.data!, ...prev]);
-        addLog(`Alamat baru "${res.data.label}" berhasil disimpan.`, 'success');
-      }
+    const editingId = activeAddress?.id;
+    const res = editingId ? await api.put<Address>('addresses', editingId, data) : await api.post<Address>('addresses', data);
+    if (!res.success || !res.data) throw new Error(failMsg(res));
+    const saved = res.data;
+    // Hanya satu alamat utama
+    if (saved.is_default) {
+      const others = addresses.filter((a) => a.id !== saved.id && a.is_default);
+      await Promise.all(others.map((o) => api.put('addresses', o.id, { is_default: false })));
     }
+    setAddresses((prev) => {
+      const list = editingId ? prev.map((a) => (a.id === editingId ? saved : a)) : [saved, ...prev];
+      return saved.is_default ? list.map((a) => (a.id === saved.id ? a : { ...a, is_default: false })) : list;
+    });
+    addLog(editingId ? L(`[DATA] Alamat "${saved.label}" diperbarui.`, `[DATA] Address "${saved.label}" updated.`) : L(`[DATA] Alamat "${saved.label}" ditambahkan.`, `[DATA] Address "${saved.label}" added.`), 'success');
   };
 
   const handleDeleteAddress = async (id: string) => {
-    if (!confirm('Hapus alamat ini?')) return;
+    if (!confirm(L('Hapus alamat ini?', 'Delete this address?'))) return;
     const res = await api.delete('addresses', id);
     if (res.success) {
       setAddresses((prev) => prev.filter((a) => a.id !== id));
-      addLog('Alamat berhasil dihapus.', 'info');
-    }
+      addLog(L('[DATA] Alamat dihapus.', '[DATA] Address deleted.'), 'info');
+    } else toast.show(failMsg(res));
   };
 
+  const accountQuota = currentUser?.role === 'admin' ? 999 : currentUser?.max_accounts || 5;
+
   const handleSaveAccount = async (data: Partial<ShopeeAccount>) => {
-    if (activeAccount?.id) {
-      const res = await api.put<ShopeeAccount>('shopee-accounts', activeAccount.id, data);
-      if (res.success && res.data) {
-        setAccounts((prev) => prev.map((a) => (a.id === activeAccount.id ? res.data! : a)));
-        addLog(`Akun "${res.data.nickname}" berhasil diperbarui.`, 'success');
-      }
-    } else {
-      const allowedMax = currentUser?.role === 'admin' ? 999 : (currentUser?.max_accounts || 5);
-      if (accounts.length >= allowedMax) {
-        alert(
-          `Batas kuota akun untuk paket lisensi Anda telah tercapai (Maksimal ${allowedMax} Akun).\n\n` +
-          `Silakan hubungi Telegram @mrpangeranz untuk perpanjangan atau upgrade kuota lisensi!`
-        );
-        addLog(`[Batas Kuota Lisensi] Gagal menambah akun: Kuota ${allowedMax} akun penuh. Hubungi Telegram @mrpangeranz.`, 'error');
-        return;
-      }
-      const res = await api.post<ShopeeAccount>('shopee-accounts', data);
-      if (res.success && res.data) {
-        setAccounts((prev) => [res.data!, ...prev]);
-        addLog(`Akun "${res.data.nickname}" berhasil ditambahkan.`, 'success');
-      }
+    const editingId = activeAccount?.id;
+    if (!editingId && accounts.length >= accountQuota) {
+      addLog(L(`[LISENSI] Kuota akun penuh (${accountQuota}). Upgrade paket untuk menambah slot.`, `[LICENSE] Account quota full (${accountQuota}). Upgrade your plan for more slots.`), 'error');
+      throw new Error(L(`Kuota akun paket kamu penuh (maks. ${accountQuota} akun). Hubungi Telegram @mrpangeranz untuk upgrade.`, `Your plan's account quota is full (max ${accountQuota}). Contact Telegram @mrpangeranz to upgrade.`));
     }
+    const res = editingId ? await api.put<ShopeeAccount>('shopee-accounts', editingId, data) : await api.post<ShopeeAccount>('shopee-accounts', data);
+    if (!res.success || !res.data) throw new Error(failMsg(res));
+    const saved = res.data;
+    setAccounts((prev) => (editingId ? prev.map((a) => (a.id === editingId ? saved : a)) : [saved, ...prev]));
+    if (!editingId && !selectedAccountId) handleSelectAccount(saved.id);
+    addLog(editingId ? L(`[DATA] Akun "${saved.nickname}" diperbarui.`, `[DATA] Account "${saved.nickname}" updated.`) : L(`[DATA] Akun "${saved.nickname}" ditambahkan.`, `[DATA] Account "${saved.nickname}" added.`), 'success');
   };
 
   const handleDeleteAccount = async (id: string) => {
-    if (!confirm('Hapus akun ini?')) return;
+    if (!confirm(L('Hapus akun ini?', 'Delete this account?'))) return;
     const res = await api.delete('shopee-accounts', id);
     if (res.success) {
       setAccounts((prev) => prev.filter((a) => a.id !== id));
-      addLog('Akun berhasil dihapus.', 'info');
-    }
+      addLog(L('[DATA] Akun dihapus.', '[DATA] Account deleted.'), 'info');
+    } else toast.show(failMsg(res));
   };
 
   const handleSaveBulkAccounts = async (bulkData: Partial<ShopeeAccount>[]) => {
     if (!bulkData || bulkData.length === 0) return;
-    const allowedMax = currentUser?.role === 'admin' ? 999 : (currentUser?.max_accounts || 15);
-    const availableSlots = Math.max(0, allowedMax - accounts.length);
+    const availableSlots = Math.max(0, accountQuota - accounts.length);
     if (availableSlots <= 0) {
-      alert(`Batas kuota akun Anda (${allowedMax} akun) telah penuh. Silakan upgrade lisensi untuk menambah slot akun.`);
-      addLog(`[Batas Kuota] Gagal impor massal: batas ${allowedMax} akun tercapai.`, 'error');
-      return;
+      throw new Error(L(`Kuota akun penuh (maks. ${accountQuota}). Upgrade paket untuk menambah slot.`, `Account quota full (max ${accountQuota}). Upgrade your plan for more slots.`));
     }
-
     const itemsToImport = bulkData.slice(0, availableSlots);
-    addLog(`🚀 Memproses impor massal ${itemsToImport.length} akun Shopee ke database...`, 'info');
-
-    const res = await api.post<{ total_imported: number; items: ShopeeAccount[] }>(
-      'shopee-accounts/bulk',
-      itemsToImport
-    );
-
+    addLog(L(`[DATA] Mengimpor ${itemsToImport.length} akun Shopee…`, `[DATA] Importing ${itemsToImport.length} Shopee accounts…`), 'info');
+    const res = await api.post<{ total_imported: number; items: ShopeeAccount[] }>('shopee-accounts/bulk', itemsToImport);
+    let imported: ShopeeAccount[] = [];
     if (res.success && res.data?.items) {
-      setAccounts((prev) => [...res.data!.items, ...prev]);
-      addLog(`✅ Berhasil mengimpor ${res.data.items.length} akun Shopee sekaligus!`, 'success');
+      imported = res.data.items;
     } else {
-      // Fallback sequential
-      let count = 0;
       for (const item of itemsToImport) {
-        const singleRes = await api.post<ShopeeAccount>('shopee-accounts', item);
-        if (singleRes.success && singleRes.data) {
-          setAccounts((prev) => [singleRes.data!, ...prev]);
-          count++;
-        }
+        const single = await api.post<ShopeeAccount>('shopee-accounts', item);
+        if (single.success && single.data) imported.push(single.data);
       }
-      addLog(`✅ Selesai mengimpor ${count} akun Shopee ke database.`, 'success');
     }
+    if (!imported.length) throw new Error(failMsg(res));
+    setAccounts((prev) => [...imported, ...prev]);
+    if (!selectedAccountId) handleSelectAccount(imported[0].id);
+    const skipped = bulkData.length - itemsToImport.length;
+    addLog(
+      L(`[DATA] ${imported.length} akun berhasil diimpor${skipped > 0 ? `, ${skipped} dilewati karena kuota` : ''}.`, `[DATA] ${imported.length} accounts imported${skipped > 0 ? `, ${skipped} skipped (quota)` : ''}.`),
+      'success'
+    );
   };
 
   const handleSaveTargetUrl = async (data: Partial<TargetUrl>) => {
-    if (activeTargetUrl?.id) {
-      const res = await api.put<TargetUrl>('target-urls', activeTargetUrl.id, data);
-      if (res.success && res.data) {
-        setTargetUrls((prev) => prev.map((t) => (t.id === activeTargetUrl.id ? res.data! : t)));
-        addLog(`Target produk "${res.data.title}" diperbarui.`, 'success');
-      }
-    } else {
-      const res = await api.post<TargetUrl>('target-urls', data);
-      if (res.success && res.data) {
-        setTargetUrls((prev) => [res.data!, ...prev]);
-        addLog(`Target produk baru "${res.data.title}" berhasil ditambahkan.`, 'success');
-      }
-    }
+    const editingId = activeTargetUrl?.id;
+    const res = editingId ? await api.put<TargetUrl>('target-urls', editingId, data) : await api.post<TargetUrl>('target-urls', data);
+    if (!res.success || !res.data) throw new Error(failMsg(res));
+    const saved = res.data;
+    setTargetUrls((prev) => (editingId ? prev.map((t) => (t.id === editingId ? saved : t)) : [saved, ...prev]));
+    if (!editingId) handleSelectTarget(saved.id);
+    addLog(editingId ? L(`[DATA] Target "${saved.title}" diperbarui.`, `[DATA] Target "${saved.title}" updated.`) : L(`[DATA] Target "${saved.title}" ditambahkan & dipilih.`, `[DATA] Target "${saved.title}" added & selected.`), 'success');
   };
 
   const handleDeleteTargetUrl = async (id: string) => {
-    if (!confirm('Hapus target URL ini?')) return;
+    if (!confirm(L('Hapus target ini?', 'Delete this target?'))) return;
     const res = await api.delete('target-urls', id);
     if (res.success) {
       setTargetUrls((prev) => prev.filter((t) => t.id !== id));
-      addLog('Target URL berhasil dihapus.', 'info');
-    }
+      addLog(L('[DATA] Target dihapus.', '[DATA] Target deleted.'), 'info');
+    } else toast.show(failMsg(res));
   };
 
   const handleSaveProxy = async (data: Partial<ProxyMesh>) => {
-    if (activeProxy?.id) {
-      const res = await api.put<ProxyMesh>('proxies', activeProxy.id, data);
-      if (res.success && res.data) {
-        setProxies((prev) => prev.map((p) => (p.id === activeProxy.id ? res.data! : p)));
-        addLog(`Proxy ${res.data.host} diperbarui.`, 'success');
-      }
-    } else {
-      const res = await api.post<ProxyMesh>('proxies', data);
-      if (res.success && res.data) {
-        setProxies((prev) => [res.data!, ...prev]);
-        addLog(`Proxy ${res.data.host} berhasil ditambahkan.`, 'success');
-      }
-    }
+    const editingId = activeProxy?.id;
+    const res = editingId ? await api.put<ProxyMesh>('proxies', editingId, data) : await api.post<ProxyMesh>('proxies', data);
+    if (!res.success || !res.data) throw new Error(failMsg(res));
+    const saved = res.data;
+    setProxies((prev) => (editingId ? prev.map((p) => (p.id === editingId ? saved : p)) : [saved, ...prev]));
+    addLog(L(`[PROXY] ${saved.host}:${saved.port} disimpan.`, `[PROXY] ${saved.host}:${saved.port} saved.`), 'success');
   };
 
   const handleDeleteProxy = async (id: string) => {
+    if (!confirm(L('Hapus proxy ini?', 'Delete this proxy?'))) return;
     const res = await api.delete('proxies', id);
     if (res.success) {
       setProxies((prev) => prev.filter((p) => p.id !== id));
-      addLog('Proxy dihapus.', 'info');
+      addLog(L('[PROXY] Proxy dihapus.', '[PROXY] Proxy deleted.'), 'info');
+    } else toast.show(failMsg(res));
+  };
+
+  const [testingProxyId, setTestingProxyId] = useState<string | null>(null);
+  const handleTestProxy = async (p: ProxyMesh) => {
+    setTestingProxyId(p.id);
+    addLog(L(`[PROXY] Tes ${p.host}:${p.port} → tunnel ke Shopee ${p.region || ''}…`, `[PROXY] Testing ${p.host}:${p.port} → tunnel to Shopee ${p.region || ''}…`), 'info');
+    const res = await api.testProxy(p.id);
+    setTestingProxyId(null);
+    if (res.success && res.data) {
+      const d = res.data;
+      if (d.proxy) setProxies((prev) => prev.map((x) => (x.id === p.id ? d.proxy : x)));
+      addLog(
+        d.ok
+          ? L(`[PROXY] ${p.host}:${p.port} AKTIF · tunnel ke ${d.target} ${d.latency_ms} ms`, `[PROXY] ${p.host}:${p.port} ACTIVE · tunnel to ${d.target} ${d.latency_ms} ms`)
+          : L(`[PROXY] ${p.host}:${p.port} MATI · ${d.detail} (${d.latency_ms} ms)`, `[PROXY] ${p.host}:${p.port} DEAD · ${d.detail} (${d.latency_ms} ms)`),
+        d.ok ? 'success' : 'error'
+      );
+    } else {
+      addLog(`[PROXY] ${failMsg(res)}`, 'error');
     }
   };
 
   const handleSaveSchedule = async (data: Partial<Schedule>) => {
-    if (activeSchedule?.id) {
-      const res = await api.put<Schedule>('schedules', activeSchedule.id, data);
-      if (res.success && res.data) {
-        setSchedules((prev) => prev.map((s) => (s.id === activeSchedule.id ? res.data! : s)));
-        addLog(`Jadwal "${res.data.title}" diperbarui.`, 'success');
-      }
-    } else {
-      const res = await api.post<Schedule>('schedules', data);
-      if (res.success && res.data) {
-        setSchedules((prev) => [res.data!, ...prev]);
-        addLog(`Jadwal "${res.data.title}" berhasil disimpan.`, 'success');
-      }
-    }
+    const editingId = activeSchedule?.id;
+    const res = editingId ? await api.put<Schedule>('schedules', editingId, data) : await api.post<Schedule>('schedules', data);
+    if (!res.success || !res.data) throw new Error(failMsg(res));
+    const saved = res.data;
+    setSchedules((prev) => (editingId ? prev.map((s) => (s.id === editingId ? saved : s)) : [saved, ...prev]));
+    addLog(L(`[JADWAL] "${saved.title}" disimpan.`, `[SCHEDULE] "${saved.title}" saved.`), 'success');
   };
 
   const handleDeleteSchedule = async (id: string) => {
+    if (!confirm(L('Hapus jadwal ini?', 'Delete this schedule?'))) return;
     const res = await api.delete('schedules', id);
     if (res.success) {
       setSchedules((prev) => prev.filter((s) => s.id !== id));
-      addLog('Jadwal dihapus.', 'info');
-    }
+      addLog(L('[JADWAL] Jadwal dihapus.', '[SCHEDULE] Schedule deleted.'), 'info');
+    } else toast.show(failMsg(res));
   };
 
   const handleUpdatePayment = async (data: Partial<ShopeePayment>) => {
     const payId = paymentSettings?.id || `pay_${currentUser?.id || 'main'}`;
     const res = await api.put<ShopeePayment>('shopee-payments', payId, data);
-    if (res.success && res.data) {
-      setPaymentSettings(res.data);
-      addLog('Pengaturan pembayaran & Telegram berhasil disimpan.', 'success');
+    if (!res.success || !res.data) {
+      toast.show(failMsg(res));
+      throw new Error(failMsg(res));
     }
+    setPaymentSettings(res.data);
+    addLog(L('[DATA] Pengaturan pembayaran & notifikasi disimpan.', '[DATA] Payment & notification settings saved.'), 'success');
   };
 
   // Cloud Data Synchronization Trigger
   const handleRunMigration = async (force = false) => {
     // force=true menimpa data cloud dengan seed lokal — tombol admin selalu memakai false
     setIsMigrating(true);
-    addLog('Menjalankan sinkronisasi data cloud...', 'info');
+    addLog(L('[CLOUD] Menjalankan sinkronisasi data cloud…', '[CLOUD] Running cloud data sync…'), 'info');
     try {
       const res = await api.runMigration(force);
       if (res.success) {
-        addLog('Sinkronisasi data cloud berhasil 100%!', 'success');
+        addLog(L('[CLOUD] Sinkronisasi selesai.', '[CLOUD] Sync finished.'), 'success');
         await loadUserData();
       } else {
-        addLog(`Sinkronisasi gagal: ${res.error?.message}`, 'error');
+        addLog(L(`[CLOUD] Sinkronisasi gagal: ${res.error?.message}`, `[CLOUD] Sync failed: ${res.error?.message}`), 'error');
       }
     } catch (err: any) {
-      addLog(`Sinkronisasi error: ${err.message}`, 'error');
+      addLog(`[CLOUD] Error: ${err.message}`, 'error');
     }
     setIsMigrating(false);
   };
@@ -1082,7 +1196,7 @@ export const App: React.FC = () => {
     a.download = `shopee-bot-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    addLog('Konfigurasi bot berhasil di-export ke file JSON.', 'success');
+    addLog(L('[DATA] Backup konfigurasi diunduh (JSON).', '[DATA] Settings backup downloaded (JSON).'), 'success');
   };
 
   const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1090,12 +1204,46 @@ export const App: React.FC = () => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async (evt) => {
+      let parsed: any;
       try {
-        const parsed = JSON.parse(evt.target?.result as string);
-        if (parsed.botSettings) setBotSettings(parsed.botSettings);
-        addLog('Data konfigurasi bot berhasil di-import.', 'success');
+        parsed = JSON.parse(String(evt.target?.result || ''));
+        if (!parsed || typeof parsed !== 'object') throw new Error('format');
       } catch (err: any) {
-        alert('File JSON tidak valid: ' + err.message);
+        toast.show(L('File backup tidak valid', 'Invalid backup file'));
+        addLog(L(`[DATA] File backup tidak valid: ${err.message}`, `[DATA] Invalid backup file: ${err.message}`), 'error');
+        return;
+      }
+      if (parsed.botSettings && typeof parsed.botSettings === 'object') setBotSettings((prev) => normalizeSettings({ ...prev, ...parsed.botSettings }));
+      // Pulihkan data yang belum ada (berdasarkan id) — tidak menimpa data yang sudah ada
+      const groups: { key: string; table: string; current: { id: string }[]; setter: (fn: (p: any[]) => any[]) => void; label: string }[] = [
+        { key: 'targetUrls', table: 'target-urls', current: targetUrls, setter: setTargetUrls as any, label: L('target', 'targets') },
+        { key: 'accounts', table: 'shopee-accounts', current: accounts, setter: setAccounts as any, label: L('akun', 'accounts') },
+        { key: 'addresses', table: 'addresses', current: addresses, setter: setAddresses as any, label: L('alamat', 'addresses') },
+        { key: 'proxies', table: 'proxies', current: proxies, setter: setProxies as any, label: 'proxy' },
+        { key: 'schedules', table: 'schedules', current: schedules, setter: setSchedules as any, label: L('jadwal', 'schedules') },
+      ];
+      const plan = groups
+        .map((g) => {
+          const have = new Set(g.current.map((x) => x.id));
+          const list = Array.isArray(parsed[g.key]) ? parsed[g.key].filter((x: any) => x && typeof x === 'object' && !have.has(x.id)) : [];
+          return { ...g, list };
+        })
+        .filter((g) => g.list.length);
+      if (!plan.length) {
+        addLog(L('[DATA] Pengaturan bot dipulihkan. Tidak ada data baru untuk ditambahkan.', '[DATA] Bot settings restored. No new data to add.'), 'success');
+        return;
+      }
+      const summary = plan.map((g) => `${g.list.length} ${g.label}`).join(', ');
+      if (!confirm(L(`Pulihkan dari backup: ${summary}?`, `Restore from backup: ${summary}?`))) return;
+      for (const g of plan) {
+        const items = g.list.map(({ id, user_id, created_at, updated_at, ...rest }: any) => rest);
+        const res = await api.post<{ items: any[] }>(`${g.table}/bulk`, items);
+        if (res.success && res.data?.items) {
+          g.setter((prev) => [...res.data!.items, ...prev]);
+          addLog(L(`[DATA] ${res.data.items.length} ${g.label} dipulihkan.`, `[DATA] ${res.data.items.length} ${g.label} restored.`), 'success');
+        } else {
+          addLog(L(`[DATA] Gagal memulihkan ${g.label}: ${res.error?.message || 'error'}`, `[DATA] Failed to restore ${g.label}: ${res.error?.message || 'error'}`), 'error');
+        }
       }
     };
     reader.readAsText(file);
@@ -1115,18 +1263,18 @@ export const App: React.FC = () => {
 
   const handleRequestNotification = () => {
     if (!('Notification' in window)) {
-      toast.show('Browser ini tidak mendukung notifikasi');
+      toast.show(L('Browser ini tidak mendukung notifikasi', 'This browser does not support notifications'));
       return;
     }
     Notification.requestPermission().then((permission) => {
       setNotifState(permission);
       if (permission === 'granted') {
-        addLog('Notifikasi browser/HP berhasil diaktifkan!', 'success');
+        addLog(L('[SYSTEM] Notifikasi browser aktif.', '[SYSTEM] Browser notifications enabled.'), 'success');
         try {
-          new Notification('GaneMaX.Ai', { body: 'Notifikasi aktif. Kamu akan dapat kabar saat checkout selesai.' });
+          new Notification('GaneMaX.Ai', { body: L('Notifikasi aktif.', 'Notifications enabled.') });
         } catch {}
       } else {
-        toast.show('Izin notifikasi ditolak di browser');
+        toast.show(L('Izin notifikasi ditolak di browser', 'Notification permission denied by the browser'));
       }
     });
   };
@@ -1174,6 +1322,10 @@ export const App: React.FC = () => {
   const controlPanelProps = {
     currentUser,
     targetUrls,
+    accounts,
+    addresses,
+    proxies,
+    schedules,
     paymentSettings,
     botSettings,
     isBotRunning,
@@ -1190,7 +1342,37 @@ export const App: React.FC = () => {
     onDeleteTargetUrl: handleDeleteTargetUrl,
     selectedTargetId: selectedTarget?.id || '',
     onSelectTarget: handleSelectTarget,
+    selectedAccountId: selectedAccount?.id || '',
+    onSelectAccount: handleSelectAccount,
+    onOpenAccountModal: (a?: ShopeeAccount) => {
+      setActiveAccount(a || null);
+      setAccountModalOpen(true);
+    },
+    onOpenBulkAccountModal: () => setBulkAccountModalOpen(true),
+    onDeleteAccount: handleDeleteAccount,
+    selectedAddressId: selectedAddress?.id || '',
+    onSelectAddress: handleSelectAddress,
+    onOpenAddressModal: (a?: Address) => {
+      setActiveAddress(a || null);
+      setAddressModalOpen(true);
+    },
+    onDeleteAddress: handleDeleteAddress,
+    onOpenProxyModal: (px?: ProxyMesh) => {
+      setActiveProxy(px || null);
+      setProxyModalOpen(true);
+    },
+    onDeleteProxy: handleDeleteProxy,
+    onTestProxy: handleTestProxy,
+    testingProxyId,
+    onOpenScheduleModal: (sc?: Schedule) => {
+      setActiveSchedule(sc || null);
+      setScheduleModalOpen(true);
+    },
+    onDeleteSchedule: handleDeleteSchedule,
+    onUseSchedule: handleUseSchedule,
     onRequestNotification: handleRequestNotification,
+    maxThreads: licenseThreadCap,
+    effectiveLeadMs: openLeadMs,
   };
 
   return (
@@ -1224,6 +1406,8 @@ export const App: React.FC = () => {
             clock={clock}
             targets={targetUrls}
             selectedTarget={selectedTarget}
+            selectedAccountId={selectedAccount?.id || ''}
+            selectedAddressId={selectedAddress?.id || ''}
             onSelectTarget={handleSelectTarget}
             accounts={accounts}
             addresses={addresses}
@@ -1267,8 +1451,8 @@ export const App: React.FC = () => {
           <>
             <div className="gx-pagehead">
               <div>
-                <h1>Target</h1>
-                <p>Produk incaran dan notifikasi hasil war.</p>
+                <h1>{L('Target & akun', 'Targets & accounts')}</h1>
+                <p>{L('Produk incaran, akun Shopee, alamat, dan pembayaran.', 'Target products, Shopee accounts, addresses and payment.')}</p>
               </div>
             </div>
             <ControlPanel {...controlPanelProps} section="setup" />
@@ -1280,7 +1464,7 @@ export const App: React.FC = () => {
             <div className="gx-pagehead">
               <div>
                 <h1>Engine</h1>
-                <p>Wilayah Shopee dan pengaturan pembukaan di detik 0.</p>
+                <p>{L('Wilayah ASEAN, bahasa, jadwal, proxy, dan parameter eksekusi.', 'ASEAN region, language, schedules, proxies and execution parameters.')}</p>
               </div>
             </div>
             <ControlPanel {...controlPanelProps} section="engine" />
@@ -1397,7 +1581,7 @@ export const App: React.FC = () => {
         state={fireState}
         clock={clock}
         onOpen={(href) => {
-          addLog('[OPEN] Shopee dibuka lewat tombol.', 'success');
+          addLog(L('[OPEN] Shopee dibuka lewat tombol.', '[OPEN] Shopee opened via button.'), 'success');
           if (href.startsWith('intent:')) window.location.href = href;
           else {
             const w = window.open(href, '_blank');

@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { QrCode, X, Copy, Check, Send } from 'lucide-react';
+import { LICENSE_TIERS, formatRp } from '../constants/licenses.ts';
+import { useLang } from '../lib/i18n.tsx';
 
 interface PaymentGatewayModalProps {
   isOpen: boolean;
@@ -6,194 +9,108 @@ interface PaymentGatewayModalProps {
   username: string;
 }
 
-export const PaymentGatewayModal: React.FC<PaymentGatewayModalProps> = ({
-  isOpen,
-  onClose,
-  username,
-}) => {
-  const [selectedPlan, setSelectedPlan] = useState<string>('30_hari');
+export const PaymentGatewayModal: React.FC<PaymentGatewayModalProps> = ({ isOpen, onClose, username }) => {
+  const { L } = useLang();
+  const [selectedPlan, setSelectedPlan] = useState<string>(LICENSE_TIERS[0].id);
   const [targetUsername, setTargetUsername] = useState<string>(username || '');
-  const [copiedFormat, setCopiedFormat] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTargetUsername(username || '');
+      setCopied(false);
+    }
+  }, [isOpen, username]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const plans = [
-    { id: '30_hari', price: 150000, label: '1 Bulan Pro', desc: '30 Hari Akses' },
-    { id: '60_hari', price: 250000, label: '2 Bulan Hemat', desc: '60 Hari Akses' },
-    { id: '365_hari', price: 1000000, label: '1 Tahun VIP', desc: '12 Bulan Penuh' },
-    { id: 'lifetime', price: 3300000, label: 'Unlimited Permanen', desc: 'Permanen Selamanya' },
-  ];
+  const plan = LICENSE_TIERS.find((p) => p.id === selectedPlan) || LICENSE_TIERS[0];
 
-  const currentPlan = plans.find((p) => p.id === selectedPlan) || plans[0];
+  const message =
+    `Halo Admin GaneMaX.Ai (@mrpangeranz), saya sudah bayar lisensi bot flash sale:\n\n` +
+    `• Username: ${targetUsername.trim() || '(buatkan username baru)'}\n` +
+    `• Paket: ${plan.label}\n` +
+    `• Total: ${formatRp(plan.price)}\n\n` +
+    `Bukti transfer QRIS terlampir. Terima kasih!`;
 
-  const getConfirmationMessage = () => {
-    return (
-      `Halo Admin GaneMaX AI (@mrpangeranz), saya telah melakukan pembayaran lisensi bot Shopee Flash Sale:\n\n` +
-      `• Username Tujuan: ${targetUsername || username || '(Tolong buatkan username baru)'}\n` +
-      `• Pilihan Paket: ${currentPlan.label}\n` +
-      `• Total Transfer: Rp ${currentPlan.price.toLocaleString('id-ID')}\n\n` +
-      `Bukti transfer QRIS terlampir. Mohon kirimkan akun lisensi (username & password) bot saya ya kak. Terima kasih!`
-    );
-  };
-
-  const handleConfirmTelegram = () => {
-    const text = encodeURIComponent(getConfirmationMessage());
-    window.open(`https://t.me/mrpangeranz`, '_blank');
-  };
-
-  const handleCopyFormat = () => {
-    navigator.clipboard.writeText(getConfirmationMessage());
-    setCopiedFormat(true);
-    setTimeout(() => setCopiedFormat(false), 2500);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopied(false);
+    }
   };
 
   return (
-    <div className="modern-modal-overlay active" id="modalPaymentGateway">
-      <div className="modern-modal-box">
-        {/* Header */}
-        <div className="modern-modal-header">
-          <div className="modern-modal-title-group">
-            <div className="modern-icon-badge qris-badge">
-              <i className="fa-solid fa-qrcode"></i>
-            </div>
-            <div>
-              <h3 className="modern-modal-title">Sewa & Aktivasi Lisensi</h3>
-              <p className="modern-modal-desc">QRIS All Payment Indonesia</p>
-            </div>
+    <div className="gx-overlay gx-overlay--center" onClick={onClose}>
+      <div className="gx-dialog" style={{ width: 'min(480px, 100%)' }} role="dialog" aria-modal="true" aria-label={L('Sewa lisensi', 'Rent a license')} onClick={(e) => e.stopPropagation()}>
+        <div className="gx-dialog__head">
+          <span className="gx-qa__icon" style={{ width: 34, height: 34, borderRadius: 11 }}>
+            <QrCode size={17} />
+          </span>
+          <div>
+            <h3>{L('Sewa & aktivasi lisensi', 'Rent & activate a license')}</h3>
+            <div className="gx-muted" style={{ fontSize: 12 }}>QRIS · {L('semua e-wallet & bank Indonesia', 'all Indonesian e-wallets & banks')}</div>
           </div>
-          <button className="modern-modal-close" onClick={onClose} aria-label="Tutup modal">
-            <i className="fa-solid fa-xmark"></i>
+          <button type="button" className="gx-iconbtn" style={{ marginLeft: 'auto' }} onClick={onClose} aria-label={L('Tutup', 'Close')}>
+            <X size={16} />
           </button>
         </div>
-
-        {/* Content Body */}
-        <div className="modern-modal-body">
-          {/* Plan Selector */}
-          <div className="modern-plan-selector" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px' }}>
-            {plans.map((p) => (
-              <div
+        <div className="gx-dialog__body">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+            {LICENSE_TIERS.map((p) => (
+              <button
                 key={p.id}
-                className={`modern-plan-card ${selectedPlan === p.id ? 'selected' : ''}`}
+                type="button"
+                className={`gx-qa__btn ${selectedPlan === p.id ? 'gx-qa__btn--on' : ''}`}
+                style={{ padding: '10px 8px', gap: 2 }}
                 onClick={() => setSelectedPlan(p.id)}
-                style={{ padding: '8px 10px', textAlign: 'center', cursor: 'pointer' }}
+                aria-pressed={selectedPlan === p.id}
               >
-                <div className="modern-plan-label" style={{ fontSize: '11px', fontWeight: 700 }}>{p.label}</div>
-                <div className="modern-plan-price" style={{ fontSize: '13px', fontWeight: 800, margin: '2px 0' }}>
-                  Rp {p.price.toLocaleString('id-ID')}
-                </div>
-                <div className="modern-plan-sub" style={{ fontSize: '10px', color: '#64748b' }}>{p.desc}</div>
-              </div>
+                <span style={{ fontSize: 12 }}>{p.short}</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--gx-ink)' }}>{p.priceRp}</span>
+                <span style={{ fontSize: 10.5, fontWeight: 600 }}>
+                  {p.maxAccounts >= 999 ? L('Akun tanpa batas', 'Unlimited accounts') : L(`${p.maxAccounts} akun`, `${p.maxAccounts} accounts`)}
+                </span>
+              </button>
             ))}
           </div>
 
-          {/* QRIS Display Container */}
-          <div className="modern-qris-card">
-            <div className="modern-qris-top-label">
-              <span>SCAN QRIS UNTUK PEMBAYARAN RESMI</span>
-              <span className="modern-qris-secure-tag">
-                <i className="fa-solid fa-shield-check"></i> Verified Merchant
-              </span>
-            </div>
-
-            <div className="modern-qris-img-wrapper">
-              <img
-                src="https://files.catbox.moe/ru49zu.jpg"
-                alt="QRIS Pembayaran GaneMaX AI"
-                className="modern-qris-image"
-                width={3264}
-                height={3252}
-                loading="eager"
-              />
-            </div>
-
-            <div className="modern-qris-supported">
-              <span>Mendukung:</span>
-              <div className="modern-payment-tags">
-                <span className="pay-pill">ShopeePay</span>
-                <span className="pay-pill">GoPay</span>
-                <span className="pay-pill">OVO</span>
-                <span className="pay-pill">Dana</span>
-                <span className="pay-pill">BCA</span>
-                <span className="pay-pill">Mandiri</span>
-                <span className="pay-pill">BRI</span>
-              </div>
-            </div>
-
-            <div className="modern-qris-total-bar">
-              <span className="total-label">Total Tagihan Paket:</span>
-              <span className="total-value" style={{ color: '#2563eb' }}>
-                Rp {currentPlan.price.toLocaleString('id-ID')}
-              </span>
+          <div style={{ border: '1px solid var(--gx-line)', borderRadius: 18, padding: 12, textAlign: 'center', background: '#fff' }}>
+            <img src="https://files.catbox.moe/ru49zu.jpg" alt="QRIS GaneMaX.Ai" style={{ width: '100%', maxWidth: 280, height: 'auto', borderRadius: 12 }} loading="eager" />
+            <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#0b1533', fontSize: 13 }}>
+              <span>{L('Total tagihan', 'Total')}</span>
+              <b style={{ fontSize: 18, color: '#2f6bff' }}>{formatRp(plan.price)}</b>
             </div>
           </div>
 
-          {/* Petunjuk Telegram */}
-          <div
-            style={{
-              marginTop: '14px',
-              padding: '12px 14px',
-              background: '#f0f9ff',
-              border: '1px solid #bae6fd',
-              borderRadius: '12px',
-              fontSize: '12px',
-              color: '#0369a1',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '10px',
-            }}
-          >
-            <i className="fa-brands fa-telegram" style={{ fontSize: '18px', color: '#0284c7', marginTop: '2px' }}></i>
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: '2px' }}>Langkah Aktivasi Lisensi Bot:</div>
-              <div>
-                1. Scan QRIS di atas sesuai nominal paket (<b>Rp {currentPlan.price.toLocaleString('id-ID')}</b>).<br />
-                2. DM Telegram <b>@mrpangeranz</b> untuk mengirimkan bukti transfer.<br />
-                3. Admin akan langsung memberikan <b>Username & Password</b> lisensi aktif Anda.
-              </div>
-            </div>
-          </div>
+          <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: 'var(--gx-ink-2)', lineHeight: 1.6 }}>
+            <li>{L(`Scan QRIS dan bayar ${formatRp(plan.price)}.`, `Scan the QRIS and pay ${formatRp(plan.price)}.`)}</li>
+            <li>{L('Kirim bukti transfer ke Telegram @mrpangeranz.', 'Send the payment proof to Telegram @mrpangeranz.')}</li>
+            <li>{L('Admin mengirim username & password lisensi kamu.', 'Admin sends your license username & password.')}</li>
+          </ol>
 
-          {/* Form Username confirmation */}
-          <div className="modern-field" style={{ marginTop: '14px' }}>
-            <label className="modern-field-label">
-              Request Username Akun (Opsional jika pengguna baru):
-            </label>
-            <div className="modern-input-wrapper">
-              <i className="fa-solid fa-user modern-input-icon"></i>
-              <input
-                type="text"
-                className="modern-input"
-                value={targetUsername}
-                onChange={(e) => setTargetUsername(e.target.value)}
-                placeholder="Contoh: username_pilihan"
-              />
-            </div>
-          </div>
+          <label className="gx-field">
+            <span>{L('Username yang diinginkan (opsional)', 'Preferred username (optional)')}</span>
+            <input value={targetUsername} onChange={(e) => setTargetUsername(e.target.value)} placeholder={L('contoh: buyer_war88', 'e.g. buyer_war88')} />
+          </label>
         </div>
-
-        {/* Modal Actions */}
-        <div className="modern-modal-footer" style={{ gap: '8px', flexWrap: 'wrap' }}>
-          <button type="button" className="modern-btn-ghost" onClick={onClose}>
-            Tutup
+        <div className="gx-dialog__foot" style={{ flexWrap: 'wrap' }}>
+          <button type="button" className="gx-btn gx-btn--sm" onClick={copy}>
+            {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? L('Tersalin', 'Copied') : L('Salin format chat', 'Copy chat template')}
           </button>
-          <button
-            type="button"
-            className="modern-btn-ghost"
-            onClick={handleCopyFormat}
-            style={{ borderColor: '#bae6fd', color: '#0369a1', fontWeight: 600 }}
-          >
-            <i className={`fa-solid ${copiedFormat ? 'fa-check' : 'fa-copy'}`}></i>{' '}
-            {copiedFormat ? 'Format Tersalin!' : 'Salin Format Chat'}
-          </button>
-          <button
-            type="button"
-            className="modern-btn-confirm"
-            onClick={handleConfirmTelegram}
-            style={{ background: '#0284c7', borderColor: '#0284c7' }}
-          >
-            <i className="fa-brands fa-telegram"></i>
-            <span>DM Telegram @mrpangeranz</span>
-          </button>
+          <a className="gx-btn gx-btn--sm gx-btn--primary" href="https://t.me/mrpangeranz" target="_blank" rel="noopener noreferrer">
+            <Send size={14} /> Telegram @mrpangeranz
+          </a>
         </div>
       </div>
     </div>

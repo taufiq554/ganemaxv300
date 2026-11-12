@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { X, FileUp, Check, CircleAlert } from 'lucide-react';
 import { ShopeeAccount, AseanCountryCode } from '../types/index.ts';
-import { ASEAN_REGIONS, ALL_ASEAN_CODES } from '../constants/asean.ts';
+import { ASEAN_REGIONS, ALL_ASEAN_CODES, isAseanCode } from '../constants/asean.ts';
+import { useLang } from '../lib/i18n.tsx';
 
 interface BulkAccountModalProps {
   isOpen: boolean;
@@ -17,311 +19,167 @@ interface ParsedAccount {
   region: AseanCountryCode;
   cookies?: string;
   isValid: boolean;
-  note?: string;
+  note: string;
 }
 
-export const BulkAccountModal: React.FC<BulkAccountModalProps> = ({
-  isOpen,
-  onClose,
-  onSaveBulk,
-  defaultRegion = 'ID',
-}) => {
+export const BulkAccountModal: React.FC<BulkAccountModalProps> = ({ isOpen, onClose, onSaveBulk, defaultRegion = 'ID' }) => {
+  const { L } = useLang();
   const [rawText, setRawText] = useState('');
   const [targetRegion, setTargetRegion] = useState<AseanCountryCode>(defaultRegion);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [inputMode, setInputMode] = useState<'pipe' | 'cookies'>('pipe');
+  const [mode, setMode] = useState<'pipe' | 'cookies'>('pipe');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setRawText('');
+      setError(null);
+      setTargetRegion(defaultRegion);
+    }
+  }, [isOpen, defaultRegion]);
+
+  const parsed = useMemo<ParsedAccount[]>(() => {
+    if (!rawText.trim()) return [];
+    const out: ParsedAccount[] = [];
+    for (const raw of rawText.split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#') || line.startsWith('//')) continue;
+      if (mode === 'pipe') {
+        const parts = (line.includes('|') ? line.split('|') : line.split(',')).map((x) => x.trim());
+        const [u = '', pw = '', pin = '', rRaw = ''] = parts;
+        const r = isAseanCode(rRaw.toUpperCase()) ? (rRaw.toUpperCase() as AseanCountryCode) : targetRegion;
+        let note = L('Siap diimpor', 'Ready');
+        let ok = true;
+        if (u.length < 3 || pw.length < 4) {
+          ok = false;
+          note = L('Username min. 3, password min. 4 karakter', 'Username min 3, password min 4 chars');
+        } else if (pin && !/^\d{6}$/.test(pin)) {
+          ok = false;
+          note = L('PIN harus 6 digit', 'PIN must be 6 digits');
+        }
+        out.push({ nickname: u, username: u, password: pw, pin: pin || undefined, region: r, isValid: ok, note });
+      } else {
+        let u = `shopee_${out.length + 1}`;
+        let cookies = line;
+        if (line.includes(';') && !line.startsWith('SPC_')) {
+          const i = line.indexOf(';');
+          u = line.slice(0, i).trim();
+          cookies = line.slice(i + 1).trim();
+        }
+        const ok = /SPC_(EC|U|ST)=/.test(cookies);
+        out.push({ nickname: u, username: u, region: targetRegion, cookies, isValid: ok, note: ok ? L('Cookie sesi terdeteksi', 'Session cookie detected') : L('Cookie belum lengkap', 'Incomplete cookie') });
+      }
+    }
+    return out;
+  }, [rawText, mode, targetRegion, L]);
+
+  const valid = parsed.filter((a) => a.isValid);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose();
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, busy, onClose]);
 
   if (!isOpen) return null;
 
-  const handleInsertTemplate = () => {
-    if (inputMode === 'pipe') {
-      setRawText(
-        `# Format: username|password|pin_shopeepay|wilayah\n` +
-        `user_flashsale_01|RahasiaShopee123!|123456|ID\n` +
-        `buyer_turbo_id|AkunJuara999#|888999|ID\n` +
-        `sniper_asean_sg|PasswordSg2026@|112233|SG\n` +
-        `shopee_hunter_my|KuponFlashMY#1|556677|MY`
-      );
-    } else {
-      setRawText(
-        `# Paste Cookie Shopee (satu baris per akun atau JSON session)\n` +
-        `username_acc1; SPC_EC=abc123456789xyz; SPC_U=10928374; SPC_T_ID=def456\n` +
-        `username_acc2; SPC_EC=987654321cba; SPC_U=20394857; SPC_T_ID=fed654`
-      );
-    }
-  };
+  const template = () =>
+    setRawText(
+      mode === 'pipe'
+        ? `# ${L('Format', 'Format')}: username|password|pin_shopeepay|${L('wilayah', 'region')}\nakun_war_01|PasswordKamu1|123456|ID\nakun_war_02|PasswordKamu2||MY`
+        : `# ${L('Satu baris per akun', 'One line per account')}: username; cookies\nakun_war_01; SPC_EC=...; SPC_U=...; SPC_ST=...`
+    );
 
-  // Parse lines into account records
-  const parseAccounts = (): ParsedAccount[] => {
-    if (!rawText.trim()) return [];
-    const lines = rawText.split('\n');
-    const results: ParsedAccount[] = [];
-
-    for (const rawLine of lines) {
-      const line = rawLine.trim();
-      if (!line || line.startsWith('#') || line.startsWith('//')) continue;
-
-      if (inputMode === 'pipe') {
-        // Formats: username|pass|pin|region or user,pass,pin,region
-        const parts = line.includes('|') ? line.split('|') : line.split(',');
-        const u = (parts[0] || '').trim();
-        const p = (parts[1] || '').trim();
-        const pin = (parts[2] || '').trim();
-        const rRaw = (parts[3] || '').trim().toUpperCase();
-
-        const r: AseanCountryCode = (ALL_ASEAN_CODES.includes(rRaw as AseanCountryCode)
-          ? (rRaw as AseanCountryCode)
-          : targetRegion);
-
-        const isValid = u.length >= 3 && p.length >= 4;
-        results.push({
-          nickname: u,
-          username: u,
-          password: p,
-          pin: pin || undefined,
-          region: r,
-          isValid,
-          note: !isValid ? 'Username min 3 char, password min 4' : 'Siap diimpor',
-        });
-      } else {
-        // Cookie mode
-        let u = `shopee_user_${results.length + 1}`;
-        let cookies = line;
-        if (line.includes(';') && !line.startsWith('SPC_')) {
-          const firstSemi = line.indexOf(';');
-          u = line.substring(0, firstSemi).trim();
-          cookies = line.substring(firstSemi + 1).trim();
-        }
-        const isValid = cookies.includes('SPC_') || cookies.length > 20;
-        results.push({
-          nickname: u,
-          username: u,
-          region: targetRegion,
-          cookies,
-          isValid,
-          note: isValid ? 'Session Cookie terdeteksi' : 'Format cookie tidak lengkap',
-        });
-      }
-    }
-    return results;
-  };
-
-  const parsedList = parseAccounts();
-  const validList = parsedList.filter((a) => a.isValid);
-
-  const handleExecuteImport = async () => {
-    if (validList.length === 0) return;
-    setIsSubmitting(true);
+  const submit = async () => {
+    if (!valid.length || busy) return;
+    setBusy(true);
+    setError(null);
     try {
-      const payload: Partial<ShopeeAccount>[] = validList.map((item) => ({
-        nickname: item.nickname,
-        username: item.username,
-        password: item.password || '',
-        region: item.region,
-        cookies: item.cookies || '',
-      }));
-
-      await onSaveBulk(payload);
+      await onSaveBulk(
+        valid.map((a) => ({
+          nickname: a.nickname,
+          username: a.username,
+          password: a.password || '',
+          pin: a.pin || '',
+          region: a.region,
+          cookies: a.cookies || '',
+        }))
+      );
       onClose();
-    } catch (err) {
-      console.error('Bulk import error:', err);
+    } catch (e: any) {
+      setError(e?.message || L('Impor gagal.', 'Import failed.'));
     } finally {
-      setIsSubmitting(false);
+      setBusy(false);
     }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        setRawText(content);
-      }
-    };
-    reader.readAsText(file);
   };
 
   return (
-    <div className="modal active">
-      <div className="modal-content" style={{ maxWidth: '720px' }}>
-        <div className="modal-header">
-          <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <i className="fa-solid fa-file-import text-blue-600"></i>
-            <span>Bulk Import Akun Shopee (Multi-Akun Massal)</span>
-          </div>
-          <button className="close-btn" onClick={onClose} disabled={isSubmitting}>
-            &times;
+    <div className="gx-overlay gx-overlay--center" onClick={() => !busy && onClose()}>
+      <div className="gx-dialog" style={{ width: 'min(640px, 100%)' }} role="dialog" aria-modal="true" aria-label={L('Impor akun massal', 'Bulk import accounts')} onClick={(e) => e.stopPropagation()}>
+        <div className="gx-dialog__head">
+          <span className="gx-qa__icon" style={{ width: 34, height: 34, borderRadius: 11 }}>
+            <FileUp size={17} />
+          </span>
+          <h3>{L('Impor akun massal', 'Bulk import accounts')}</h3>
+          <button type="button" className="gx-iconbtn" style={{ marginLeft: 'auto' }} onClick={onClose} disabled={busy} aria-label={L('Tutup', 'Close')}>
+            <X size={16} />
           </button>
         </div>
-
-        <div className="p-4 bg-slate-50 border-b border-slate-200">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-700">Mode Format:</span>
-              <button
-                type="button"
-                className={`px-3 py-1 text-xs rounded-lg font-bold transition-all ${
-                  inputMode === 'pipe'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-white text-slate-700 border border-slate-300'
-                }`}
-                onClick={() => setInputMode('pipe')}
-              >
-                <i className="fa-solid fa-list-check mr-1"></i> Username | Password | PIN
+        <div className="gx-dialog__body">
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="gx-seg" role="group">
+              <button type="button" aria-pressed={mode === 'pipe'} onClick={() => setMode('pipe')}>
+                username|password|PIN
               </button>
-              <button
-                type="button"
-                className={`px-3 py-1 text-xs rounded-lg font-bold transition-all ${
-                  inputMode === 'cookies'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-white text-slate-700 border border-slate-300'
-                }`}
-                onClick={() => setInputMode('cookies')}
-              >
-                <i className="fa-solid fa-cookie-bite mr-1"></i> Cookie Session (SPC_EC)
+              <button type="button" aria-pressed={mode === 'cookies'} onClick={() => setMode('cookies')}>
+                Cookies
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={handleInsertTemplate}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
-            >
-              <i className="fa-regular fa-lightbulb"></i> Sisipkan Contoh
+            <select className="gx-select" style={{ width: 'auto' }} value={targetRegion} onChange={(e) => setTargetRegion(isAseanCode(e.target.value) ? e.target.value : 'ID')} aria-label={L('Wilayah default', 'Default region')}>
+              {ALL_ASEAN_CODES.map((c) => (
+                <option key={c} value={c}>
+                  {ASEAN_REGIONS[c].name}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="gx-link" onClick={template}>
+              {L('Isi contoh format', 'Insert sample format')}
             </button>
           </div>
-
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
-            <div className="flex items-center gap-2">
-              <label className="font-semibold">Wilayah Default:</label>
-              <select
-                value={targetRegion}
-                onChange={(e) => setTargetRegion(e.target.value as AseanCountryCode)}
-                className="p-1 border border-slate-300 rounded text-xs bg-white font-medium"
-              >
-                {ALL_ASEAN_CODES.map((code) => {
-                  const reg = ASEAN_REGIONS[code];
-                  return (
-                    <option key={code} value={code}>
-                      [{reg.code}] {reg.name}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            <label className="cursor-pointer text-blue-600 hover:underline flex items-center gap-1 font-semibold">
-              <i className="fa-solid fa-upload"></i> Unggah File .txt / .csv
-              <input type="file" accept=".txt,.csv" onChange={handleFileUpload} className="hidden" />
-            </label>
-          </div>
-        </div>
-
-        <div className="p-4">
-          <label className="block text-xs font-bold text-slate-700 mb-1.5">
-            Tempelkan Daftar Akun (1 baris per akun):
+          <label className="gx-field">
+            <span>{L('Tempel daftar akun (satu per baris)', 'Paste accounts (one per line)')}</span>
+            <textarea value={rawText} onChange={(e) => setRawText(e.target.value)} style={{ minHeight: 150, fontFamily: 'var(--gx-mono)', fontSize: 12 }} spellCheck={false} />
           </label>
-          <textarea
-            value={rawText}
-            onChange={(e) => setRawText(e.target.value)}
-            rows={7}
-            placeholder={
-              inputMode === 'pipe'
-                ? `user1|pass123|123456|ID\nuser2|pass456|654321|ID\nuser3|pass789|112233|MY`
-                : `user1; SPC_EC=xxxxx; SPC_U=12345\nuser2; SPC_EC=yyyyy; SPC_U=67890`
-            }
-            className="w-full p-3 font-mono text-xs border border-slate-300 rounded-xl bg-slate-900 text-emerald-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-
-          {/* Real-time Parsed Preview */}
-          <div className="mt-3">
-            <div className="flex items-center justify-between text-xs mb-2">
-              <span className="font-bold text-slate-700">
-                Pratinjau Hasil Parsing: {parsedList.length} Akun Terdeteksi ({validList.length} Valid)
-              </span>
-              {parsedList.length > 0 && validList.length === 0 && (
-                <span className="text-rose-600 font-semibold">Format baris belum sesuai</span>
-              )}
+          {parsed.length > 0 && (
+            <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--gx-line)', borderRadius: 12, padding: '0 12px' }}>
+              <ul className="gx-list">
+                {parsed.map((a, i) => (
+                  <li key={i} className="gx-row" style={{ padding: '8px 0' }}>
+                    {a.isValid ? <Check size={15} color="var(--gx-ok)" /> : <CircleAlert size={15} color="var(--gx-bad)" />}
+                    <div className="gx-row__main">
+                      <div className="gx-row__t" style={{ fontSize: 12.5 }}>
+                        {a.username} <span className="gx-muted">· {a.region}</span>
+                        {a.pin ? <span className="gx-muted"> · PIN ✓</span> : null}
+                      </div>
+                      <div className="gx-row__s">{a.note}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
-
-            {parsedList.length > 0 && (
-              <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-inner">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-600 border-b border-slate-200">
-                      <th className="p-2 font-bold">#</th>
-                      <th className="p-2 font-bold">Username / Nickname</th>
-                      <th className="p-2 font-bold">Wilayah</th>
-                      <th className="p-2 font-bold">Kredensial</th>
-                      <th className="p-2 font-bold text-right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parsedList.map((item, idx) => (
-                      <tr
-                        key={idx}
-                        className={`border-b border-slate-100 ${
-                          item.isValid ? 'hover:bg-slate-50' : 'bg-rose-50/50'
-                        }`}
-                      >
-                        <td className="p-2 text-slate-400 font-mono">{idx + 1}</td>
-                        <td className="p-2 font-semibold text-slate-800">{item.username}</td>
-                        <td className="p-2">
-                          <span className="inline-flex items-center gap-1 font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">
-                            {item.region}
-                          </span>
-                        </td>
-                        <td className="p-2 text-slate-500 font-mono text-[11px]">
-                          {item.password ? '••••••••' : item.cookies ? 'Cookie Session' : '-'}
-                        </td>
-                        <td className="p-2 text-right">
-                          {item.isValid ? (
-                            <span className="text-emerald-600 font-bold text-[11px] inline-flex items-center gap-1">
-                              <i className="fa-solid fa-circle-check"></i> Siap
-                            </span>
-                          ) : (
-                            <span className="text-rose-600 font-bold text-[11px] inline-flex items-center gap-1">
-                              <i className="fa-solid fa-triangle-exclamation"></i> {item.note}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          )}
+          {error && <div className="gx-note gx-note--bad">{error}</div>}
         </div>
-
-        <div className="modal-actions" style={{ padding: '16px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={onClose}
-            disabled={isSubmitting}
-            style={{ width: 'auto' }}
-          >
-            Batal
+        <div className="gx-dialog__foot">
+          <span className="gx-muted" style={{ fontSize: 12, marginRight: 'auto', alignSelf: 'center' }}>
+            {valid.length}/{parsed.length} {L('valid', 'valid')}
+          </span>
+          <button type="button" className="gx-btn gx-btn--sm" onClick={onClose} disabled={busy}>
+            {L('Batal', 'Cancel')}
           </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleExecuteImport}
-            disabled={validList.length === 0 || isSubmitting}
-            style={{ width: 'auto', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-          >
-            {isSubmitting ? (
-              <>
-                <i className="fa-solid fa-spinner fa-spin"></i> Mengimpor {validList.length} Akun...
-              </>
-            ) : (
-              <>
-                <i className="fa-solid fa-bolt"></i> Impor Sekarang ({validList.length} Akun)
-              </>
-            )}
+          <button type="button" className="gx-btn gx-btn--sm gx-btn--primary" onClick={submit} disabled={busy || !valid.length}>
+            {busy ? L('Mengimpor…', 'Importing…') : L(`Impor ${valid.length} akun`, `Import ${valid.length} accounts`)}
           </button>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { Activity, Receipt, Search } from 'lucide-react';
 import { AseanCountryCode, BotLogItem, BotStats } from '../../types/index.ts';
 import { ServerClock } from '../../lib/useServerClock.ts';
 import { LatencyState, LiveConsole, NormalizedOrder, OrdersList } from './DashboardView.tsx';
+import { useLang } from '../../lib/i18n.tsx';
 
 export const HistoryView: React.FC<{
   orders: NormalizedOrder[];
@@ -14,6 +15,7 @@ export const HistoryView: React.FC<{
   onClearLogs: () => void;
   onCopied: (m: string) => void;
 }> = ({ orders, stats, latency, clock, region, logs, onClearLogs, onCopied }) => {
+  const { L } = useLang();
   const [q, setQ] = useState('');
   const filtered = useMemo(
     () => orders.filter((o) => !q || o.name.toLowerCase().includes(q.toLowerCase()) || o.sn.toLowerCase().includes(q.toLowerCase())),
@@ -29,28 +31,28 @@ export const HistoryView: React.FC<{
     <>
       <div className="gx-pagehead">
         <div>
-          <h1>Riwayat & aktivitas</h1>
-          <p>Checkout yang kamu konfirmasi dan performa koneksi.</p>
+          <h1>{L('Riwayat & aktivitas', 'History & activity')}</h1>
+          <p>{L('Checkout yang kamu konfirmasi dan performa koneksi.', 'Checkouts you confirmed and connection performance.')}</p>
         </div>
       </div>
 
       <div className="gx-kpis">
         <div className="gx-card gx-kpi">
-          <div className="gx-kpi__k">Total checkout</div>
+          <div className="gx-kpi__k">{L('Total checkout', 'Total checkouts')}</div>
           <div className="gx-kpi__v">{orders.length}</div>
         </div>
         <div className="gx-card gx-kpi">
-          <div className="gx-kpi__k">Paling tepat waktu</div>
+          <div className="gx-kpi__k">{L('Paling tepat waktu', 'Most on time')}</div>
           <div className="gx-kpi__v">{best != null ? `${best > 0 ? '+' : ''}${best} ms` : '—'}</div>
         </div>
         <div className="gx-card gx-kpi">
-          <div className="gx-kpi__k">Rata-rata selisih buka</div>
+          <div className="gx-kpi__k">{L('Rata-rata selisih buka', 'Avg. open offset')}</div>
           <div className="gx-kpi__v">{avg != null ? `${avg} ms` : '—'}</div>
         </div>
         <div className="gx-card gx-kpi">
-          <div className="gx-kpi__k">Sesi ini</div>
+          <div className="gx-kpi__k">{L('Sesi ini', 'This session')}</div>
           <div className="gx-kpi__v">{stats.success}/{stats.attempts}</div>
-          <div className="gx-kpi__d">berhasil / sesi dibuka</div>
+          <div className="gx-kpi__d">{L('berhasil / sesi dibuka', 'success / sessions opened')}</div>
         </div>
       </div>
 
@@ -58,13 +60,13 @@ export const HistoryView: React.FC<{
         <section className="gx-card">
           <div className="gx-card__head">
             <h2 className="gx-card__title">
-              <Receipt size={16} /> Semua checkout
+              <Receipt size={16} /> {L('Semua checkout', 'All checkouts')}
             </h2>
           </div>
           <div className="gx-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: 11, top: 12, color: 'var(--gx-ink-3)' }} />
-              <input className="gx-input" style={{ paddingLeft: 34 }} placeholder="Cari produk / nomor order…" value={q} onChange={(e) => setQ(e.target.value)} />
+              <input className="gx-input" style={{ paddingLeft: 34 }} placeholder={L('Cari produk / nomor order…', 'Search product / order no…')} value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             <OrdersList orders={filtered} region={region} />
           </div>
@@ -73,15 +75,15 @@ export const HistoryView: React.FC<{
         <section className="gx-card">
           <div className="gx-card__head">
             <h2 className="gx-card__title">
-              <Activity size={16} /> Latensi gateway
+              <Activity size={16} /> {L('Latensi gateway', 'Gateway latency')}
             </h2>
             <div className="gx-card__aside gx-muted" style={{ fontSize: 11.5 }}>
-              {lat.length} sampel
+              {lat.length} {L('sampel', 'samples')}
             </div>
           </div>
           <div className="gx-card__body">
             {lat.length < 2 ? (
-              <div className="gx-empty">Data latensi terkumpul otomatis selama dashboard terbuka.</div>
+              <div className="gx-empty">{L('Data latensi terkumpul otomatis selama dashboard terbuka.', 'Latency data is collected automatically while the dashboard is open.')}</div>
             ) : (
               <div className="gx-bars" style={{ height: 150, gap: 3 }}>
                 {lat.map((v, i) => (
@@ -95,14 +97,14 @@ export const HistoryView: React.FC<{
             )}
             <div className="gx-metrics" style={{ marginTop: 12 }}>
               <div className="gx-metric">
-                <div className="gx-metric__k">Ping server bot</div>
+                <div className="gx-metric__k">{L('Ping server bot', 'Bot server ping')}</div>
                 <div className="gx-metric__v">
                   {clock.rttMs ?? '—'}
                   <small>ms</small>
                 </div>
               </div>
               <div className="gx-metric">
-                <div className="gx-metric__k">Selisih jam HP</div>
+                <div className="gx-metric__k">{L('Selisih jam HP', 'Device clock offset')}</div>
                 <div className="gx-metric__v">
                   {clock.offsetMs}
                   <small>ms</small>

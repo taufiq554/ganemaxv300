@@ -40,9 +40,9 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     phonePrefix: '+62',
     flashSaleSchedule: ['00:00', '12:00', '18:00', '20:00', '21:00'],
     popularPaymentMethods: [
-      { id: 'shopeepay', label: 'ShopeePay (Bypass PIN Instant)', icon: 'fa-solid fa-wallet' },
-      { id: 'spaylater', label: 'SPayLater (0% Bunga / Cicilan Instan)', icon: 'fa-solid fa-credit-card' },
-      { id: 'spinjam', label: 'SPinjam (Shopee Pinjam Limit Instan)', icon: 'fa-solid fa-money-bill-transfer' },
+      { id: 'shopeepay', label: 'ShopeePay', icon: 'fa-solid fa-wallet' },
+      { id: 'spaylater', label: 'SPayLater', icon: 'fa-solid fa-credit-card' },
+      { id: 'spinjam', label: 'SPinjam', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
       title: 'Samsung Galaxy S24 Ultra 12GB/256GB Titanium Gray (Garansi Resmi)',
@@ -70,8 +70,8 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     phonePrefix: '+65',
     flashSaleSchedule: ['00:00', '12:00', '18:00', '20:00', '22:00'],
     popularPaymentMethods: [
-      { id: 'shopeepay_sg', label: 'ShopeePay SG (One-Click Instant)', icon: 'fa-solid fa-wallet' },
-      { id: 'spaylater_sg', label: 'SPayLater Singapore (0% Interest)', icon: 'fa-solid fa-credit-card' },
+      { id: 'shopeepay_sg', label: 'ShopeePay', icon: 'fa-solid fa-wallet' },
+      { id: 'spaylater_sg', label: 'SPayLater', icon: 'fa-solid fa-credit-card' },
       { id: 'spinjam_sg', label: 'SPinjam / SLoan Singapore', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
@@ -100,8 +100,8 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     phonePrefix: '+60',
     flashSaleSchedule: ['00:00', '12:00', '16:00', '20:00', '22:00'],
     popularPaymentMethods: [
-      { id: 'shopeepay_my', label: 'ShopeePay MY (Fast PIN Instant)', icon: 'fa-solid fa-wallet' },
-      { id: 'spaylater_my', label: 'SPayLater Malaysia (0% Interest)', icon: 'fa-solid fa-credit-card' },
+      { id: 'shopeepay_my', label: 'ShopeePay', icon: 'fa-solid fa-wallet' },
+      { id: 'spaylater_my', label: 'SPayLater', icon: 'fa-solid fa-credit-card' },
       { id: 'spinjam_my', label: 'SPinjam / SLoan Malaysia', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
@@ -130,8 +130,8 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     phonePrefix: '+66',
     flashSaleSchedule: ['00:00', '12:00', '18:00', '21:00'],
     popularPaymentMethods: [
-      { id: 'shopeepay_th', label: 'ShopeePay Thailand (Direct API)', icon: 'fa-solid fa-wallet' },
-      { id: 'spaylater_th', label: 'SPayLater Thailand', icon: 'fa-solid fa-credit-card' },
+      { id: 'shopeepay_th', label: 'ShopeePay', icon: 'fa-solid fa-wallet' },
+      { id: 'spaylater_th', label: 'SPayLater', icon: 'fa-solid fa-credit-card' },
       { id: 'spinjam_th', label: 'SPinjam / SEasyCash Thailand', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
@@ -160,8 +160,8 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     phonePrefix: '+84',
     flashSaleSchedule: ['00:00', '09:00', '12:00', '15:00', '18:00', '21:00'],
     popularPaymentMethods: [
-      { id: 'shopeepay_vn', label: 'ShopeePay (Ví AirPay VN)', icon: 'fa-solid fa-wallet' },
-      { id: 'spaylater_vn', label: 'SPayLater Vietnam', icon: 'fa-solid fa-credit-card' },
+      { id: 'shopeepay_vn', label: 'ShopeePay', icon: 'fa-solid fa-wallet' },
+      { id: 'spaylater_vn', label: 'SPayLater', icon: 'fa-solid fa-credit-card' },
       { id: 'spinjam_vn', label: 'SPinjam / Vay Tiêu Dùng Shopee VN', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
@@ -190,8 +190,8 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
     phonePrefix: '+63',
     flashSaleSchedule: ['00:00', '12:00', '18:00', '21:00'],
     popularPaymentMethods: [
-      { id: 'shopeepay_ph', label: 'ShopeePay PH (Instant PIN Bypass)', icon: 'fa-solid fa-wallet' },
-      { id: 'spaylater_ph', label: 'SPayLater Philippines', icon: 'fa-solid fa-credit-card' },
+      { id: 'shopeepay_ph', label: 'ShopeePay', icon: 'fa-solid fa-wallet' },
+      { id: 'spaylater_ph', label: 'SPayLater', icon: 'fa-solid fa-credit-card' },
       { id: 'spinjam_ph', label: 'SPinjam / SLoan Philippines', icon: 'fa-solid fa-money-bill-transfer' },
     ],
     sampleFlashProduct: {
@@ -209,8 +209,20 @@ export const ASEAN_REGIONS: Record<AseanCountryCode, AseanRegionInfo> = {
 
 export const ALL_ASEAN_CODES: AseanCountryCode[] = ['ID', 'SG', 'MY', 'TH', 'VN', 'PH'];
 
+/** shopeepay_sg -> shopeepay */
+export function paymentFamily(id?: string | null): string {
+  return String(id || '').split('_')[0];
+}
+
+export function isAseanCode(v: any): v is AseanCountryCode {
+  return typeof v === 'string' && (ALL_ASEAN_CODES as string[]).includes(v);
+}
+
 export function formatAseanCurrency(amount: number, regionCode: AseanCountryCode = 'ID'): string {
   const reg = ASEAN_REGIONS[regionCode] || ASEAN_REGIONS.ID;
+  regionCode = reg.code;
+  amount = Number(amount);
+  if (!isFinite(amount)) amount = 0;
   if (regionCode === 'ID' || regionCode === 'VN') {
     return `${reg.currencySymbol} ${Math.round(amount).toLocaleString('id-ID')}`;
   }

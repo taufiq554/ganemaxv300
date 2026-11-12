@@ -129,14 +129,15 @@ export function shiftMonth(key: string, delta: number) {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
 }
 
-export function relativeTimeId(iso?: string | null, now = Date.now()) {
+export function relativeTimeId(iso?: string | null, now = Date.now(), lang: 'id' | 'en' = 'id') {
   if (!iso) return '-';
   const t = new Date(iso).getTime();
   if (isNaN(t)) return '-';
   const diff = Math.round((now - t) / 1000);
-  if (diff < 60) return 'baru saja';
-  if (diff < 3600) return `${Math.floor(diff / 60)} mnt lalu`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} jam lalu`;
-  if (diff < 86400 * 30) return `${Math.floor(diff / 86400)} hari lalu`;
-  return new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  const en = lang === 'en';
+  if (diff < 60) return en ? 'just now' : 'baru saja';
+  if (diff < 3600) return en ? `${Math.floor(diff / 60)} min ago` : `${Math.floor(diff / 60)} mnt lalu`;
+  if (diff < 86400) return en ? `${Math.floor(diff / 3600)} h ago` : `${Math.floor(diff / 3600)} jam lalu`;
+  if (diff < 86400 * 30) return en ? `${Math.floor(diff / 86400)} d ago` : `${Math.floor(diff / 86400)} hari lalu`;
+  return new Date(t).toLocaleDateString(en ? 'en-GB' : 'id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 }

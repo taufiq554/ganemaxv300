@@ -24,6 +24,8 @@ export interface ShopeeAccount {
   email?: string;
   phone?: string;
   password?: string;
+  /** PIN ShopeePay akun ini (opsional) */
+  pin?: string;
   cookies: string;
   created_at?: string;
 }

@@ -27,7 +27,9 @@ import {
   TriangleAlert,
   Wrench,
   ExternalLink,
+  Languages,
 } from 'lucide-react';
+import { useLang } from '../../lib/i18n.tsx';
 import { User, AseanCountryCode, AppTab, Announcement } from '../../types/index.ts';
 import { ASEAN_REGIONS, ALL_ASEAN_CODES } from '../../constants/asean.ts';
 import { AseanFlag } from '../AseanFlag.tsx';
@@ -59,16 +61,17 @@ function useOutsideClose(open: boolean, close: () => void) {
   return ref;
 }
 
-export function licenseInfo(user: User | null, now = Date.now()) {
+export function licenseInfo(user: User | null, now = Date.now(), lang: 'id' | 'en' = 'id') {
+  const en = lang === 'en';
   if (!user) return { label: '-', tone: 'muted' as const, days: null as number | null };
   if (user.role === 'admin' && !user.expired_at) return { label: 'Admin', tone: 'brand' as const, days: null };
   if (!user.expired_at) return { label: 'Lifetime', tone: 'ok' as const, days: null };
   const ms = new Date(user.expired_at).getTime() - now;
   if (isNaN(ms)) return { label: 'Lifetime', tone: 'ok' as const, days: null };
   const days = Math.ceil(ms / 86_400_000);
-  if (days <= 0) return { label: 'Lisensi habis', tone: 'bad' as const, days: 0 };
-  if (days <= 3) return { label: `Sisa ${days} hari`, tone: 'warn' as const, days };
-  return { label: `Sisa ${days} hari`, tone: 'ok' as const, days };
+  if (days <= 0) return { label: en ? 'License expired' : 'Lisensi habis', tone: 'bad' as const, days: 0 };
+  if (days <= 3) return { label: en ? `${days} days left` : `Sisa ${days} hari`, tone: 'warn' as const, days };
+  return { label: en ? `${days} days left` : `Sisa ${days} hari`, tone: 'ok' as const, days };
 }
 
 const LiveClockText: React.FC<{ clock: ServerClock; tz: string }> = ({ clock, tz }) => {
@@ -80,12 +83,12 @@ const LiveClockText: React.FC<{ clock: ServerClock; tz: string }> = ({ clock, tz
 /* Top bar                                                             */
 /* ------------------------------------------------------------------ */
 
-export const NAV_ITEMS: { id: AppTab; label: string; icon: React.ComponentType<any>; adminOnly?: boolean }[] = [
-  { id: 'dashboard', label: 'Beranda', icon: House },
-  { id: 'targets', label: 'Target', icon: Crosshair },
-  { id: 'engine', label: 'Engine', icon: SlidersHorizontal },
-  { id: 'analytics', label: 'Riwayat', icon: History },
-  { id: 'admin', label: 'Admin', icon: ShieldCheck, adminOnly: true },
+export const NAV_ITEMS: { id: AppTab; label: string; en: string; icon: React.ComponentType<any>; adminOnly?: boolean }[] = [
+  { id: 'dashboard', label: 'Beranda', en: 'Home', icon: House },
+  { id: 'targets', label: 'Target', en: 'Targets', icon: Crosshair },
+  { id: 'engine', label: 'Engine', en: 'Engine', icon: SlidersHorizontal },
+  { id: 'analytics', label: 'Riwayat', en: 'History', icon: History },
+  { id: 'admin', label: 'Admin', en: 'Admin', icon: ShieldCheck, adminOnly: true },
 ];
 
 interface TopBarProps {
@@ -135,7 +138,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   const regionRef = useOutsideClose(regionOpen, () => setRegionOpen(false));
   const fileRef = useRef<HTMLInputElement>(null);
   const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
-  const lic = licenseInfo(user);
+  const { L, lang, setLang } = useLang();
+  const lic = licenseInfo(user, Date.now(), lang);
 
   return (
     <header className="gx-topbar">
@@ -147,8 +151,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           </span>
           <div style={{ minWidth: 0 }}>
             <div className="gx-greet__hi">
-              Halo,
-              {isBotRunning && <span style={{ color: 'var(--gx-brand)', fontWeight: 700 }}> · engine berjalan</span>}
+              {L('Halo,', 'Hello,')}
+              {isBotRunning && <span style={{ color: 'var(--gx-brand)', fontWeight: 700 }}> · {L('engine berjalan', 'engine running')}</span>}
               {!isBotRunning && (lic.tone === 'bad' || lic.tone === 'warn') && (
                 <span style={{ color: lic.tone === 'bad' ? 'var(--gx-bad)' : 'var(--gx-warn)', fontWeight: 700 }}> · {lic.label}</span>
               )}
@@ -157,16 +161,16 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        <nav className="gx-topnav" aria-label="Navigasi utama">
+        <nav className="gx-topnav" aria-label={L('Navigasi utama', 'Main navigation')}>
           {NAV_ITEMS.filter((n) => !n.adminOnly || user.role === 'admin').map((n) => (
             <button key={n.id} type="button" aria-current={tab === n.id ? 'page' : undefined} onClick={() => onTab(n.id)}>
-              {n.label}
+              {L(n.label, n.en)}
             </button>
           ))}
         </nav>
 
         <div className="gx-topbar__right">
-          <span className="gx-clockchip" title={clock.synced ? `Tersinkron ke server (selisih ${clock.offsetMs} ms)` : 'Belum tersinkron, memakai jam perangkat'}>
+          <span className="gx-clockchip" title={clock.synced ? L(`Tersinkron ke server (selisih ${clock.offsetMs} ms)`, `Synced to server (offset ${clock.offsetMs} ms)`) : L('Belum tersinkron, memakai jam perangkat', 'Not synced yet, using device clock')}>
             <span className="gx-led" style={{ color: clock.synced ? 'var(--gx-ok)' : 'var(--gx-warn)' }} />
             <LiveClockText clock={clock} tz={reg.timezone} />
             <span>{reg.timezoneLabel.split(' ')[0]}</span>
@@ -180,7 +184,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
             {regionOpen && (
               <div className="gx-popover" role="menu">
-                <div className="gx-popover__label">Wilayah Shopee</div>
+                <div className="gx-popover__label">{L('Wilayah Shopee', 'Shopee region')}</div>
                 {ALL_ASEAN_CODES.map((code) => {
                   const r = ASEAN_REGIONS[code];
                   return (
@@ -205,42 +209,46 @@ export const TopBar: React.FC<TopBarProps> = ({
             )}
           </div>
 
-          <button type="button" className="gx-iconbtn" onClick={onOpenAnnouncements} aria-label="Pengumuman">
+          <button type="button" className="gx-iconbtn" onClick={onOpenAnnouncements} aria-label={L('Pengumuman', 'Announcements')}>
             <Bell size={17} />
             {unreadCount > 0 && <span className="gx-dot">{unreadCount > 9 ? '9+' : unreadCount}</span>}
           </button>
 
-          <button type="button" className="gx-iconbtn" onClick={onToggleTheme} aria-label="Ganti tema">
+          <button type="button" className="gx-iconbtn" onClick={onToggleTheme} aria-label={L('Ganti tema', 'Toggle theme')}>
             {isDark ? <Sun size={17} /> : <Moon size={17} />}
           </button>
 
           <div style={{ position: 'relative' }} ref={menuRef}>
-            <button type="button" className="gx-iconbtn" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu lainnya" aria-expanded={menuOpen}>
+            <button type="button" className="gx-iconbtn" onClick={() => setMenuOpen((v) => !v)} aria-label={L('Menu lainnya', 'More menu')} aria-expanded={menuOpen}>
               <MoreVertical size={17} />
             </button>
             {menuOpen && (
               <div className="gx-popover" role="menu">
-                <div className="gx-popover__label">Akun @{user.username}</div>
+                <div className="gx-popover__label">{L('Akun', 'Account')} @{user.username}</div>
                 <button type="button" className="gx-menuitem" onClick={() => { onOpenQris(); setMenuOpen(false); }}>
-                  <QrCode size={16} /> Perpanjang / sewa via QRIS
+                  <QrCode size={16} /> {L('Perpanjang / sewa via QRIS', 'Renew / rent via QRIS')}
                 </button>
                 <button type="button" className="gx-menuitem" onClick={() => { onOpenWhatsapp(); setMenuOpen(false); }}>
-                  <MessageCircle size={16} /> Saluran WhatsApp
+                  <MessageCircle size={16} /> {L('Saluran WhatsApp', 'WhatsApp channel')}
                 </button>
                 <button type="button" className="gx-menuitem" onClick={() => { onToggleMusic(); setMenuOpen(false); }}>
                   {isPlayingMusic ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                  {isPlayingMusic ? 'Matikan musik latar' : 'Putar musik latar'}
+                  {isPlayingMusic ? L('Matikan musik latar', 'Stop background music') : L('Putar musik latar', 'Play background music')}
+                </button>
+                <button type="button" className="gx-menuitem" onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setMenuOpen(false); }}>
+                  <Languages size={16} /> {lang === 'en' ? 'Bahasa Indonesia' : 'English'}
+                  <small>{lang === 'en' ? 'ID' : 'EN'}</small>
                 </button>
                 <div className="gx-menudiv" />
                 <button type="button" className="gx-menuitem" onClick={() => { onExport(); setMenuOpen(false); }}>
-                  <Download size={16} /> Backup konfigurasi
+                  <Download size={16} /> {L('Backup konfigurasi', 'Back up settings')}
                 </button>
                 <button type="button" className="gx-menuitem" onClick={() => { fileRef.current?.click(); setMenuOpen(false); }}>
-                  <Upload size={16} /> Restore konfigurasi
+                  <Upload size={16} /> {L('Restore konfigurasi', 'Restore settings')}
                 </button>
                 <div className="gx-menudiv" />
                 <button type="button" className="gx-menuitem gx-menuitem--danger" onClick={() => { setMenuOpen(false); onLogout(); }}>
-                  <LogOut size={16} /> Keluar
+                  <LogOut size={16} /> {L('Keluar', 'Log out')}
                 </button>
               </div>
             )}
@@ -272,6 +280,7 @@ export const Dock: React.FC<{
   isBotRunning: boolean;
   onToggleBot: () => void;
 }> = ({ tab, onTab, isAdmin, isBotRunning, onToggleBot }) => {
+  const { L } = useLang();
   const items = NAV_ITEMS.filter((n) => !n.adminOnly || isAdmin);
   const left = items.slice(0, 2);
   const right = items.slice(2);
@@ -280,18 +289,18 @@ export const Dock: React.FC<{
     return (
       <button key={n.id} type="button" className="gx-dock__tab" aria-current={tab === n.id ? 'page' : undefined} onClick={() => onTab(n.id)}>
         <Icon size={19} />
-        <span>{n.label}</span>
+        <span>{L(n.label, n.en)}</span>
       </button>
     );
   };
   return (
-    <nav className="gx-dock" aria-label="Navigasi bawah">
+    <nav className="gx-dock" aria-label={L('Navigasi bawah', 'Bottom navigation')}>
       {left.map(renderTab)}
       <button
         type="button"
         className={`gx-dock__fire ${isBotRunning ? 'gx-dock__fire--running' : ''}`}
         onClick={onToggleBot}
-        aria-label={isBotRunning ? 'Hentikan bot' : 'Jalankan bot'}
+        aria-label={isBotRunning ? L('Hentikan bot', 'Stop bot') : L('Jalankan bot', 'Run bot')}
       >
         {isBotRunning ? <Square size={20} fill="currentColor" /> : <Zap size={22} fill="currentColor" />}
       </button>
@@ -304,11 +313,11 @@ export const Dock: React.FC<{
 /* Announcements                                                       */
 /* ------------------------------------------------------------------ */
 
-export const ANNOUNCE_META: Record<Announcement['type'], { label: string; icon: React.ComponentType<any>; tag: string }> = {
-  info: { label: 'Info', icon: Info, tag: 'gx-tag--brand' },
-  promo: { label: 'Promo', icon: BadgePercent, tag: 'gx-tag--flash' },
-  warning: { label: 'Penting', icon: TriangleAlert, tag: 'gx-tag--warn' },
-  maintenance: { label: 'Maintenance', icon: Wrench, tag: 'gx-tag--bad' },
+export const ANNOUNCE_META: Record<Announcement['type'], { label: string; en: string; icon: React.ComponentType<any>; tag: string }> = {
+  info: { label: 'Info', en: 'Info', icon: Info, tag: 'gx-tag--brand' },
+  promo: { label: 'Promo', en: 'Promo', icon: BadgePercent, tag: 'gx-tag--flash' },
+  warning: { label: 'Penting', en: 'Important', icon: TriangleAlert, tag: 'gx-tag--warn' },
+  maintenance: { label: 'Maintenance', en: 'Maintenance', icon: Wrench, tag: 'gx-tag--bad' },
 };
 
 export function isAnnouncementLive(a: Announcement, now = Date.now()) {
@@ -330,6 +339,7 @@ export const AnnouncementCard: React.FC<{
   onDismiss?: () => void;
   compact?: boolean;
 }> = ({ a, onDismiss, compact }) => {
+  const { L, lang } = useLang();
   const meta = ANNOUNCE_META[a.type] || ANNOUNCE_META.info;
   const Icon = meta.icon;
   return (
@@ -340,7 +350,7 @@ export const AnnouncementCard: React.FC<{
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span className="gx-announce__t">{a.title || 'Pengumuman'}</span>
-          {a.pinned && <span className="gx-tag">Disematkan</span>}
+          {a.pinned && <span className="gx-tag">{L('Disematkan', 'Pinned')}</span>}
         </div>
         {a.body && (
           <div className="gx-announce__b" style={compact ? { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' } : undefined}>
@@ -348,17 +358,17 @@ export const AnnouncementCard: React.FC<{
           </div>
         )}
         <div className="gx-announce__foot">
-          <span className={`gx-tag ${meta.tag}`}>{meta.label}</span>
-          <span className="gx-muted" style={{ fontSize: 11.5 }}>{relativeTimeId(a.created_at)}</span>
+          <span className={`gx-tag ${meta.tag}`}>{L(meta.label, meta.en)}</span>
+          <span className="gx-muted" style={{ fontSize: 11.5 }}>{relativeTimeId(a.created_at, Date.now(), lang)}</span>
           {a.cta_url && (
             <a className="gx-btn gx-btn--xs" href={a.cta_url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 'auto' }}>
-              {a.cta_label || 'Buka'} <ExternalLink size={12} />
+              {a.cta_label || L('Buka', 'Open')} <ExternalLink size={12} />
             </a>
           )}
         </div>
       </div>
       {onDismiss && (
-        <button type="button" className="gx-iconbtn" style={{ width: 28, height: 28, border: 0, background: 'transparent' }} onClick={onDismiss} aria-label="Tutup pengumuman">
+        <button type="button" className="gx-iconbtn" style={{ width: 28, height: 28, border: 0, background: 'transparent' }} onClick={onDismiss} aria-label={L('Tutup pengumuman', 'Dismiss announcement')}>
           <X size={15} />
         </button>
       )}
@@ -373,6 +383,7 @@ export const AnnouncementDrawer: React.FC<{
   onEnableNotification: () => void;
   notificationState: NotificationPermission | 'unsupported';
 }> = ({ open, onClose, items, onEnableNotification, notificationState }) => {
+  const { L } = useLang();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -382,11 +393,11 @@ export const AnnouncementDrawer: React.FC<{
   if (!open) return null;
   return (
     <div className="gx-overlay" onClick={onClose}>
-      <aside className="gx-drawer" onClick={(e) => e.stopPropagation()} aria-label="Pengumuman">
+      <aside className="gx-drawer" onClick={(e) => e.stopPropagation()} aria-label={L('Pengumuman', 'Announcements')}>
         <div className="gx-drawer__head">
           <Megaphone size={18} />
-          <h3>Pengumuman</h3>
-          <button type="button" className="gx-iconbtn" style={{ marginLeft: 'auto' }} onClick={onClose} aria-label="Tutup">
+          <h3>{L('Pengumuman', 'Announcements')}</h3>
+          <button type="button" className="gx-iconbtn" style={{ marginLeft: 'auto' }} onClick={onClose} aria-label={L('Tutup', 'Close')}>
             <X size={17} />
           </button>
         </div>
@@ -395,17 +406,17 @@ export const AnnouncementDrawer: React.FC<{
             <div className="gx-note">
               <BellRing size={16} />
               <div style={{ flex: 1 }}>
-                Aktifkan notifikasi browser supaya dapat kabar saat checkout selesai.
+                {L('Aktifkan notifikasi browser supaya dapat kabar saat sesi dimulai & checkout selesai.', 'Enable browser notifications to get alerts when sessions start & checkouts finish.')}
                 <div style={{ marginTop: 8 }}>
                   <button type="button" className="gx-btn gx-btn--xs gx-btn--primary" onClick={onEnableNotification}>
-                    Aktifkan notifikasi
+                    {L('Aktifkan notifikasi', 'Enable notifications')}
                   </button>
                 </div>
               </div>
             </div>
           )}
           {items.length === 0 ? (
-            <div className="gx-empty">Belum ada pengumuman dari admin.</div>
+            <div className="gx-empty">{L('Belum ada pengumuman dari admin.', 'No announcements from admin yet.')}</div>
           ) : (
             items.map((a) => <AnnouncementCard key={a.id} a={a} />)
           )}

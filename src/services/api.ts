@@ -168,7 +168,11 @@ export const api = {
     }
   },
 
-  async checkItem(region: string, url: string): Promise<ApiResponse<{
+  async testProxy(id: string): Promise<ApiResponse<{ ok: boolean; latency_ms: number; detail: string; target: string; proxy: any }>> {
+    return api.post(`proxy-test/${id}`, {});
+  },
+
+  async checkItem(region: string, url: string, accountId?: string): Promise<ApiResponse<{
     parsed: boolean;
     shop_id?: string;
     item_id?: string;
@@ -176,6 +180,7 @@ export const api = {
     status: number;
     latency_ms: number;
     reason?: string;
+    with_cookies?: boolean;
     item: null | {
       name: string;
       price: number | null;
@@ -184,7 +189,7 @@ export const api = {
       flash_sale: null | { price: number | null; stock: number | null; start_time: string | null; end_time: string | null };
     };
   }>> {
-    return api.post('bot/check-item', { region, url });
+    return api.post('bot/check-item', { region, url, account_id: accountId });
   },
 
   async sessionStart(): Promise<ApiResponse<{ ok: boolean; server_time: number }>> {

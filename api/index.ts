@@ -1,3 +1,4 @@
+import net from 'net';
 import express, { Request, Response, NextFunction } from 'express';
 import {
   storage,
@@ -309,6 +310,16 @@ router.post('/bot/check-item', requireAuth, async (req: AuthenticatedRequest, re
     const region = String(req.body?.region || 'ID').toUpperCase();
     const config = REGIONAL_DOMAINS[region] || REGIONAL_DOMAINS.ID;
     const url = String(req.body?.url || '');
+    const accountId = String(req.body?.account_id || '');
+    let cookieHeader = '';
+    if (accountId) {
+      try {
+        const acc: any = await storage.get('shopee_accounts', accountId);
+        if (acc && acc.user_id === req.user!.id && acc.cookies) {
+          cookieHeader = String(acc.cookies).replace(/[\r\n]+/g, ' ').trim().slice(0, 8000);
+        }
+      } catch (_) {}
+    }
     const ids = parseShopeeLink(url);
     if (!ids) {
       return successRes(res, { parsed: false, reachable: null, status: 0, latency_ms: 0, item: null, reason: 'Link tidak berisi ID produk (mungkin link pendek). Link tetap bisa dibuka.' });
@@ -323,6 +334,7 @@ router.post('/bot/check-item', requireAuth, async (req: AuthenticatedRequest, re
           'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36',
           Accept: 'application/json',
           Referer: `${config.domain}/`,
+          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
         },
         signal: AbortSignal.timeout(4000),
       });
@@ -360,7 +372,61 @@ router.post('/bot/check-item', requireAuth, async (req: AuthenticatedRequest, re
       latency_ms: Math.round(performance.now() - start),
       item,
       reason,
+      with_cookies: !!cookieHeader,
     });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
+// Tes proxy sungguhan: buka tunnel HTTP CONNECT ke domain Shopee wilayah proxy
+function testProxyConnect(host: string, port: number, targetHost: string, timeoutMs = 5000): Promise<{ ok: boolean; latency_ms: number; detail: string }> {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    let done = false;
+    const finish = (ok: boolean, detail: string) => {
+      if (done) return;
+      done = true;
+      try {
+        sock.destroy();
+      } catch (_) {}
+      resolve({ ok, latency_ms: Date.now() - start, detail });
+    };
+    const sock = net.connect({ host, port }, () => {
+      sock.write(`CONNECT ${targetHost}:443 HTTP/1.1\r\nHost: ${targetHost}:443\r\n\r\n`);
+    });
+    sock.setTimeout(timeoutMs, () => finish(false, 'Timeout'));
+    sock.on('error', (e: any) => finish(false, e?.code || 'Gagal terhubung'));
+    sock.once('data', (buf) => {
+      const line = buf.toString('utf8').split('\r\n')[0] || '';
+      const m = line.match(/HTTP\/\d\.\d\s+(\d{3})/);
+      if (m && m[1] === '200') finish(true, line);
+      else finish(false, line || 'Respons tidak dikenal');
+    });
+  });
+}
+
+router.post('/proxy-test/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const proxy: any = await storage.get('proxies', req.params.id);
+    if (!proxy || (proxy.user_id !== req.user!.id && req.user!.role !== 'admin')) {
+      return errorRes(res, 'Proxy tidak ditemukan', 404);
+    }
+    const host = String(proxy.host || '').trim();
+    const port = Number(proxy.port);
+    if (!host || !port || port < 1 || port > 65535) return errorRes(res, 'Host/port proxy tidak valid', 400);
+    if (/^(localhost|127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1|\[)/i.test(host)) {
+      return errorRes(res, 'Alamat proxy lokal/privat tidak diizinkan', 400);
+    }
+    const region = String(proxy.region || 'ID').toUpperCase();
+    const target = (REGIONAL_DOMAINS[region] || REGIONAL_DOMAINS.ID).domain.replace('https://', '');
+    const r = await testProxyConnect(host, port, target);
+    const updated = await storage.update('proxies', proxy.id, {
+      status: r.ok ? 'active' : 'dead',
+      latency_ms: r.latency_ms,
+      last_checked: new Date().toISOString(),
+    });
+    return successRes(res, { ...r, target, proxy: updated });
   } catch (err: any) {
     return errorRes(res, err.message, 500);
   }
@@ -660,6 +726,15 @@ router.get('/:table/:id', validateTableParam, requireAuth, guardTableAccess, asy
   }
 });
 
+// Kuota akun Shopee per lisensi (dicek di server, bukan cuma di UI)
+async function accountQuotaLeft(req: AuthenticatedRequest): Promise<number> {
+  if (req.user!.role === 'admin') return Infinity;
+  const dbUser: any = await storage.get('users', req.user!.id);
+  const max = Number(dbUser?.max_accounts) || 5;
+  const existing = await storage.list('shopee_accounts', { user_id: req.user!.id });
+  return Math.max(0, max - existing.length);
+}
+
 router.post('/:table/bulk', validateTableParam, requireAuth, guardTableAccess, async (req: AuthenticatedRequest, res: Response) => {
   const table = normalizeTableName(req.params.table)!;
   try {
@@ -668,8 +743,14 @@ router.post('/:table/bulk', validateTableParam, requireAuth, guardTableAccess, a
       return errorRes(res, 'Daftar data impor massal tidak boleh kosong', 400);
     }
 
+    let items = rawItems;
+    if (table === 'shopee_accounts') {
+      const left = await accountQuotaLeft(req);
+      if (left <= 0) return errorRes(res, 'Kuota akun Shopee untuk paket kamu sudah penuh.', 403);
+      items = rawItems.slice(0, left);
+    }
     const createdList: any[] = [];
-    for (const rawItem of rawItems) {
+    for (const rawItem of items) {
       if (!rawItem || typeof rawItem !== 'object') continue;
       const payload = { ...rawItem };
       if (USER_SCOPED_TABLES.includes(table)) {
@@ -702,6 +783,10 @@ router.post('/:table', validateTableParam, requireAuth, guardTableAccess, async 
       return errorRes(res, 'Payload tidak valid');
     }
 
+    if (table === 'shopee_accounts' && (await accountQuotaLeft(req)) <= 0) {
+      return errorRes(res, 'Kuota akun Shopee untuk paket kamu sudah penuh.', 403);
+    }
+
     if (USER_SCOPED_TABLES.includes(table)) {
       if (req.user!.role !== 'admin' || !payload.user_id) {
         payload.user_id = req.user!.id;
@@ -723,7 +808,7 @@ router.put('/:table/:id', validateTableParam, requireAuth, guardTableAccess, asy
 
     const existing = await storage.get(table, id);
     if (!existing && table === 'shopee_payments') {
-      if (req.user!.role !== 'admin') {
+      if (req.user!.role !== 'admin' || !payload.user_id) {
         payload.user_id = req.user!.id;
       }
       const inserted = await storage.create(table, payload);

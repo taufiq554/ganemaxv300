@@ -41,11 +41,12 @@ import {
   TargetUrl,
   User,
 } from '../../types/index.ts';
-import { ASEAN_REGIONS, formatAseanCurrency } from '../../constants/asean.ts';
+import { ASEAN_REGIONS, formatAseanCurrency, paymentFamily } from '../../constants/asean.ts';
 import { ServerClock, useTicker } from '../../lib/useServerClock.ts';
 import { getNextSession, getSessionSlots, pad, splitDuration, formatClock, tzParts, relativeTimeId } from '../../lib/time.ts';
 import { AnnouncementCard, licenseInfo } from './Shell.tsx';
 import { parseShopeeLink, isValidHttpUrl } from '../../lib/shopee.ts';
+import { useLang } from '../../lib/i18n.tsx';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -98,6 +99,8 @@ interface DashboardViewProps {
   clock: ServerClock;
   targets: TargetUrl[];
   selectedTarget: TargetUrl | null;
+  selectedAccountId: string;
+  selectedAddressId: string;
   onSelectTarget: (id: string) => void;
   accounts: ShopeeAccount[];
   addresses: Address[];
@@ -174,6 +177,7 @@ const SessionCard: React.FC<{
   latencyHistory: number[];
   blocked: string | null;
 }> = ({ region, clock, armed, onArm, onDisarm, isBotRunning, phase, latencyHistory, blocked }) => {
+  const { L, lang, locale } = useLang();
   useTicker(41);
   const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
   const [showMs, setShowMs] = useState(true);
@@ -193,8 +197,8 @@ const SessionCard: React.FC<{
     if (!target) return '';
     const a = tzParts(target.epoch, reg.timezone);
     const b = tzParts(now, reg.timezone);
-    if (a.y === b.y && a.m === b.m && a.d === b.d) return 'hari ini';
-    return new Date(target.epoch).toLocaleDateString('id-ID', { weekday: 'long', timeZone: reg.timezone });
+    if (a.y === b.y && a.m === b.m && a.d === b.d) return L('hari ini', 'today');
+    return new Date(target.epoch).toLocaleDateString(locale, { weekday: 'long', timeZone: reg.timezone });
   })();
 
   const armCustom = () => {
@@ -206,18 +210,18 @@ const SessionCard: React.FC<{
   };
 
   const status = isBotRunning
-    ? { text: phase === 'fire' ? 'Mengeksekusi…' : 'Engine berjalan', pulse: true }
+    ? { text: phase === 'fire' ? L('Membuka Shopee…', 'Opening Shopee…') : L('Engine berjalan', 'Engine running'), pulse: true }
     : armed
-    ? { text: `Auto-start ${armed.label} aktif`, pulse: true }
+    ? { text: L(`Auto-start ${armed.label} aktif`, `Auto-start ${armed.label} on`), pulse: true }
     : live
-    ? { text: `Sesi ${live.label} berlangsung`, pulse: true }
+    ? { text: L(`Sesi ${live.label} berlangsung`, `Session ${live.label} live`), pulse: true }
     : { text: 'Standby', pulse: false };
 
   return (
     <section className="gx-session" aria-label="Countdown sesi flash sale" style={{ order: 1 }}>
       <div className="gx-session__top">
-        <span className="gx-session__label">{armed ? 'Auto-start dalam' : 'Sesi berikutnya dalam'}</span>
-        <button type="button" className="gx-session__eye" onClick={() => setShowMs((v) => !v)} aria-label={showMs ? 'Sembunyikan milidetik' : 'Tampilkan milidetik'}>
+        <span className="gx-session__label">{armed ? L('Auto-start dalam', 'Auto-start in') : L('Sesi berikutnya dalam', 'Next session in')}</span>
+        <button type="button" className="gx-session__eye" onClick={() => setShowMs((v) => !v)} aria-label={showMs ? L('Sembunyikan milidetik', 'Hide milliseconds') : L('Tampilkan milidetik', 'Show milliseconds')}>
           {showMs ? <Eye size={16} /> : <EyeOff size={16} />}
         </button>
       </div>
@@ -233,13 +237,13 @@ const SessionCard: React.FC<{
           {status.text}
         </span>
         <span>
-          Target <b>{target?.label || '--:--'}</b> {reg.timezoneLabel.split(' ')[0]} · {dayLabel}
+          {L('Target', 'Target')} <b>{target?.label || '--:--'}</b> {reg.timezoneLabel.split(' ')[0]} · {dayLabel}
         </span>
       </div>
 
       <WaveLine data={latencyHistory} />
 
-      <div className="gx-session__slots" role="list" aria-label={isTomorrow ? "Jadwal sesi besok" : "Jadwal sesi hari ini"}>
+      <div className="gx-session__slots" role="list" aria-label={isTomorrow ? L('Jadwal sesi besok', "Tomorrow's sessions") : L('Jadwal sesi hari ini', "Today's sessions")}>
         {slots.map((s) => {
           const isArmed = !!armed && Math.abs(armed.epoch - s.epoch) < 1000;
           return (
@@ -250,7 +254,7 @@ const SessionCard: React.FC<{
               className={`gx-sslot gx-sslot--${s.status} ${isArmed ? 'gx-sslot--armed' : ''}`}
               disabled={s.status === 'past' || s.status === 'live' || isBotRunning}
               onClick={() => (isArmed ? onDisarm() : onArm({ epoch: s.epoch, label: s.label }))}
-              title={s.status === 'past' ? 'Sesi sudah lewat' : isArmed ? 'Klik untuk batalkan' : `Jadwalkan auto-start ${s.label}`}
+              title={s.status === 'past' ? L('Sesi sudah lewat', 'Session passed') : isArmed ? L('Klik untuk batalkan', 'Click to cancel') : L(`Jadwalkan auto-start ${s.label}`, `Schedule auto-start ${s.label}`)}
             >
               {s.label}
             </button>
@@ -261,21 +265,21 @@ const SessionCard: React.FC<{
       <div className="gx-session__foot">
         <span className="gx-session__clock">
           <span className="gx-led" style={{ color: clock.synced ? '#7CF5B5' : '#FFD27A' }} />
-          Jam server <b>{formatClock(now, reg.timezone)}</b>
+          {L('Jam server', 'Server time')} <b>{formatClock(now, reg.timezone)}</b>
         </span>
         {customOpen ? (
           <span className="gx-session__custom">
-            <input type="datetime-local" value={customVal} onChange={(e) => setCustomVal(e.target.value)} aria-label="Waktu custom" />
+            <input type="datetime-local" value={customVal} onChange={(e) => setCustomVal(e.target.value)} aria-label={L('Waktu custom', 'Custom time')} />
             <button type="button" onClick={armCustom} disabled={!customVal}>
-              Set
+              {L('Set', 'Set')}
             </button>
-            <button type="button" onClick={() => setCustomOpen(false)} aria-label="Batal">
+            <button type="button" onClick={() => setCustomOpen(false)} aria-label={L('Batal', 'Cancel')}>
               <X size={14} />
             </button>
           </span>
         ) : (
           <button type="button" className="gx-session__link" onClick={() => setCustomOpen(true)} disabled={!!blocked}>
-            Jam custom
+            {L('Jam custom', 'Custom time')}
           </button>
         )}
       </div>
@@ -288,17 +292,18 @@ const SessionCard: React.FC<{
 /* Engine monitor                                                      */
 /* ------------------------------------------------------------------ */
 
-const PHASES: { id: EnginePhase; label: string }[] = [
-  { id: 'sync', label: 'Sinkron' },
-  { id: 'warm', label: 'Cek produk' },
-  { id: 'armed', label: 'Standby' },
-  { id: 'fire', label: 'Buka Shopee' },
-  { id: 'done', label: 'Konfirmasi' },
+const PHASES: { id: EnginePhase; label: string; en: string }[] = [
+  { id: 'sync', label: 'Sinkron', en: 'Sync' },
+  { id: 'warm', label: 'Cek produk', en: 'Check' },
+  { id: 'armed', label: 'Standby', en: 'Standby' },
+  { id: 'fire', label: 'Buka Shopee', en: 'Open Shopee' },
+  { id: 'done', label: 'Konfirmasi', en: 'Confirm' },
 ];
 
 const Sparkline: React.FC<{ data: number[] }> = ({ data }) => {
+  const { L, lang, locale } = useLang();
   if (data.length < 2) {
-    return <div className="gx-empty" style={{ padding: 14 }}>Mengumpulkan data latensi…</div>;
+    return <div className="gx-empty" style={{ padding: 14 }}>{L('Mengumpulkan data latensi…', 'Collecting latency data…')}</div>;
   }
   const w = 300;
   const h = 56;
@@ -308,7 +313,7 @@ const Sparkline: React.FC<{ data: number[] }> = ({ data }) => {
   const y = (v: number) => h - ((v - min) / (max - min || 1)) * (h - 6) - 3;
   const pts = data.map((v, i) => `${(i * step).toFixed(1)},${y(v).toFixed(1)}`);
   return (
-    <svg className="gx-spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" aria-label="Grafik latensi gateway">
+    <svg className="gx-spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" aria-label={L('Grafik latensi gateway', 'Gateway latency chart')}>
       <path className="gx-spark__area" d={`M0,${h} L${pts.join(' L')} L${w},${h} Z`} />
       <path className="gx-spark__line" d={`M${pts.join(' L')}`} />
     </svg>
@@ -324,6 +329,7 @@ const EngineMonitor: React.FC<{
   mode: string;
   region: AseanCountryCode;
 }> = ({ phase, isBotRunning, latency, clock, leadMs, mode, region }) => {
+  const { L, lang, locale } = useLang();
   const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
   const idx = PHASES.findIndex((p) => p.id === phase);
   const tone = (v: number | null, good: number, ok: number) =>
@@ -334,24 +340,24 @@ const EngineMonitor: React.FC<{
     <section className="gx-card" style={{ order: 6 }}>
       <div className="gx-card__head">
         <h2 className="gx-card__title">
-          <Activity size={16} /> Monitor engine
+          <Activity size={16} /> {L('Monitor engine', 'Engine monitor')}
         </h2>
         <div className="gx-card__aside">
           {phase === 'error' ? (
             <span className="gx-tag gx-tag--bad">Error</span>
           ) : isBotRunning ? (
             <span className="gx-tag gx-tag--flash">
-              <span className="gx-led gx-led--pulse" /> Aktif
+              <span className="gx-led gx-led--pulse" /> {L('Aktif', 'Active')}
             </span>
           ) : phase === 'done' ? (
-            <span className="gx-tag gx-tag--ok">Selesai</span>
+            <span className="gx-tag gx-tag--ok">{L('Selesai', 'Done')}</span>
           ) : (
             <span className="gx-tag">Idle</span>
           )}
         </div>
       </div>
       <div className="gx-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div className="gx-phases" aria-label="Tahap eksekusi">
+        <div className="gx-phases" aria-label={L('Tahap eksekusi', 'Execution stages')}>
           {PHASES.map((p, i) => {
             let cls = 'gx-phase';
             if (phase === 'error' && i === Math.max(idx, 0)) cls += ' gx-phase--error';
@@ -361,7 +367,7 @@ const EngineMonitor: React.FC<{
             return (
               <div key={p.id} className={cls}>
                 <div className="gx-phase__bar" />
-                <div className="gx-phase__label">{p.label}</div>
+                <div className="gx-phase__label">{L(p.label, p.en)}</div>
               </div>
             );
           })}
@@ -376,21 +382,21 @@ const EngineMonitor: React.FC<{
             </div>
           </div>
           <div className="gx-metric">
-            <div className="gx-metric__k">Rata-rata</div>
+            <div className="gx-metric__k">{L('Rata-rata', 'Average')}</div>
             <div className={`gx-metric__v ${tone(avg, 150, 400)}`}>
               {avg ?? '—'}
               {avg != null && <small>ms</small>}
             </div>
           </div>
           <div className="gx-metric">
-            <div className="gx-metric__k">Ping server bot</div>
+            <div className="gx-metric__k">{L('Ping server bot', 'Bot server ping')}</div>
             <div className={`gx-metric__v ${tone(clock.rttMs, 120, 300)}`}>
               {clock.rttMs ?? '—'}
               {clock.rttMs != null && <small>ms</small>}
             </div>
           </div>
           <div className="gx-metric">
-            <div className="gx-metric__k">Selisih jam HP</div>
+            <div className="gx-metric__k">{L('Selisih jam HP', 'Device clock offset')}</div>
             <div className={`gx-metric__v ${Math.abs(clock.offsetMs) > 1000 ? 'gx-metric__v--warn' : ''}`}>
               {clock.synced ? (clock.offsetMs > 0 ? '+' : '') + clock.offsetMs : '—'}
               {clock.synced && <small>ms</small>}
@@ -400,9 +406,9 @@ const EngineMonitor: React.FC<{
 
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-            <span className="gx-eyebrow">Latensi gateway (live)</span>
+            <span className="gx-eyebrow">{L('Latensi gateway (live)', 'Gateway latency (live)')}</span>
             <span className="gx-muted" style={{ fontSize: 11 }}>
-              {latency.checkedAt ? `cek ${relativeTimeId(new Date(latency.checkedAt).toISOString())}` : ''}
+              {latency.checkedAt ? `${L('cek', 'checked')} ${relativeTimeId(new Date(latency.checkedAt).toISOString(), Date.now(), lang)}` : ''}
             </span>
           </div>
           <Sparkline data={latency.history} />
@@ -410,17 +416,19 @@ const EngineMonitor: React.FC<{
 
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <span className="gx-tag">
-            <Server size={12} /> Buka −{leadMs} ms
+            <Server size={12} /> {L('Buka', 'Open')} −{leadMs} ms
           </span>
-          <span className="gx-tag">{mode === 'browser' ? 'Buka di browser' : 'Buka app Shopee'}</span>
-          <span className="gx-tag">NTP {reg.ntpServer}</span>
+          <span className="gx-tag">{mode === 'browser' ? L('Buka di browser', 'Open in browser') : L('Buka app Shopee', 'Open Shopee app')}</span>
+          <span className="gx-tag">{L('Jam: server bot', 'Clock: bot server')}</span>
         </div>
         {Math.abs(clock.offsetMs) > 1000 && (
           <div className="gx-note gx-note--warn">
             <CircleAlert size={15} />
             <span>
-              Jam HP kamu selisih {(clock.offsetMs / 1000).toFixed(1)} dtk dari server. Countdown sudah otomatis dikoreksi, tapi sebaiknya aktifkan
-              "waktu otomatis" di pengaturan HP.
+              {L(
+                `Jam HP kamu selisih ${(clock.offsetMs / 1000).toFixed(1)} dtk dari server. Countdown sudah otomatis dikoreksi, tapi sebaiknya aktifkan "waktu otomatis" di pengaturan HP.`,
+                `Your device clock is ${(clock.offsetMs / 1000).toFixed(1)} s off from the server. The countdown is corrected automatically, but turn on "automatic time" in your phone settings.`
+              )}
             </span>
           </div>
         )}
@@ -464,28 +472,29 @@ const SetupList: React.FC<{
   region: AseanCountryCode;
   onSeeAll: () => void;
 }> = ({ items, targets, selected, onSelect, region, onSeeAll }) => {
+  const { L, lang, locale } = useLang();
   const priceRegion = ((selected?.region as AseanCountryCode) || region) as AseanCountryCode;
   return (
     <section style={{ order: 3 }}>
       <SectionHead
-        title="Setup war"
+        title={L('Setup war', 'War setup')}
         action={
           <button type="button" className="gx-link" onClick={onSeeAll}>
-            Lihat semua
+            {L('Lihat semua', 'See all')}
           </button>
         }
       />
       <div className="gx-card gx-acclist">
         {items
-          .filter((i) => i.key !== 'license')
+          .filter((i) => i.key !== 'license' && i.key !== 'clock' && i.key !== 'link')
           .map((it) => {
             const Icon = it.icon;
             const right =
               it.key === 'target' && selected
                 ? formatAseanCurrency(Number(selected.target_price) || 0, priceRegion)
                 : it.ok
-                ? 'Siap'
-                : 'Atur';
+                ? L('Siap', 'Ready')
+                : L('Atur', 'Set up');
             return (
               <button key={it.key} type="button" className="gx-acc" onClick={it.action}>
                 <span className="gx-acc__icon" style={{ background: `${it.color}1A`, color: it.color }}>
@@ -501,7 +510,7 @@ const SetupList: React.FC<{
           })}
         {targets.length > 1 && (
           <div style={{ padding: '4px 16px 14px' }}>
-            <select className="gx-select" value={selected?.id || ''} onChange={(e) => onSelect(e.target.value)} aria-label="Ganti target aktif">
+            <select className="gx-select" value={selected?.id || ''} onChange={(e) => onSelect(e.target.value)} aria-label={L('Ganti target aktif', 'Change active target')}>
               {targets.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.title}
@@ -526,9 +535,11 @@ const QuickActions: React.FC<{
   onDisarm: () => void;
   onTarget: () => void;
   onHistory: () => void;
-}> = ({ isBotRunning, armed, next, blocked, onStart, onStop, onArm, onDisarm, onTarget, onHistory }) => (
+}> = ({ isBotRunning, armed, next, blocked, onStart, onStop, onArm, onDisarm, onTarget, onHistory }) => {
+  const { L, lang, locale } = useLang();
+  return (
   <section style={{ order: 2 }}>
-    <SectionHead title="Aksi cepat" />
+    <SectionHead title={L('Aksi cepat', 'Quick actions')} />
     <div className="gx-qa">
       <button
         type="button"
@@ -537,7 +548,7 @@ const QuickActions: React.FC<{
         disabled={!isBotRunning && !!blocked}
       >
         <span className="gx-qa__icon">{isBotRunning ? <Square size={18} fill="currentColor" /> : <Zap size={19} fill="currentColor" />}</span>
-        <span>{isBotRunning ? 'Stop' : 'Jalankan'}</span>
+        <span>{isBotRunning ? 'Stop' : L('Jalankan', 'Run')}</span>
       </button>
       <button
         type="button"
@@ -546,19 +557,19 @@ const QuickActions: React.FC<{
         disabled={!armed && (!next || !!blocked || isBotRunning)}
       >
         <span className="gx-qa__icon">{armed ? <X size={18} /> : <CalendarClock size={18} />}</span>
-        <span>{armed ? `Batal ${armed.label}` : `Auto ${next?.label || ''}`}</span>
+        <span>{armed ? `${L('Batal', 'Cancel')} ${armed.label}` : `Auto ${next?.label || ''}`}</span>
       </button>
       <button type="button" className="gx-qa__btn" onClick={onTarget}>
         <span className="gx-qa__icon">
           <Crosshair size={18} />
         </span>
-        <span>Target</span>
+        <span>{L('Target', 'Target')}</span>
       </button>
       <button type="button" className="gx-qa__btn" onClick={onHistory}>
         <span className="gx-qa__icon">
           <Receipt size={18} />
         </span>
-        <span>Riwayat</span>
+        <span>{L('Riwayat', 'History')}</span>
       </button>
     </div>
     {blocked && !isBotRunning && (
@@ -568,15 +579,17 @@ const QuickActions: React.FC<{
       </div>
     )}
   </section>
-);
+  );
+};
 
 const Donut: React.FC<{ items: CheckItem[] }> = ({ items }) => {
+  const { L, lang, locale } = useLang();
   const r = 42;
   const c = 2 * Math.PI * r;
   const gap = 5;
   const seg = c / items.length;
   return (
-    <svg viewBox="0 0 110 110" className="gx-donut" role="img" aria-label="Diagram kesiapan">
+    <svg viewBox="0 0 110 110" className="gx-donut" role="img" aria-label={L('Diagram kesiapan', 'Readiness chart')}>
       <circle cx="55" cy="55" r={r} fill="none" stroke="var(--gx-surface-3)" strokeWidth="14" />
       {items.map((it, i) => (
         <circle
@@ -598,17 +611,18 @@ const Donut: React.FC<{ items: CheckItem[] }> = ({ items }) => {
 };
 
 const ReadinessCard: React.FC<{ items: CheckItem[] }> = ({ items }) => {
+  const { L, lang, locale } = useLang();
   const done = items.filter((i) => i.ok).length;
   const pct = Math.round((done / items.length) * 100);
   return (
     <section className="gx-card gx-ready" style={{ order: 4 }}>
       <div className="gx-ready__top">
         <div>
-          <div className="gx-ready__k">Kesiapan war</div>
+          <div className="gx-ready__k">{L('Kesiapan war', 'War readiness')}</div>
           <div className="gx-ready__v">{pct}%</div>
           <div className={`gx-ready__d ${pct === 100 ? 'is-ok' : ''}`}>
             {pct === 100 ? <Check size={13} strokeWidth={3} /> : <CircleAlert size={13} />}
-            {done} dari {items.length} siap
+            {L(`${done} dari ${items.length} siap`, `${done} of ${items.length} ready`)}
           </div>
         </div>
         <div className="gx-ready__chart">
@@ -624,7 +638,7 @@ const ReadinessCard: React.FC<{ items: CheckItem[] }> = ({ items }) => {
             <span className="gx-legend__dot" style={{ background: it.ok ? it.color : 'var(--gx-line-strong)' }} />
             <span className="gx-legend__k">{it.label}</span>
             <span className="gx-legend__v">{it.value}</span>
-            <span className={`gx-legend__s ${it.ok ? 'is-ok' : ''}`}>{it.ok ? 'OK' : 'Belum'}</span>
+            <span className={`gx-legend__s ${it.ok ? 'is-ok' : ''}`}>{it.ok ? 'OK' : L('Belum', 'Not yet')}</span>
           </li>
         ))}
       </ul>
@@ -646,6 +660,7 @@ export const LiveConsole: React.FC<{
   onCopied: (m: string) => void;
   style?: React.CSSProperties;
 }> = ({ logs, onClear, onOpenScript, onCopied, style }) => {
+  const { L, lang, locale } = useLang();
   const [filter, setFilter] = useState<'all' | 'success' | 'error'>('all');
   const bodyRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -663,22 +678,22 @@ export const LiveConsole: React.FC<{
     const text = filtered.map((l) => `[${l.time}] ${l.text}`).join('\n');
     try {
       await navigator.clipboard.writeText(text);
-      onCopied('Log disalin');
+      onCopied(L('Log disalin', 'Log copied'));
     } catch {
-      onCopied('Gagal menyalin log');
+      onCopied(L('Gagal menyalin log', 'Failed to copy log'));
     }
   };
 
   return (
-    <section className="gx-console" style={style} aria-label="Konsol live">
+    <section className="gx-console" style={style} aria-label={L('Konsol live', 'Live console')}>
       <div className="gx-console__bar">
         <span className="gx-console__title">
           <span className="gx-led" style={{ color: '#3ddc84' }} /> live-console
         </span>
-        <div className="gx-console__tabs" role="group" aria-label="Filter log">
+        <div className="gx-console__tabs" role="group" aria-label={L('Filter log', 'Log filter')}>
           {(['all', 'success', 'error'] as const).map((f) => (
             <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-              {f === 'all' ? 'semua' : f === 'success' ? 'sukses' : 'error'}
+              {f === 'all' ? L('semua', 'all') : f === 'success' ? L('sukses', 'success') : 'error'}
             </button>
           ))}
         </div>
@@ -687,10 +702,10 @@ export const LiveConsole: React.FC<{
             <FolderCode size={13} />
           </button>
         )}
-        <button type="button" className="gx-console__tool" onClick={copy} title="Salin log">
+        <button type="button" className="gx-console__tool" onClick={copy} title={L('Salin log', 'Copy log')}>
           <Copy size={13} />
         </button>
-        <button type="button" className="gx-console__tool" onClick={onClear} title="Bersihkan">
+        <button type="button" className="gx-console__tool" onClick={onClear} title={L('Bersihkan', 'Clear')}>
           <Trash2 size={13} />
         </button>
       </div>
@@ -702,7 +717,7 @@ export const LiveConsole: React.FC<{
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
         }}
       >
-        {filtered.length === 0 && <div style={{ color: '#50546b' }}>// belum ada log. jalankan engine atau jadwalkan auto-start.</div>}
+        {filtered.length === 0 && <div style={{ color: '#50546b' }}>{L('// belum ada log. jalankan bot atau jadwalkan auto-start.', '// no logs yet. run the bot or schedule auto-start.')}</div>}
         {filtered.slice(-200).map((l) => {
           const m = l.text.match(TAG_RE);
           const tag = m ? m[1] : l.type === 'success' ? 'OK' : l.type === 'error' ? 'ERR' : l.type === 'warning' ? 'WARN' : 'INFO';
@@ -728,8 +743,9 @@ export const LiveConsole: React.FC<{
 /* ------------------------------------------------------------------ */
 
 export const OrdersList: React.FC<{ orders: NormalizedOrder[]; limit?: number; region: AseanCountryCode }> = ({ orders, limit, region }) => {
+  const { L, lang, locale } = useLang();
   const list = limit ? orders.slice(0, limit) : orders;
-  if (!list.length) return <div className="gx-empty">Belum ada checkout tercatat.</div>;
+  if (!list.length) return <div className="gx-empty">{L('Belum ada checkout tercatat.', 'No checkouts recorded yet.')}</div>;
   return (
     <ul className="gx-list gx-tx">
       {list.map((o) => (
@@ -740,7 +756,7 @@ export const OrdersList: React.FC<{ orders: NormalizedOrder[]; limit?: number; r
           <div className="gx-row__main">
             <div className="gx-row__t">{o.name}</div>
             <div className="gx-row__s">
-              {o.time ? new Date(o.time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'} · {o.method} · <span className="gx-mono">{o.sn}</span>
+              {o.time ? new Date(o.time).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) : '-'} · {o.method} · <span className="gx-mono">{o.sn}</span>
             </div>
           </div>
           <div className="gx-row__end">
@@ -763,25 +779,32 @@ export const OrdersList: React.FC<{ orders: NormalizedOrder[]; limit?: number; r
 /* ------------------------------------------------------------------ */
 
 export const DashboardView: React.FC<DashboardViewProps> = (p) => {
+  const { L, lang, locale } = useLang();
   const reg = ASEAN_REGIONS[p.region] || ASEAN_REGIONS.ID;
-  const lic = licenseInfo(p.user);
+  const lic = licenseInfo(p.user, Date.now(), lang);
   const blocked =
     p.user.role !== 'admin' && lic.tone === 'bad'
-      ? 'Masa aktif lisensi habis. Perpanjang via QRIS untuk menjalankan engine.'
+      ? L('Masa aktif lisensi habis. Perpanjang via QRIS untuk menjalankan bot.', 'Your license has expired. Renew via QRIS to run the bot.')
       : !p.selectedTarget
-      ? 'Belum ada target produk. Tambahkan dulu link produk yang mau di-war.'
+      ? L('Belum ada target produk. Tambahkan dulu link produk yang mau di-war.', 'No target product yet. Add the product link you want to grab.')
       : !isValidHttpUrl(p.selectedTarget.url)
-      ? 'Link target belum valid. Edit target dan tempel link produk Shopee.'
+      ? L('Link target belum valid. Edit target dan tempel link produk Shopee.', 'Target link is invalid. Edit the target and paste a Shopee product link.')
       : null;
 
   const ids = parseShopeeLink(p.selectedTarget?.url);
   const linkOk = isValidHttpUrl(p.selectedTarget?.url);
 
+  const pay = p.paymentSettings;
+  const payFam = paymentFamily(pay?.payment_method);
+  const payOk = !!pay?.payment_method && (payFam !== 'shopeepay' || !!pay?.shopeepay_pin);
+  const acc = p.accounts.find((a) => a.id === p.selectedAccountId) || p.accounts[0];
+  const addr = p.addresses.find((a) => a.id === p.selectedAddressId) || p.addresses.find((a) => a.is_default) || p.addresses[0];
+
   const checklist: CheckItem[] = [
     {
       key: 'target',
-      label: 'Target produk',
-      value: p.selectedTarget ? p.selectedTarget.title : 'Belum dipilih',
+      label: L('Target produk', 'Target product'),
+      value: p.selectedTarget ? p.selectedTarget.title : L('Belum dipilih', 'Not selected'),
       ok: !!p.selectedTarget,
       icon: Crosshair,
       color: '#2F6BFF',
@@ -789,25 +812,54 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
     },
     {
       key: 'link',
-      label: 'Link produk',
-      value: !p.selectedTarget ? '—' : ids ? `ID ${ids.shopId}.${ids.itemId}` : linkOk ? 'Link pendek (dibuka apa adanya)' : 'Link tidak valid',
+      label: L('Link produk', 'Product link'),
+      value: !p.selectedTarget ? '—' : ids ? `ID ${ids.shopId}.${ids.itemId}` : linkOk ? L('Link pendek (dibuka apa adanya)', 'Short link (opened as is)') : L('Link tidak valid', 'Invalid link'),
       ok: linkOk,
       icon: Link2,
       color: '#7B61FF',
       action: () => p.onOpenTargetModal(p.selectedTarget || undefined),
     },
     {
+      key: 'account',
+      label: L('Akun Shopee', 'Shopee account'),
+      value: acc ? `${acc.nickname || acc.username}${acc.cookies ? ' · cookies ✓' : ''}` : L('Belum ada akun', 'No account yet'),
+      ok: !!acc,
+      icon: UserRound,
+      color: '#E2557B',
+      action: acc ? () => p.onGoTab('targets') : p.onOpenAccountModal,
+    },
+    {
+      key: 'address',
+      label: L('Alamat', 'Address'),
+      value: addr ? `${addr.label} · ${addr.recipient_name}` : L('Belum ada alamat', 'No address yet'),
+      ok: !!addr,
+      icon: MapPin,
+      color: '#19B6E6',
+      action: addr ? () => p.onGoTab('targets') : p.onOpenAddressModal,
+    },
+    {
+      key: 'payment',
+      label: L('Pembayaran', 'Payment'),
+      value: pay?.payment_method
+        ? `${payFam.toUpperCase()}${payFam === 'shopeepay' ? (pay.shopeepay_pin ? L(' · PIN tersimpan', ' · PIN saved') : L(' · PIN belum diisi', ' · PIN missing')) : ''}`
+        : L('Belum diatur', 'Not set'),
+      ok: payOk,
+      icon: Wallet,
+      color: '#F59E0B',
+      action: () => p.onGoTab('targets'),
+    },
+    {
       key: 'clock',
-      label: 'Jam server',
-      value: p.clock.synced ? `Sinkron · selisih ${p.clock.offsetMs > 0 ? '+' : ''}${p.clock.offsetMs} ms` : 'Menyinkronkan…',
+      label: L('Jam server', 'Server clock'),
+      value: p.clock.synced ? `${L('Sinkron', 'Synced')} · ${p.clock.offsetMs > 0 ? '+' : ''}${p.clock.offsetMs} ms` : L('Menyinkronkan…', 'Syncing…'),
       ok: p.clock.synced,
       icon: Clock3,
-      color: '#19B6E6',
+      color: '#14B8A6',
       action: () => p.clock.resync(),
     },
     {
       key: 'license',
-      label: 'Lisensi',
+      label: L('Lisensi', 'License'),
       value: lic.label,
       ok: lic.tone !== 'bad',
       icon: Timer,
@@ -818,21 +870,21 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
 
   const nowEpoch = p.clock.now();
   const next = getNextSession(nowEpoch, reg.flashSaleSchedule, reg.timezone);
-  const todayLabel = new Date(nowEpoch).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: reg.timezone });
+  const todayLabel = new Date(nowEpoch).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: reg.timezone });
 
   return (
     <>
       <div className="gx-overview">
         <div>
-          <h1>Ringkasan</h1>
-          <p>Pantau sesi flash sale & engine kamu di sini</p>
+          <h1>{L('Ringkasan', 'Overview')}</h1>
+          <p>{L('Pantau sesi flash sale & engine kamu di sini', 'Track your flash sale sessions & engine here')}</p>
         </div>
         <div className="gx-overview__row">
           <span className="gx-datepill">
             <CalendarDays size={15} /> {todayLabel}
           </span>
           <button type="button" className="gx-btn gx-btn--primary gx-btn--pill" onClick={() => p.onOpenTargetModal()}>
-            <Plus size={16} /> Target
+            <Plus size={16} /> {L('Target', 'Target')}
           </button>
         </div>
       </div>
@@ -894,10 +946,10 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
           <ReadinessCard items={checklist} />
           <section style={{ order: 5 }}>
             <SectionHead
-              title="Checkout terakhir"
+              title={L('Checkout terakhir', 'Recent checkouts')}
               action={
                 <button type="button" className="gx-link" onClick={() => p.onGoTab('analytics')}>
-                  Lihat semua
+                  {L('Lihat semua', 'See all')}
                 </button>
               }
             />
