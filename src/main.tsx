@@ -15,3 +15,10 @@ if (rootElement) {
     </React.StrictMode>
   );
 }
+
+// Daftarkan service worker (PWA). Aman kalau gagal — app tetap jalan sebagai web biasa.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}

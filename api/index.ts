@@ -304,6 +304,63 @@ async function assertLicenseActive(req: AuthenticatedRequest, res: Response): Pr
   return true;
 }
 
+// Ubah link pendek / share Shopee (s.shopee, sh.shopee, /share) jadi link produk penuh dengan shopid.itemid
+router.post('/bot/resolve-link', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    let url = String(req.body?.url || '').trim();
+    if (!/^https?:\/\//i.test(url)) return errorRes(res, 'Link harus diawali http(s)://', 400);
+    let host = '';
+    try {
+      host = new URL(url).host;
+    } catch {
+      return errorRes(res, 'Link tidak valid', 400);
+    }
+    if (!/(^|\.)shopee\.|^s\.shopee|^sh\.shopee/i.test(host)) {
+      return errorRes(res, 'Hanya link Shopee yang didukung', 400);
+    }
+    const seen = new Set<string>();
+    let finalUrl = url;
+    // ikuti redirect maksimal 6 kali tanpa auto-follow (biar bisa baca Location)
+    for (let i = 0; i < 6; i++) {
+      if (seen.has(finalUrl)) break;
+      seen.add(finalUrl);
+      let r: Response | any;
+      try {
+        r = await fetch(finalUrl, {
+          method: 'GET',
+          redirect: 'manual',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36',
+            Accept: 'text/html,application/xhtml+xml',
+          },
+          signal: AbortSignal.timeout(5000),
+        });
+      } catch (e: any) {
+        return errorRes(res, e?.name === 'TimeoutError' ? 'Timeout saat membuka link' : 'Tidak bisa membuka link', 502);
+      }
+      const loc = r.headers.get('location');
+      if (r.status >= 300 && r.status < 400 && loc) {
+        finalUrl = loc.startsWith('http') ? loc : new URL(loc, finalUrl).href;
+        if (parseShopeeLink(finalUrl)) break;
+        continue;
+      }
+      break;
+    }
+    const ids = parseShopeeLink(finalUrl);
+    // bersihkan parameter tracking
+    let clean = finalUrl;
+    try {
+      const u = new URL(finalUrl);
+      u.search = '';
+      u.hash = '';
+      clean = u.href;
+    } catch {}
+    return successRes(res, { url: clean, raw: finalUrl, shop_id: ids?.shopId || null, item_id: ids?.itemId || null, resolved: !!ids });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
 // Cek data produk langsung ke Shopee (hasil apa adanya — Shopee bisa menolak request otomatis)
 router.post('/bot/check-item', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {

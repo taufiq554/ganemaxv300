@@ -36,6 +36,7 @@ import { getNextSession, formatClock } from './lib/time.ts';
 import { parseShopeeLink, buildOpenUrl, isValidHttpUrl } from './lib/shopee.ts';
 import { FireOverlay, FireState } from './components/gx/FireOverlay.tsx';
 import { PracticeOverlay, PracticeState, PracticeResult } from './components/gx/PracticeOverlay.tsx';
+import { Onboarding, hasOnboarded } from './components/gx/Onboarding.tsx';
 import {
   TopBar,
   Dock,
@@ -114,6 +115,7 @@ export const App: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>(readDismissed);
   const [isAnnDrawerOpen, setIsAnnDrawerOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [selectedTargetId, setSelectedTargetId] = useState<string>(() => {
     try {
       return localStorage.getItem('gx_selected_target') || '';
@@ -370,6 +372,13 @@ export const App: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, currentUser?.role]);
+
+  useEffect(() => {
+    if (currentUser && !hasOnboarded()) {
+      const t = window.setTimeout(() => setShowOnboarding(true), 600);
+      return () => window.clearTimeout(t);
+    }
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (currentUser) {
@@ -1467,6 +1476,7 @@ export const App: React.FC = () => {
         isPlayingMusic={isPlayingMusic}
         onLogout={handleLogout}
         isBotRunning={isBotRunning}
+        onOpenGuide={() => setShowOnboarding(true)}
       />
 
       <main className="gx-main">
@@ -1651,6 +1661,7 @@ export const App: React.FC = () => {
         onSaveBulk={handleSaveBulkAccounts}
         defaultRegion={selectedRegion}
       />
+      <Onboarding open={showOnboarding} onClose={() => setShowOnboarding(false)} />
       <PracticeOverlay state={practiceState} clock={clock} onDone={handlePracticeDone} onRetry={handlePracticeRetry} />
       <FireOverlay
         state={fireState}

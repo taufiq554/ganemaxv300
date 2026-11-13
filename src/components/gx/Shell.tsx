@@ -28,8 +28,10 @@ import {
   Wrench,
   ExternalLink,
   Languages,
+  GraduationCap,
 } from 'lucide-react';
 import { useLang } from '../../lib/i18n.tsx';
+import { usePwaInstall } from '../../lib/pwa.ts';
 import { User, AseanCountryCode, AppTab, Announcement } from '../../types/index.ts';
 import { ASEAN_REGIONS, ALL_ASEAN_CODES } from '../../constants/asean.ts';
 import { AseanFlag } from '../AseanFlag.tsx';
@@ -110,7 +112,19 @@ interface TopBarProps {
   isPlayingMusic: boolean;
   onLogout: () => void;
   isBotRunning: boolean;
+  onOpenGuide?: () => void;
 }
+
+const InstallMenuItem: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+  const { L } = useLang();
+  const pwa = usePwaInstall();
+  if (pwa.installed || !pwa.canInstall) return null;
+  return (
+    <button type="button" className="gx-menuitem" onClick={() => { pwa.promptInstall(); onClick(); }}>
+      <Download size={16} /> {L('Pasang aplikasi ke HP', 'Install app to phone')}
+    </button>
+  );
+};
 
 export const TopBar: React.FC<TopBarProps> = ({
   user,
@@ -131,6 +145,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   isPlayingMusic,
   onLogout,
   isBotRunning,
+  onOpenGuide,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [regionOpen, setRegionOpen] = useState(false);
@@ -235,6 +250,11 @@ export const TopBar: React.FC<TopBarProps> = ({
                   {isPlayingMusic ? <VolumeX size={16} /> : <Volume2 size={16} />}
                   {isPlayingMusic ? L('Matikan musik latar', 'Stop background music') : L('Putar musik latar', 'Play background music')}
                 </button>
+                <button type="button" className="gx-menuitem" onClick={() => { onOpenGuide?.(); setMenuOpen(false); }}>
+                  <GraduationCap size={16} /> {L('Panduan cepat', 'Quick guide')}
+                </button>
+                <InstallMenuItem onClick={() => setMenuOpen(false)} />
+                <div className="gx-menudiv" />
                 <button type="button" className="gx-menuitem" onClick={() => { setLang(lang === 'en' ? 'id' : 'en'); setMenuOpen(false); }}>
                   <Languages size={16} /> {lang === 'en' ? 'Bahasa Indonesia' : 'English'}
                   <small>{lang === 'en' ? 'ID' : 'EN'}</small>
@@ -302,7 +322,23 @@ export const Dock: React.FC<{
         onClick={onToggleBot}
         aria-label={isBotRunning ? L('Hentikan bot', 'Stop bot') : L('Jalankan bot', 'Run bot')}
       >
-        {isBotRunning ? <Square size={20} fill="currentColor" /> : <Zap size={22} fill="currentColor" />}
+        <img
+          src="/ganemax-logo.jpg"
+          alt=""
+          className="gx-dock__logo"
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            if (!img.dataset.fallback) {
+              img.dataset.fallback = '1';
+              img.src = 'https://files.catbox.moe/pi1r45.jpg';
+            }
+          }}
+        />
+        {isBotRunning && (
+          <span className="gx-dock__stop" aria-hidden="true">
+            <Square size={10} fill="currentColor" />
+          </span>
+        )}
       </button>
       {right.map(renderTab)}
     </nav>

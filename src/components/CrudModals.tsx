@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { X, Eye, EyeOff, MapPin, UserRound, Link2, Network, CalendarClock } from 'lucide-react';
+import { X, Eye, EyeOff, MapPin, UserRound, Link2, Network, CalendarClock, ClipboardPaste, Loader2 } from 'lucide-react';
 import { Address, ShopeeAccount, TargetUrl, ProxyMesh, Schedule, AseanCountryCode } from '../types/index.ts';
-import { ASEAN_REGIONS, ALL_ASEAN_CODES, isAseanCode } from '../constants/asean.ts';
+import { ASEAN_REGIONS, ALL_ASEAN_CODES, isAseanCode, formatAseanCurrency } from '../constants/asean.ts';
 import { useLang } from '../lib/i18n.tsx';
 import { parseShopeeLink, isValidHttpUrl } from '../lib/shopee.ts';
+import { api } from '../services/api.ts';
 
 /* ------------------------------------------------------------------ */
 /* Shared                                                              */
@@ -364,11 +365,15 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
   const [variant, setVariant] = useState('');
   const [modelId, setModelId] = useState('');
   const [price, setPrice] = useState<string>('1000');
+  const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
+  const [fetchNote, setFetchNote] = useState('');
   const { busy, error, setError, save } = useSaver(onSave, onClose);
 
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
+    setFetchState('idle');
+    setFetchNote('');
     setTitle(initialData?.title || '');
     setUrl(initialData?.url || '');
     setRegion(isAseanCode(initialData?.region) ? initialData!.region! : defaultRegion);
@@ -379,14 +384,87 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData, isOpen, defaultRegion]);
 
+  const regionFromHost = (u: string): AseanCountryCode | null => {
+    try {
+      const host = new URL(u.trim()).host.replace(/^www\./, '');
+      return DOMAIN_TO_REGION[host] || null;
+    } catch {
+      return null;
+    }
+  };
+
   // Deteksi wilayah otomatis dari domain link
   const onUrlChange = (v: string) => {
     setUrl(v);
+    setFetchState('idle');
+    setFetchNote('');
+    const r = regionFromHost(v);
+    if (r) setRegion(r);
+  };
+
+  const pasteFromClipboard = async () => {
     try {
-      const host = new URL(v.trim()).host.replace(/^www\./, '');
-      const r = DOMAIN_TO_REGION[host];
-      if (r) setRegion(r);
-    } catch {}
+      const txt = (await navigator.clipboard.readText()).trim();
+      if (txt) {
+        onUrlChange(txt);
+        await resolveAndFetch(txt);
+      }
+    } catch {
+      setFetchNote(L('Tidak bisa baca clipboard — tempel manual ya.', "Can't read clipboard — paste manually."));
+    }
+  };
+
+  // Integrasi bot: resolve link pendek + tarik nama/harga produk dari Shopee lewat server GaneMaX
+  const resolveAndFetch = async (rawInput?: string) => {
+    const raw = (rawInput ?? url).trim();
+    if (!isValidHttpUrl(raw)) {
+      setFetchState('fail');
+      setFetchNote(L('Link harus diawali https://', 'Link must start with https://'));
+      return;
+    }
+    setFetchState('loading');
+    setFetchNote(L('Menghubungkan ke Shopee lewat server GaneMaX…', 'Connecting to Shopee via GaneMaX server…'));
+    let workUrl = raw;
+    let activeRegion = regionFromHost(raw) || region;
+    // 1) link pendek / share → link produk penuh
+    if (!parseShopeeLink(workUrl)) {
+      const r = await api.resolveLink(workUrl);
+      if (r.success && r.data?.url) {
+        workUrl = r.data.url;
+        setUrl(workUrl);
+        const rr = regionFromHost(workUrl);
+        if (rr) {
+          activeRegion = rr;
+          setRegion(rr);
+        }
+      }
+    }
+    // 2) ambil data produk
+    const ck = await api.checkItem(activeRegion, workUrl);
+    if (ck.success && ck.data?.item) {
+      const it = ck.data.item;
+      if (it.name && !title.trim()) setTitle(it.name);
+      const best = it.flash_sale?.price ?? it.price;
+      if (best != null) setPrice(String(best));
+      setFetchState('ok');
+      setFetchNote(
+        L(
+          `Terhubung ✓ ${it.name || 'produk ditemukan'}${best != null ? ` · ${formatAseanCurrency(best, activeRegion)}` : ''}${it.stock != null ? ` · stok ${it.stock}` : ''}`,
+          `Connected ✓ ${it.name || 'product found'}${best != null ? ` · ${formatAseanCurrency(best, activeRegion)}` : ''}${it.stock != null ? ` · stock ${it.stock}` : ''}`
+        )
+      );
+    } else {
+      const ids2 = parseShopeeLink(workUrl);
+      setFetchState(ids2 ? 'ok' : 'fail');
+      setFetchNote(
+        ids2
+          ? L(
+              `Link terintegrasi ✓ (shopid ${ids2.shopId}.${ids2.itemId}). Data produk belum bisa diambil Shopee sekarang — isi nama & harga manual.`,
+              `Link integrated ✓ (shopid ${ids2.shopId}.${ids2.itemId}). Shopee did not return product data now — fill name & price manually.`
+            )
+          : L('Link belum berisi ID produk. Buka produk di app Shopee lalu salin link lengkapnya.', 'Link has no product ID yet. Open the product in the Shopee app and copy the full link.')
+      );
+    }
   };
 
   const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
@@ -429,16 +507,33 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
     >
       <label className="gx-field">
         <span>{L('Link produk Shopee', 'Shopee product link')}</span>
-        <input value={url} onChange={(e) => onUrlChange(e.target.value)} placeholder={`https://${reg.domain}/…-i.123.456`} inputMode="url" />
-        {url && (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input value={url} onChange={(e) => onUrlChange(e.target.value)} placeholder={`https://${reg.domain}/…-i.123.456`} inputMode="url" style={{ flex: 1, minWidth: 0 }} />
+          <button type="button" className="gx-btn gx-btn--sm" onClick={pasteFromClipboard} title={L('Tempel dari clipboard', 'Paste from clipboard')} style={{ flexShrink: 0 }}>
+            <ClipboardPaste size={15} />
+          </button>
+        </div>
+        <button
+          type="button"
+          className="gx-btn gx-btn--sm gx-btn--primary"
+          style={{ alignSelf: 'flex-start', marginTop: 2 }}
+          onClick={() => resolveAndFetch()}
+          disabled={!valid || fetchState === 'loading'}
+        >
+          {fetchState === 'loading' ? <Loader2 size={15} className="gx-spin" /> : <Link2 size={15} />}
+          {fetchState === 'loading' ? L('Menghubungkan…', 'Connecting…') : L('Hubungkan & ambil data produk', 'Integrate & fetch product')}
+        </button>
+        {fetchNote ? (
+          <small style={{ color: fetchState === 'ok' ? 'var(--gx-ok)' : fetchState === 'fail' ? 'var(--gx-bad)' : 'var(--gx-ink-3)' }}>{fetchNote}</small>
+        ) : url ? (
           <small style={{ color: !valid ? 'var(--gx-bad)' : ids ? 'var(--gx-ok)' : 'var(--gx-warn)' }}>
             {!valid
               ? L('Link tidak valid', 'Invalid link')
               : ids
               ? `${L('Terbaca', 'Detected')} · shopid ${ids.shopId} · itemid ${ids.itemId}`
-              : L('Link pendek — tetap bisa dibuka, tapi data produk tidak bisa dicek.', 'Short link — can be opened, but product data cannot be checked.')}
+              : L('Link pendek — tekan "Hubungkan" untuk integrasi ke bot.', 'Short link — press "Integrate" to connect it to the bot.')}
           </small>
-        )}
+        ) : null}
       </label>
       <label className="gx-field">
         <span>{L('Nama produk', 'Product name')}</span>

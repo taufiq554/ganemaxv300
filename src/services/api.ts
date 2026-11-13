@@ -172,6 +172,10 @@ export const api = {
     return api.post(`proxy-test/${id}`, {});
   },
 
+  async resolveLink(url: string): Promise<ApiResponse<{ url: string; raw: string; shop_id: string | null; item_id: string | null; resolved: boolean }>> {
+    return api.post('bot/resolve-link', { url });
+  },
+
   async checkItem(region: string, url: string, accountId?: string): Promise<ApiResponse<{
     parsed: boolean;
     shop_id?: string;
