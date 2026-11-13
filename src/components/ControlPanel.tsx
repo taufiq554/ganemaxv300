@@ -288,14 +288,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
             ) : (
               <ul className="gx-list" role="radiogroup" aria-label={L('Alamat dipakai', 'Address in use')}>
                 {p.addresses.map((a) => {
-                  const fallbackId = (p.addresses.find((x) => x.is_default) || p.addresses[0]).id;
-                  const active = a.id === (p.selectedAddressId && p.addresses.some((x) => x.id === p.selectedAddressId) ? p.selectedAddressId : fallbackId);
+                  const primaryId = (p.addresses.find((x) => x.is_default) || p.addresses[0]).id;
+                  const active = a.id === (p.selectedAddressId && p.addresses.some((x) => x.id === p.selectedAddressId) ? p.selectedAddressId : primaryId);
                   return (
                     <li key={a.id} className="gx-row">
                       <Radio name="active-address" checked={active} onChange={() => p.onSelectAddress(a.id)} label={a.label} />
                       <div className="gx-row__main" onClick={() => p.onSelectAddress(a.id)} style={{ cursor: 'pointer' }}>
                         <div className="gx-row__t" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          {a.label} {a.is_default && <span className="gx-tag gx-tag--ok" style={{ height: 18, fontSize: 10 }}>{L('Utama', 'Default')}</span>} {regionTag(a.country)}
+                          {a.label} {a.id === primaryId && <span className="gx-tag gx-tag--ok" style={{ height: 18, fontSize: 10 }}>{L('Utama', 'Default')}</span>} {regionTag(a.country)}
                         </div>
                         <div className="gx-row__s">
                           {a.recipient_name} · {a.phone}

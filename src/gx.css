@@ -1569,3 +1569,24 @@ body.dark-theme .gx-kpi--hero .gx-kpi__d--up { color: #b9ffdb; }
 .gx-onb__dots span.is-on { width: 20px; border-radius: 4px; background: var(--gx-brand); }
 .gx-onb__nav { display: flex; gap: 8px; }
 .gx-onb__skip { border: 0; background: none; color: var(--gx-ink-3); font: 600 12px var(--gx-sans); cursor: pointer; padding: 0 0 14px; }
+
+/* Tombol Jalankan: logo GaneMaX */
+.gx-qa__icon--logo { overflow: hidden; }
+.gx-qa__btn--go .gx-qa__icon--logo { background: #fff; box-shadow: 0 6px 14px rgba(47,107,255,.28), inset 0 0 0 1px var(--gx-line); }
+.gx-qa__logo { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 14px; }
+
+/* Kartu tutorial dashboard */
+.gx-tut { overflow: hidden; }
+.gx-tut__head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 0; background: none; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.gx-tut__head:hover { background: var(--gx-surface-2); }
+.gx-tut__icon { width: 36px; height: 36px; border-radius: 12px; background: var(--gx-brand-soft); color: var(--gx-brand); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.gx-tut__title { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 14px; font-weight: 800; letter-spacing: -0.01em; }
+.gx-tut__title small { font-weight: 500; font-size: 11.5px; color: var(--gx-ink-3); }
+.gx-tut__chev { color: var(--gx-ink-3); transition: transform .2s; flex-shrink: 0; }
+.gx-tut__chev.is-open { transform: rotate(180deg); }
+.gx-tut__body { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+.gx-tut__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.gx-tut__list li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; }
+.gx-tut__num { width: 30px; height: 30px; border-radius: 10px; background: var(--gx-surface-3); color: var(--gx-ink-2); display: flex; align-items: center; justify-content: center; }
+.gx-tut__list b { font-size: 13px; font-weight: 700; display: block; }
+.gx-tut__list p { margin: 3px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--gx-ink-3); }

@@ -37,6 +37,7 @@ import { parseShopeeLink, buildOpenUrl, isValidHttpUrl } from './lib/shopee.ts';
 import { FireOverlay, FireState } from './components/gx/FireOverlay.tsx';
 import { PracticeOverlay, PracticeState, PracticeResult } from './components/gx/PracticeOverlay.tsx';
 import { Onboarding, hasOnboarded } from './components/gx/Onboarding.tsx';
+import { FlashSalePanel } from './components/gx/FlashSale.tsx';
 import {
   TopBar,
   Dock,
@@ -1080,6 +1081,7 @@ export const App: React.FC = () => {
     if (saved.is_default) {
       const others = addresses.filter((a) => a.id !== saved.id && a.is_default);
       await Promise.all(others.map((o) => api.put('addresses', o.id, { is_default: false })));
+      if (others.length) addLog(L(`[DATA] ${others.length} alamat utama lama dinonaktifkan.`, `[DATA] ${others.length} previous default address(es) cleared.`), 'info');
     }
     setAddresses((prev) => {
       const list = editingId ? prev.map((a) => (a.id === editingId ? saved : a)) : [saved, ...prev];
@@ -1158,6 +1160,22 @@ export const App: React.FC = () => {
     setTargetUrls((prev) => (editingId ? prev.map((t) => (t.id === editingId ? saved : t)) : [saved, ...prev]));
     if (!editingId) handleSelectTarget(saved.id);
     addLog(editingId ? L(`[DATA] Target "${saved.title}" diperbarui.`, `[DATA] Target "${saved.title}" updated.`) : L(`[DATA] Target "${saved.title}" ditambahkan & dipilih.`, `[DATA] Target "${saved.title}" added & selected.`), 'success');
+  };
+
+  /** Simpan target langsung (dipakai panel Flash Sale) lalu jadikan target aktif. */
+  const handleQuickTarget = async (data: Partial<TargetUrl>) => {
+    const existing = targetUrls.find((t) => t.url === data.url);
+    if (existing) {
+      handleSelectTarget(existing.id);
+      addLog(L(`[TARGET] "${existing.title}" dijadikan target aktif.`, `[TARGET] "${existing.title}" set as active target.`), 'info');
+      return;
+    }
+    const res = await api.post<TargetUrl>('target-urls', data);
+    if (!res.success || !res.data) throw new Error(failMsg(res));
+    const saved = res.data;
+    setTargetUrls((prev) => [saved, ...prev]);
+    handleSelectTarget(saved.id);
+    addLog(L(`[TARGET] "${saved.title}" ditambahkan dari flash sale & dipilih.`, `[TARGET] "${saved.title}" added from flash sale & selected.`), 'success');
   };
 
   const handleDeleteTargetUrl = async (id: string) => {
@@ -1527,6 +1545,7 @@ export const App: React.FC = () => {
             }}
             onGoTab={setCurrentTab}
             onOpenQris={() => setIsPayModalOpen(true)}
+            onOpenGuide={() => setShowOnboarding(true)}
             onCopied={toast.show}
           />
         )}
@@ -1539,6 +1558,16 @@ export const App: React.FC = () => {
                 <p>{L('Produk incaran, akun Shopee, alamat, dan pembayaran.', 'Target products, Shopee accounts, addresses and payment.')}</p>
               </div>
             </div>
+            <FlashSalePanel
+              region={selectedRegion}
+              clock={clock}
+              armedEpoch={armed?.epoch ?? null}
+              onArm={handleArm}
+              onDisarm={handleDisarm}
+              onQuickTarget={handleQuickTarget}
+              selectedTargetUrl={selectedTarget?.url}
+              toast={toast.show}
+            />
             <ControlPanel {...controlPanelProps} section="setup" />
           </>
         )}

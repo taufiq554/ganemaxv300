@@ -172,6 +172,37 @@ export const api = {
     return api.post(`proxy-test/${id}`, {});
   },
 
+  async flashSessions(region: string): Promise<ApiResponse<{
+    ok: boolean;
+    region: string;
+    latency_ms: number;
+    status: number;
+    reason: string;
+    sessions: { promotion_id: string; name: string; start_time: string; end_time: string | null; type: number }[];
+  }>> {
+    return api.post('bot/flash-sessions', { region });
+  },
+
+  async flashItems(region: string, promotionId: string, limit = 16): Promise<ApiResponse<{
+    ok: boolean;
+    latency_ms: number;
+    status: number;
+    reason: string;
+    items: {
+      item_id: string;
+      shop_id: string;
+      name: string;
+      url: string;
+      price: number | null;
+      price_before: number | null;
+      discount: string;
+      stock: number | null;
+      sold: number | null;
+    }[];
+  }>> {
+    return api.post('bot/flash-items', { region, promotion_id: promotionId, limit });
+  },
+
   async resolveLink(url: string): Promise<ApiResponse<{ url: string; raw: string; shop_id: string | null; item_id: string | null; resolved: boolean }>> {
     return api.post('bot/resolve-link', { url });
   },

@@ -4,6 +4,8 @@ import {
   CalendarClock,
   CalendarDays,
   Check,
+  ChevronDown,
+  ChevronRight,
   CircleAlert,
   Clock3,
   Copy,
@@ -12,6 +14,8 @@ import {
   Eye,
   EyeOff,
   FolderCode,
+  GraduationCap,
+  Hand,
   MapPin,
   Plus,
   Receipt,
@@ -130,6 +134,7 @@ interface DashboardViewProps {
   onOpenAddressModal: () => void;
   onGoTab: (t: AppTab) => void;
   onOpenQris: () => void;
+  onOpenGuide: () => void;
   onCopied: (msg: string) => void;
 }
 
@@ -564,7 +569,24 @@ const QuickActions: React.FC<{
         onClick={isBotRunning ? onStop : onStart}
         disabled={!isBotRunning && !!blocked}
       >
-        <span className="gx-qa__icon">{isBotRunning ? <Square size={18} fill="currentColor" /> : <Zap size={19} fill="currentColor" />}</span>
+        <span className="gx-qa__icon gx-qa__icon--logo">
+          {isBotRunning ? (
+            <Square size={18} fill="currentColor" />
+          ) : (
+            <img
+              src="/ganemax-logo.jpg"
+              alt=""
+              className="gx-qa__logo"
+              onError={(e) => {
+                const img = e.currentTarget as HTMLImageElement;
+                if (!img.dataset.fallback) {
+                  img.dataset.fallback = '1';
+                  img.src = 'https://files.catbox.moe/pi1r45.jpg';
+                }
+              }}
+            />
+          )}
+        </span>
         <span>{isBotRunning ? 'Stop' : L('Jalankan', 'Run')}</span>
       </button>
       <button
@@ -993,8 +1015,113 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
               <OrdersList orders={p.orders} limit={4} region={p.region} />
             </div>
           </section>
+          <TutorialCard onOpenGuide={p.onOpenGuide} onGoTab={p.onGoTab} />
         </div>
       </div>
     </>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* Tutorial singkat di dashboard                                        */
+/* ------------------------------------------------------------------ */
+
+const TUT_KEY = 'gx_tutorial_open';
+
+const TUTORIAL: { icon: React.ComponentType<any>; id: string; en: string; bodyId: string; bodyEn: string; tab?: AppTab }[] = [
+  {
+    icon: Crosshair,
+    id: 'Tambah target produk',
+    en: 'Add a target product',
+    bodyId: 'Tab Target → "Hubungkan & ambil data produk". Atau pilih langsung dari panel Flash Sale Shopee.',
+    bodyEn: 'Target tab → "Integrate & fetch product". Or pick one straight from the Shopee Flash Sale panel.',
+    tab: 'targets',
+  },
+  {
+    icon: Wallet,
+    id: 'Siapkan akun & pembayaran',
+    en: 'Prepare account & payment',
+    bodyId: 'Login akun Shopee di app Shopee HP ini, isi alamat & saldo/PIN di sana. Di dashboard pilih metode bayar.',
+    bodyEn: 'Log in to Shopee in the app on this phone, set address & balance/PIN there. Pick the payment method here.',
+    tab: 'targets',
+  },
+  {
+    icon: CalendarClock,
+    id: 'Pilih sesi lalu tekan Auto',
+    en: 'Pick a session then press Auto',
+    bodyId: 'Tekan jam sesi di kartu biru, atau tombol "Auto". Biarkan halaman terbuka & layar menyala.',
+    bodyEn: 'Tap a session time on the blue card, or the "Auto" button. Keep the page open and the screen on.',
+  },
+  {
+    icon: Hand,
+    id: 'Tap "Beli Sekarang" di detik 0',
+    en: 'Tap "Buy Now" at second zero',
+    bodyId: 'Bot membuka produk tepat waktu, kamu tinggal tap beli & bayar. Coba mode Latihan untuk ukur kecepatan tap.',
+    bodyEn: 'The bot opens the product on time, you just tap buy & pay. Try Practice mode to measure your tap speed.',
+  },
+];
+
+const TutorialCard: React.FC<{ onOpenGuide: () => void; onGoTab: (t: AppTab) => void }> = ({ onOpenGuide, onGoTab }) => {
+  const { L } = useLang();
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(TUT_KEY) !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const toggle = () => {
+    setOpen((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem(TUT_KEY, next ? '1' : '0');
+      } catch {}
+      return next;
+    });
+  };
+
+  return (
+    <section className="gx-card gx-tut" style={{ order: 6 }}>
+      <button type="button" className="gx-tut__head" onClick={toggle} aria-expanded={open}>
+        <span className="gx-tut__icon">
+          <GraduationCap size={17} />
+        </span>
+        <span className="gx-tut__title">
+          {L('Cara pakai GaneMaX.Ai', 'How to use GaneMaX.Ai')}
+          <small>{L('4 langkah · ±2 menit', '4 steps · ~2 minutes')}</small>
+        </span>
+        <ChevronDown size={18} className={`gx-tut__chev ${open ? 'is-open' : ''}`} />
+      </button>
+      {open && (
+        <div className="gx-tut__body">
+          <ol className="gx-tut__list">
+            {TUTORIAL.map((t, i) => {
+              const Icon = t.icon;
+              return (
+                <li key={t.id}>
+                  <span className="gx-tut__num">
+                    <Icon size={15} />
+                  </span>
+                  <div>
+                    <b>
+                      {i + 1}. {L(t.id, t.en)}
+                    </b>
+                    <p>{L(t.bodyId, t.bodyEn)}</p>
+                    {t.tab && (
+                      <button type="button" className="gx-link" onClick={() => onGoTab(t.tab!)}>
+                        {L('Buka tab', 'Open tab')} <ChevronRight size={12} />
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+          <button type="button" className="gx-btn gx-btn--sm gx-btn--block" onClick={onOpenGuide}>
+            <GraduationCap size={15} /> {L('Buka panduan bergambar', 'Open illustrated guide')}
+          </button>
+        </div>
+      )}
+    </section>
   );
 };

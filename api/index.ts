@@ -305,6 +305,123 @@ async function assertLicenseActive(req: AuthenticatedRequest, res: Response): Pr
 }
 
 // Ubah link pendek / share Shopee (s.shopee, sh.shopee, /share) jadi link produk penuh dengan shopid.itemid
+// ---------------------------------------------------------------
+// FLASH SALE SHOPEE (data publik: jadwal sesi & daftar produk promo)
+// ---------------------------------------------------------------
+const SHOPEE_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36',
+  Accept: 'application/json',
+  'X-Requested-With': 'XMLHttpRequest',
+};
+
+/** Harga Shopee dikirim dikali 100.000 */
+const unscale = (v: any) => (v == null || isNaN(Number(v)) ? null : Math.round(Number(v) / 100000));
+const toIso = (sec: any) => {
+  const n = Number(sec);
+  return n > 0 ? new Date(n * 1000).toISOString() : null;
+};
+
+/** Jadwal sesi flash sale resmi Shopee untuk satu wilayah. */
+router.post('/bot/flash-sessions', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const region = String(req.body?.region || 'ID').toUpperCase();
+  const config = REGIONAL_DOMAINS[region] || REGIONAL_DOMAINS.ID;
+  const start = performance.now();
+  try {
+    const r = await fetch(`${config.domain}/api/v4/flash_sale/get_all_sessions?category_personalization=false`, {
+      headers: { ...SHOPEE_HEADERS, Referer: `${config.domain}/flash_sale` },
+      signal: AbortSignal.timeout(6000),
+    });
+    const latency = Math.round(performance.now() - start);
+    const json: any = await r.json().catch(() => null);
+    const raw = json?.data?.sessions || json?.data?.session_list || [];
+    if (!r.ok || !Array.isArray(raw) || raw.length === 0) {
+      return successRes(res, {
+        ok: false,
+        region,
+        latency_ms: latency,
+        status: r.status,
+        sessions: [],
+        reason: json?.error ? `Shopee membalas kode error ${json.error}` : `Shopee tidak mengirim data sesi (HTTP ${r.status})`,
+      });
+    }
+    const sessions = raw
+      .map((x: any) => ({
+        promotion_id: String(x.promotionid ?? x.promotion_id ?? ''),
+        name: x.name || x.session_name || '',
+        start_time: toIso(x.start_time),
+        end_time: toIso(x.end_time),
+        type: Number(x.type ?? 0), // 1 = ongoing, 2 = upcoming (menurut Shopee)
+      }))
+      .filter((x: any) => x.start_time)
+      .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+      .slice(0, 12);
+    return successRes(res, { ok: true, region, latency_ms: latency, status: r.status, sessions, reason: '' });
+  } catch (e: any) {
+    return successRes(res, {
+      ok: false,
+      region,
+      latency_ms: Math.round(performance.now() - start),
+      status: 0,
+      sessions: [],
+      reason: e?.name === 'TimeoutError' ? 'Timeout 6 dtk ke Shopee' : 'Server bot tidak bisa terhubung ke Shopee',
+    });
+  }
+});
+
+/** Daftar produk pada satu sesi flash sale. */
+router.post('/bot/flash-items', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const region = String(req.body?.region || 'ID').toUpperCase();
+  const config = REGIONAL_DOMAINS[region] || REGIONAL_DOMAINS.ID;
+  const promotionId = String(req.body?.promotion_id || '').replace(/\D/g, '');
+  const limit = Math.max(1, Math.min(30, Number(req.body?.limit) || 16));
+  if (!promotionId) return errorRes(res, 'promotion_id wajib diisi', 400);
+  const start = performance.now();
+  try {
+    const r = await fetch(
+      `${config.domain}/api/v4/flash_sale/flash_sale_batch_get_items?promotionid=${promotionId}&limit=${limit}&offset=0&with_dp_items=true&sort_soldout=true`,
+      { headers: { ...SHOPEE_HEADERS, Referer: `${config.domain}/flash_sale` }, signal: AbortSignal.timeout(7000) }
+    );
+    const latency = Math.round(performance.now() - start);
+    const json: any = await r.json().catch(() => null);
+    const raw = json?.data?.items || json?.data?.item_briefs || [];
+    if (!r.ok || !Array.isArray(raw) || raw.length === 0) {
+      return successRes(res, {
+        ok: false,
+        latency_ms: latency,
+        status: r.status,
+        items: [],
+        reason: json?.error ? `Shopee membalas kode error ${json.error}` : `Shopee tidak mengirim daftar produk (HTTP ${r.status})`,
+      });
+    }
+    const items = raw.slice(0, limit).map((x: any) => {
+      const itemid = String(x.itemid ?? x.item_id ?? '');
+      const shopid = String(x.shopid ?? x.shop_id ?? '');
+      const name = String(x.name || x.title || 'Produk');
+      const slug = name.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'produk';
+      return {
+        item_id: itemid,
+        shop_id: shopid,
+        name,
+        url: itemid && shopid ? `${config.domain}/${slug}-i.${shopid}.${itemid}` : '',
+        price: unscale(x.promotion_price ?? x.price),
+        price_before: unscale(x.price_before_discount ?? x.raw_price ?? x.price),
+        discount: x.discount ? String(x.discount) : x.raw_discount ? `${x.raw_discount}%` : '',
+        stock: x.promotion_stock ?? x.stock ?? null,
+        sold: x.promotion_sold_count ?? x.sold ?? null,
+      };
+    });
+    return successRes(res, { ok: true, latency_ms: latency, status: r.status, items, reason: '' });
+  } catch (e: any) {
+    return successRes(res, {
+      ok: false,
+      latency_ms: Math.round(performance.now() - start),
+      status: 0,
+      items: [],
+      reason: e?.name === 'TimeoutError' ? 'Timeout 7 dtk ke Shopee' : 'Server bot tidak bisa terhubung ke Shopee',
+    });
+  }
+});
+
 router.post('/bot/resolve-link', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     let url = String(req.body?.url || '').trim();
