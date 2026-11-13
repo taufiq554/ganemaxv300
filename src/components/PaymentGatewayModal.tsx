@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { QrCode, X, Copy, Check, Send } from 'lucide-react';
+import { QrCode, X, Copy, Check, Send, Download } from 'lucide-react';
+
+// QR dibuat ulang dari payload QRIS asli (CRC valid) supaya tajam & tidak bergantung hosting luar
+const QRIS_LOCAL = '/qris-ganemax.svg';
+const QRIS_PNG = '/qris-ganemax.png';
+const QRIS_REMOTE = 'https://files.catbox.moe/ru49zu.jpg';
 import { LICENSE_TIERS, formatRp } from '../constants/licenses.ts';
 import { useLang } from '../lib/i18n.tsx';
 
@@ -14,11 +19,15 @@ export const PaymentGatewayModal: React.FC<PaymentGatewayModalProps> = ({ isOpen
   const [selectedPlan, setSelectedPlan] = useState<string>(LICENSE_TIERS[0].id);
   const [targetUsername, setTargetUsername] = useState<string>(username || '');
   const [copied, setCopied] = useState(false);
+  const [imgSrc, setImgSrc] = useState(QRIS_LOCAL);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setTargetUsername(username || '');
       setCopied(false);
+      setImgError(false);
+      setImgSrc(QRIS_LOCAL);
     }
   }, [isOpen, username]);
 
@@ -66,37 +75,65 @@ export const PaymentGatewayModal: React.FC<PaymentGatewayModalProps> = ({ isOpen
           </button>
         </div>
         <div className="gx-dialog__body">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+          <div className="gx-plans" role="radiogroup" aria-label={L('Pilih paket', 'Choose plan')}>
             {LICENSE_TIERS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                className={`gx-qa__btn ${selectedPlan === p.id ? 'gx-qa__btn--on' : ''}`}
-                style={{ padding: '10px 8px', gap: 2 }}
-                onClick={() => setSelectedPlan(p.id)}
-                aria-pressed={selectedPlan === p.id}
-              >
-                <span style={{ fontSize: 12 }}>{p.short}</span>
-                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--gx-ink)' }}>{p.priceRp}</span>
-                <span style={{ fontSize: 10.5, fontWeight: 600 }}>
-                  {p.maxAccounts >= 999 ? L('Akun tanpa batas', 'Unlimited accounts') : L(`${p.maxAccounts} akun`, `${p.maxAccounts} accounts`)}
-                </span>
+              <button key={p.id} type="button" role="radio" aria-checked={selectedPlan === p.id} className={`gx-plan ${selectedPlan === p.id ? 'is-on' : ''}`} onClick={() => setSelectedPlan(p.id)}>
+                <span className="gx-plan__name">{p.short}</span>
+                <span className="gx-plan__price">{p.priceRp}</span>
+                <span className="gx-plan__sub">{p.maxAccounts >= 999 ? L('Akun tanpa batas', 'Unlimited accounts') : L(`${p.maxAccounts} akun · ${p.maxThreads} thread`, `${p.maxAccounts} accounts · ${p.maxThreads} threads`)}</span>
+                {p.id === '60_hari' && <span className="gx-plan__badge">{L('Paling laris', 'Best value')}</span>}
               </button>
             ))}
           </div>
 
-          <div style={{ border: '1px solid var(--gx-line)', borderRadius: 18, padding: 12, textAlign: 'center', background: '#fff' }}>
-            <img src="https://files.catbox.moe/ru49zu.jpg" alt="QRIS GaneMaX.Ai" style={{ width: '100%', maxWidth: 280, height: 'auto', borderRadius: 12 }} loading="eager" />
-            <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#0b1533', fontSize: 13 }}>
-              <span>{L('Total tagihan', 'Total')}</span>
-              <b style={{ fontSize: 18, color: '#2f6bff' }}>{formatRp(plan.price)}</b>
+          <div className="gx-qris">
+            <div className="gx-qris__head">
+              <span className="gx-qris__logo">QRIS</span>
+              <span className="gx-qris__merchant">
+                GaneMaX.Ai
+                <small>{L('Pembayaran lisensi bot', 'Bot license payment')}</small>
+              </span>
+            </div>
+            <div className="gx-qris__frame">
+              {imgError ? (
+                <div className="gx-qris__fallback">
+                  {L('Gambar QR gagal dimuat. Cek koneksi lalu buka ulang, atau minta QR ke admin via Telegram.', 'QR image failed to load. Check your connection and reopen, or ask admin on Telegram.')}
+                </div>
+              ) : (
+                <img
+                  src={imgSrc}
+                  alt="QRIS GaneMaX.Ai"
+                  className="gx-qris__img"
+                  loading="eager"
+                  onError={() => (imgSrc === QRIS_LOCAL ? setImgSrc(QRIS_REMOTE) : setImgError(true))}
+                />
+              )}
+            </div>
+            <div className="gx-qris__amount">
+              <span>{L('Total bayar', 'Amount')}</span>
+              <b>{formatRp(plan.price)}</b>
+            </div>
+            <div className="gx-qris__meta">
+              <span>{L('Berlaku untuk semua e-wallet & m-banking', 'Works with all e-wallets & mobile banking')}</span>
+              <a href={QRIS_PNG} download="QRIS-GaneMaX.png" className="gx-link">
+                <Download size={13} /> {L('Simpan QR', 'Save QR')}
+              </a>
             </div>
           </div>
 
-          <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, color: 'var(--gx-ink-2)', lineHeight: 1.6 }}>
-            <li>{L(`Scan QRIS dan bayar ${formatRp(plan.price)}.`, `Scan the QRIS and pay ${formatRp(plan.price)}.`)}</li>
-            <li>{L('Kirim bukti transfer ke Telegram @mrpangeranz.', 'Send the payment proof to Telegram @mrpangeranz.')}</li>
-            <li>{L('Admin mengirim username & password lisensi kamu.', 'Admin sends your license username & password.')}</li>
+          <ol className="gx-steps">
+            <li>
+              <span>1</span>
+              {L(`Scan QRIS di atas, lalu ketik nominal ${formatRp(plan.price)} untuk paket ${plan.short}.`, `Scan the QRIS above, then enter ${formatRp(plan.price)} for the ${plan.short} plan.`)}
+            </li>
+            <li>
+              <span>2</span>
+              {L('Kirim bukti bayar ke Telegram @mrpangeranz (pakai tombol "Salin format chat").', 'Send the payment proof to Telegram @mrpangeranz (use "Copy chat template").')}
+            </li>
+            <li>
+              <span>3</span>
+              {L('Admin mengirim username & password lisensi, biasanya < 15 menit.', 'Admin sends your license username & password, usually within 15 minutes.')}
+            </li>
           </ol>
 
           <label className="gx-field">

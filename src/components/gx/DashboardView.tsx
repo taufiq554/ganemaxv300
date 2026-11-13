@@ -122,6 +122,9 @@ interface DashboardViewProps {
   onStop: () => void;
   announcements: Announcement[];
   onDismissAnnouncement: (id: string) => void;
+  onOpenAnnouncements: () => void;
+  runMode: 'open' | 'practice';
+  onRunMode: (m: 'open' | 'practice') => void;
   onOpenTargetModal: (t?: TargetUrl) => void;
   onOpenAccountModal: () => void;
   onOpenAddressModal: () => void;
@@ -535,11 +538,25 @@ const QuickActions: React.FC<{
   onDisarm: () => void;
   onTarget: () => void;
   onHistory: () => void;
-}> = ({ isBotRunning, armed, next, blocked, onStart, onStop, onArm, onDisarm, onTarget, onHistory }) => {
+  runMode: 'open' | 'practice';
+  onRunMode: (m: 'open' | 'practice') => void;
+}> = ({ isBotRunning, armed, next, blocked, onStart, onStop, onArm, onDisarm, onTarget, onHistory, runMode, onRunMode }) => {
   const { L, lang, locale } = useLang();
   return (
   <section style={{ order: 2 }}>
-    <SectionHead title={L('Aksi cepat', 'Quick actions')} />
+    <SectionHead
+      title={L('Aksi cepat', 'Quick actions')}
+      action={
+        <div className="gx-seg gx-seg--sm" role="radiogroup" aria-label={L('Mode jalan', 'Run mode')}>
+          <button type="button" role="radio" aria-checked={runMode === 'open'} aria-pressed={runMode === 'open'} disabled={isBotRunning} onClick={() => onRunMode('open')}>
+            {L('Buka Shopee', 'Open Shopee')}
+          </button>
+          <button type="button" role="radio" aria-checked={runMode === 'practice'} aria-pressed={runMode === 'practice'} disabled={isBotRunning} onClick={() => onRunMode('practice')}>
+            {L('Latihan', 'Practice')}
+          </button>
+        </div>
+      }
+    />
     <div className="gx-qa">
       <button
         type="button"
@@ -632,16 +649,30 @@ const ReadinessCard: React.FC<{ items: CheckItem[] }> = ({ items }) => {
           </span>
         </div>
       </div>
-      <ul className="gx-legend">
-        {items.map((it) => (
-          <li key={it.key}>
-            <span className="gx-legend__dot" style={{ background: it.ok ? it.color : 'var(--gx-line-strong)' }} />
-            <span className="gx-legend__k">{it.label}</span>
-            <span className="gx-legend__v">{it.value}</span>
-            <span className={`gx-legend__s ${it.ok ? 'is-ok' : ''}`}>{it.ok ? 'OK' : L('Belum', 'Not yet')}</span>
-          </li>
-        ))}
-      </ul>
+      {items.every((it) => it.ok) ? (
+        <div className="gx-ready__allok">
+          <Check size={15} strokeWidth={3} /> {L('Semua siap. Tinggal pilih sesi & tekan Auto.', 'All set. Just pick a session & press Auto.')}
+        </div>
+      ) : (
+        <ul className="gx-legend">
+          {items
+            .filter((it) => !it.ok)
+            .map((it) => (
+              <li key={it.key}>
+                <span className="gx-legend__dot" style={{ background: it.color }} />
+                <span className="gx-legend__k">{it.label}</span>
+                <span className="gx-legend__v">{it.value}</span>
+                {it.action ? (
+                  <button type="button" className="gx-link" onClick={it.action}>
+                    {L('Atur', 'Fix')}
+                  </button>
+                ) : (
+                  <span className="gx-legend__s">{L('Belum', 'Not yet')}</span>
+                )}
+              </li>
+            ))}
+        </ul>
+      )}
     </section>
   );
 };
@@ -891,9 +922,12 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
 
       {p.announcements.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {p.announcements.slice(0, 3).map((a) => (
-            <AnnouncementCard key={a.id} a={a} compact onDismiss={a.pinned ? undefined : () => p.onDismissAnnouncement(a.id)} />
-          ))}
+          <AnnouncementCard a={p.announcements[0]} compact onDismiss={p.announcements[0].pinned ? undefined : () => p.onDismissAnnouncement(p.announcements[0].id)} />
+          {p.announcements.length > 1 && (
+            <button type="button" className="gx-link" style={{ alignSelf: 'flex-start', marginLeft: 4 }} onClick={p.onOpenAnnouncements}>
+              {L(`+${p.announcements.length - 1} pengumuman lain`, `+${p.announcements.length - 1} more announcements`)}
+            </button>
+          )}
         </div>
       )}
 
@@ -921,6 +955,8 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
             onDisarm={p.onDisarm}
             onTarget={() => p.onGoTab('targets')}
             onHistory={() => p.onGoTab('analytics')}
+            runMode={p.runMode}
+            onRunMode={p.onRunMode}
           />
           <EngineMonitor
             phase={p.phase}

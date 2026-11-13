@@ -590,6 +590,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
               <input type="number" min={0} max={5000} step={100} value={s.retryDelay} onChange={(e) => p.onUpdateSettings({ ...s, retryDelay: Math.max(0, Math.min(5000, Number(e.target.value) || 0)) })} />
             </label>
             <label className="gx-field">
+              <span>{L('Mode jalan', 'Run mode')}</span>
+              <select value={s.runMode === 'practice' ? 'practice' : 'open'} onChange={(e) => p.onUpdateSettings({ ...s, runMode: e.target.value as 'open' | 'practice' })}>
+                <option value="open">{L('Buka Shopee di detik 0', 'Open Shopee at second zero')}</option>
+                <option value="practice">{L('Latihan — bot jalan sendiri, ukur tap kamu', 'Practice — bot runs itself, measures your tap')}</option>
+              </select>
+            </label>
+            <label className="gx-field">
               <span>{L('Cara membuka', 'Open method')}</span>
               <select value={s.openMode || 'app'} onChange={(e) => p.onUpdateSettings({ ...s, openMode: e.target.value as 'app' | 'browser' })}>
                 <option value="app">{L('App Shopee', 'Shopee app')} {isAndroid() ? L('(langsung masuk app)', '(opens the app)') : ''}</option>

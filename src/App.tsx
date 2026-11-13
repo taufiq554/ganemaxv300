@@ -35,6 +35,7 @@ import { useServerClock, SyncResult } from './lib/useServerClock.ts';
 import { getNextSession, formatClock } from './lib/time.ts';
 import { parseShopeeLink, buildOpenUrl, isValidHttpUrl } from './lib/shopee.ts';
 import { FireOverlay, FireState } from './components/gx/FireOverlay.tsx';
+import { PracticeOverlay, PracticeState, PracticeResult } from './components/gx/PracticeOverlay.tsx';
 import {
   TopBar,
   Dock,
@@ -77,6 +78,7 @@ function normalizeSettings(x: BotSettings): BotSettings {
     retryDelay: num(x.retryDelay, 300, 0, 5000),
     openLeadMs: num(x.openLeadMs, 800, 0, 3000),
     openMode: x.openMode === 'browser' ? 'browser' : 'app',
+    runMode: x.runMode === 'practice' ? 'practice' : 'open',
   };
 }
 
@@ -242,6 +244,7 @@ export const App: React.FC = () => {
     notifyRateLimit: true,
     openLeadMs: 800,
     openMode: "app",
+    runMode: "open",
     soundAlert: true,
     vibrateAlert: true,
   };
@@ -478,6 +481,7 @@ export const App: React.FC = () => {
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) || accounts.find((a) => !a.region || a.region === selectedRegion) || accounts[0] || null;
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) || addresses.find((a) => a.is_default) || addresses[0] || null;
   const botMode = botSettings.botMode || 'turbo';
+  const runMode: 'open' | 'practice' = botSettings.runMode === 'practice' ? 'practice' : 'open';
   const avgLatency = latency.history.length ? latency.history.reduce((x, y) => x + y, 0) / latency.history.length : null;
   const manualLead = Math.max(0, Math.min(5000, Number(botSettings.openLeadMs ?? 800)));
   // Mode AI: jeda buka dihitung dari latensi gateway yang terukur
@@ -564,6 +568,7 @@ export const App: React.FC = () => {
   };
 
   const [fireState, setFireState] = useState<FireState | null>(null);
+  const [practiceState, setPracticeState] = useState<PracticeState | null>(null);
 
   // --- Pemeriksaan sebelum war ---
   const runPrechecks = async (): Promise<boolean> => {
@@ -571,7 +576,12 @@ export const App: React.FC = () => {
     const t = selectedTarget;
     const acc = selectedAccount;
     setEnginePhase('sync');
-    addLog(L(`[WAR] Sesi war dimulai · Shopee ${reg.name} (${reg.domain}) · mode ${botMode.toUpperCase()}`, `[WAR] War session started · Shopee ${reg.name} (${reg.domain}) · ${botMode.toUpperCase()} mode`), 'info');
+    addLog(
+      runMode === 'practice'
+        ? L(`[LATIHAN] Sesi latihan dimulai · Shopee ${reg.name} (${reg.domain}) · mode ${botMode.toUpperCase()} · Shopee tidak dibuka`, `[PRACTICE] Practice session started · Shopee ${reg.name} (${reg.domain}) · ${botMode.toUpperCase()} mode · Shopee will not be opened`)
+        : L(`[WAR] Sesi war dimulai · Shopee ${reg.name} (${reg.domain}) · mode ${botMode.toUpperCase()}`, `[WAR] War session started · Shopee ${reg.name} (${reg.domain}) · ${botMode.toUpperCase()} mode`),
+      'info'
+    );
     addLog(L(`[WAR] Target: ${t?.title || '-'}`, `[WAR] Target: ${t?.title || '-'}`), 'info');
     if (t && isAseanCode(t.region) && t.region !== reg.code) {
       addLog(L(`[WILAYAH] Target ini dari Shopee ${ASEAN_REGIONS[t.region].name}, sedangkan wilayah aktif ${reg.name}. Jam sesi mengikuti wilayah aktif.`, `[REGION] This target is from Shopee ${ASEAN_REGIONS[t.region].name}, but the active region is ${reg.name}. Session times follow the active region.`), 'warning');
@@ -673,6 +683,26 @@ export const App: React.FC = () => {
     setEnginePhase('fire');
     const now = clock.now();
     const delta = scheduledEpoch != null ? now - scheduledEpoch : null;
+
+    if (runMode === 'practice') {
+      const zeroAt = scheduledEpoch != null ? scheduledEpoch + openLeadMs : now;
+      beep(1320, 220);
+      vibrate([200, 80, 200]);
+      addLog(
+        L(
+          `[LATIHAN] Tahap buka tercapai · jam server ${stamp(now)} · presisi timer ${delta != null ? `${delta >= 0 ? '+' : ''}${delta} ms` : '—'} · menunggu tap kamu`,
+          `[PRACTICE] Open stage reached · server time ${stamp(now)} · timer precision ${delta != null ? `${delta >= 0 ? '+' : ''}${delta} ms` : '—'} · waiting for your tap`
+        ),
+        'warning'
+      );
+      releaseWakeLock();
+      setPracticeState({ title: t.title, zeroAt, timerDeltaMs: delta, leadMs: openLeadMs });
+      isRunningRef.current = false;
+      setIsBotRunning(false);
+      setEnginePhase('done');
+      return;
+    }
+
     const mode = botSettings.openMode === 'browser' ? 'browser' : 'app';
     const targetRegion = isAseanCode(t.region) ? t.region : selectedRegion;
     const { href, via } = buildOpenUrl(t.url, targetRegion, mode);
@@ -764,6 +794,23 @@ export const App: React.FC = () => {
     setIsBotRunning(true);
     const ok = await runPrechecks();
     if (!ok || !isRunningRef.current) return;
+    if (runMode === 'practice') {
+      // Latihan manual: hitung mundur 5 detik lalu bot jalan sendiri seperti sesi sungguhan
+      const zeroAt = clock.now() + 5000;
+      addLog(L('[LATIHAN] Hitung mundur 5 detik ke detik 0 latihan…', '[PRACTICE] Counting down 5 seconds to practice zero…'), 'info');
+      for (let sec = 3; sec >= 1; sec--) {
+        const tm = window.setTimeout(() => {
+          addLog(`[COUNTDOWN] T-${sec}`, 'warning');
+          beep(880, 90);
+        }, Math.max(0, zeroAt - sec * 1000 - clock.now()));
+        botTimeoutsRef.current.push(tm);
+      }
+      const tf = window.setTimeout(() => {
+        if (isRunningRef.current) fireRef.current(zeroAt - openLeadMs);
+      }, Math.max(0, zeroAt - openLeadMs - clock.now()));
+      botTimeoutsRef.current.push(tf);
+      return;
+    }
     fire(null);
   };
 
@@ -775,11 +822,14 @@ export const App: React.FC = () => {
     if (wasRunning) addLog(L('[WAR] Sesi dihentikan.', '[WAR] Session stopped.'), 'warning');
   };
 
+  const startRef = useRef<() => void>(() => {});
+
   // --- Auto-start terjadwal ---
   const precheckStartedRef = useRef(false);
   const milestonesRef = useRef<Set<string>>(new Set());
   const fireRef = useRef(fire);
   fireRef.current = fire;
+  startRef.current = handleStartBot;
   const precheckRef = useRef(runPrechecks);
   precheckRef.current = runPrechecks;
   const logRef = useRef({ addLog, L, beep });
@@ -865,6 +915,27 @@ export const App: React.FC = () => {
     }
     handleArm({ epoch, label: formatClock(epoch, tz(selectedRegion)).slice(0, 5) });
     setCurrentTab('dashboard');
+  };
+
+  // --- Hasil latihan ---
+  const handlePracticeDone = (r: PracticeResult | null) => {
+    if (r) {
+      addLog(
+        L(
+          `[LATIHAN] Waktu reaksi ${r.reactionMs} ms${r.reactionMs < 0 ? ' (tap sebelum detik 0)' : ''} · presisi timer ${r.timerDeltaMs != null ? `${r.timerDeltaMs >= 0 ? '+' : ''}${r.timerDeltaMs} ms` : '—'}`,
+          `[PRACTICE] Reaction ${r.reactionMs} ms${r.reactionMs < 0 ? ' (tapped before zero)' : ''} · timer precision ${r.timerDeltaMs != null ? `${r.timerDeltaMs >= 0 ? '+' : ''}${r.timerDeltaMs} ms` : '—'}`
+        ),
+        'success'
+      );
+      return; // overlay tetap tampil untuk lihat hasil
+    }
+    setPracticeState(null);
+    setEnginePhase('idle');
+  };
+  const handlePracticeRetry = () => {
+    setPracticeState(null);
+    setEnginePhase('idle');
+    window.setTimeout(() => startRef.current(), 50);
   };
 
   // --- Konfirmasi hasil ---
@@ -1429,6 +1500,9 @@ export const App: React.FC = () => {
             onStop={handleStopBot}
             announcements={visibleAnnouncements}
             onDismissAnnouncement={dismissAnnouncement}
+            onOpenAnnouncements={() => setIsAnnDrawerOpen(true)}
+            runMode={runMode}
+            onRunMode={(m) => setBotSettings((prev) => ({ ...prev, runMode: m }))}
             onOpenTargetModal={(t) => {
               setActiveTargetUrl(t || null);
               setTargetUrlModalOpen(true);
@@ -1577,6 +1651,7 @@ export const App: React.FC = () => {
         onSaveBulk={handleSaveBulkAccounts}
         defaultRegion={selectedRegion}
       />
+      <PracticeOverlay state={practiceState} clock={clock} onDone={handlePracticeDone} onRetry={handlePracticeRetry} />
       <FireOverlay
         state={fireState}
         clock={clock}

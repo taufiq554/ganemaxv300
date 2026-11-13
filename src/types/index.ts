@@ -139,6 +139,8 @@ export interface BotSettings {
   openLeadMs?: number;
   /** app = masuk aplikasi Shopee (Android), browser = buka di browser */
   openMode?: 'app' | 'browser';
+  /** open = buka produk di Shopee, practice = bot jalan penuh tanpa membuka Shopee (latihan timing) */
+  runMode?: 'open' | 'practice';
   soundAlert?: boolean;
   vibrateAlert?: boolean;
 }
