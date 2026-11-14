@@ -188,6 +188,7 @@ export const api = {
     latency_ms: number;
     status: number;
     reason: string;
+    browse_url?: string;
     items: {
       item_id: string;
       shop_id: string;

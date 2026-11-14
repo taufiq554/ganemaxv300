@@ -76,6 +76,7 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
   const [items, setItems] = useState<Item[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [itemsNote, setItemsNote] = useState('');
+  const [browseUrl, setBrowseUrl] = useState('');
   const [savingUrl, setSavingUrl] = useState<string | null>(null);
 
   // Live flash sale (jadwal diumumkan penjual, jadi waktunya diisi manual)
@@ -121,6 +122,7 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
     setOpenSession(s.promotion_id);
     setItems([]);
     setItemsNote('');
+    setBrowseUrl('');
     if (!s.promotion_id) {
       setItemsNote(L('Sesi ini tidak punya ID promo dari Shopee.', 'This session has no promo ID from Shopee.'));
       return;
@@ -130,6 +132,7 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
     setItemsLoading(false);
     if (res.success && res.data) {
       setItems(res.data.items || []);
+      setBrowseUrl(res.data.browse_url || '');
       setItemsNote(res.data.ok ? '' : res.data.reason || L('Daftar produk tidak tersedia.', 'Product list unavailable.'));
     } else {
       setItemsNote(res.error?.message || L('Gagal mengambil produk.', 'Failed to fetch products.'));
@@ -319,9 +322,24 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
                               })}
                             </ul>
                           ) : (
-                            <div className="gx-note gx-note--warn">
-                              <CircleAlert size={15} />
-                              <span>{itemsNote || L('Produk tidak tersedia untuk sesi ini.', 'No products available for this session.')}</span>
+                            <div className="gx-note gx-note--warn" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                              <span style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                <CircleAlert size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+                                <span>
+                                  <b style={{ display: 'block', marginBottom: 2 }}>
+                                    {itemsNote || L('Produk tidak tersedia untuk sesi ini.', 'No products available for this session.')}
+                                  </b>
+                                  {L(
+                                    'Daftar produk sesi ini hanya bisa dibuka langsung di Shopee. Buka halamannya, salin link produk incaranmu, lalu tempel di "Target produk".',
+                                    'This session\'s product list can only be opened in Shopee. Open the page, copy your product link, then paste it into "Target products".'
+                                  )}
+                                </span>
+                              </span>
+                              {browseUrl && (
+                                <a className="gx-btn gx-btn--xs gx-btn--primary" style={{ alignSelf: 'flex-start' }} href={browseUrl} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink size={12} /> {L('Buka flash sale di Shopee', 'Open flash sale in Shopee')}
+                                </a>
+                              )}
                             </div>
                           )}
                         </div>

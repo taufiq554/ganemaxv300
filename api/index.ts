@@ -376,21 +376,49 @@ router.post('/bot/flash-items', requireAuth, async (req: AuthenticatedRequest, r
   const limit = Math.max(1, Math.min(30, Number(req.body?.limit) || 16));
   if (!promotionId) return errorRes(res, 'promotion_id wajib diisi', 400);
   const start = performance.now();
+  // Shopee punya beberapa varian endpoint daftar produk flash sale; dicoba berurutan
+  const variants = [
+    `/api/v4/flash_sale/flash_sale_batch_get_items?promotionid=${promotionId}&limit=${limit}&offset=0&filter_soldout=false&with_dp_items=true`,
+    `/api/v4/flash_sale/flash_sale_get_items?promotionid=${promotionId}&limit=${limit}&offset=0&filter_soldout=false&need_personalize=true&with_dp_items=true&sort_soldout=true`,
+    `/api/v4/flash_sale/flash_sale_batch_get_items?promotionid=${promotionId}&limit=${limit}&offset=0&with_dp_items=true&sort_soldout=true`,
+  ];
   try {
-    const r = await fetch(
-      `${config.domain}/api/v4/flash_sale/flash_sale_batch_get_items?promotionid=${promotionId}&limit=${limit}&offset=0&with_dp_items=true&sort_soldout=true`,
-      { headers: { ...SHOPEE_HEADERS, Referer: `${config.domain}/flash_sale` }, signal: AbortSignal.timeout(7000) }
-    );
+    let raw: any[] = [];
+    let lastStatus = 0;
+    let lastReason = '';
+    for (const path of variants) {
+      let r: any;
+      try {
+        r = await fetch(`${config.domain}${path}`, {
+          headers: { ...SHOPEE_HEADERS, Referer: `${config.domain}/flash_sale?promotionId=${promotionId}` },
+          signal: AbortSignal.timeout(5000),
+        });
+      } catch (e: any) {
+        // Kalau server bot sama sekali tidak bisa menjangkau Shopee, varian lain pasti gagal juga
+        lastReason = e?.name === 'TimeoutError' ? 'Timeout 5 dtk ke Shopee' : 'Server bot tidak bisa terhubung ke Shopee';
+        break;
+      }
+      lastStatus = r.status;
+      const json: any = await r.json().catch(() => null);
+      const list = json?.data?.items || json?.data?.item_briefs || (Array.isArray(json?.data) ? json.data : []);
+      if (r.ok && Array.isArray(list) && list.length > 0) {
+        raw = list;
+        lastReason = '';
+        break;
+      }
+      lastReason = json?.error
+        ? `Shopee menolak permintaan (kode ${json.error})`
+        : `Shopee tidak mengirim daftar produk (HTTP ${r.status})`;
+    }
     const latency = Math.round(performance.now() - start);
-    const json: any = await r.json().catch(() => null);
-    const raw = json?.data?.items || json?.data?.item_briefs || [];
-    if (!r.ok || !Array.isArray(raw) || raw.length === 0) {
+    if (raw.length === 0) {
       return successRes(res, {
         ok: false,
         latency_ms: latency,
-        status: r.status,
+        status: lastStatus,
         items: [],
-        reason: json?.error ? `Shopee membalas kode error ${json.error}` : `Shopee tidak mengirim daftar produk (HTTP ${r.status})`,
+        reason: lastReason || 'Shopee tidak mengirim daftar produk',
+        browse_url: `${config.domain}/flash_sale?promotionId=${promotionId}`,
       });
     }
     const items = raw.slice(0, limit).map((x: any) => {
@@ -410,14 +438,22 @@ router.post('/bot/flash-items', requireAuth, async (req: AuthenticatedRequest, r
         sold: x.promotion_sold_count ?? x.sold ?? null,
       };
     });
-    return successRes(res, { ok: true, latency_ms: latency, status: r.status, items, reason: '' });
+    return successRes(res, {
+      ok: true,
+      latency_ms: latency,
+      status: lastStatus,
+      items,
+      reason: '',
+      browse_url: `${config.domain}/flash_sale?promotionId=${promotionId}`,
+    });
   } catch (e: any) {
     return successRes(res, {
       ok: false,
       latency_ms: Math.round(performance.now() - start),
       status: 0,
       items: [],
-      reason: e?.name === 'TimeoutError' ? 'Timeout 7 dtk ke Shopee' : 'Server bot tidak bisa terhubung ke Shopee',
+      reason: e?.name === 'TimeoutError' ? 'Timeout 5 dtk ke Shopee' : 'Server bot tidak bisa terhubung ke Shopee',
+      browse_url: `${config.domain}/flash_sale?promotionId=${promotionId}`,
     });
   }
 });

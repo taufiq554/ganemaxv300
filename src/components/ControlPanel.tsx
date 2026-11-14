@@ -20,6 +20,7 @@ import {
   Network,
   CalendarClock,
   SlidersHorizontal,
+  CircleAlert,
   Languages,
   RefreshCw,
   Play,
@@ -214,18 +215,33 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
                   const valid = isValidHttpUrl(t.url);
                   const tRegion = isAseanCode(t.region) ? t.region : selectedRegion;
                   return (
-                    <li key={t.id} className="gx-row">
-                      <Radio name="active-target" checked={active} onChange={() => p.onSelectTarget(t.id)} label={t.title} />
-                      <div className="gx-row__main" onClick={() => p.onSelectTarget(t.id)} style={{ cursor: 'pointer' }}>
-                        <div className="gx-row__t">{t.title}</div>
-                        <div className="gx-row__s">
-                          <span style={{ color: 'var(--gx-brand)', fontWeight: 700 }}>{formatAseanCurrency(Number(t.target_price) || 0, tRegion)}</span> · {tRegion} ·{' '}
-                          <span style={{ color: valid ? (ids ? 'var(--gx-ok)' : 'var(--gx-warn)') : 'var(--gx-bad)' }}>
-                            {valid ? (ids ? L('link valid', 'valid link') : L('link pendek', 'short link')) : L('link tidak valid', 'invalid link')}
-                          </span>
+                    <li key={t.id} style={{ borderTop: '1px solid var(--gx-line)' }}>
+                      <div className="gx-row" style={{ borderTop: 0 }}>
+                        <Radio name="active-target" checked={active} onChange={() => p.onSelectTarget(t.id)} label={t.title} />
+                        <div className="gx-row__main" onClick={() => p.onSelectTarget(t.id)} style={{ cursor: 'pointer' }}>
+                          <div className="gx-row__t">{t.title}</div>
+                          <div className="gx-row__s">
+                            <span style={{ color: 'var(--gx-brand)', fontWeight: 700 }}>{formatAseanCurrency(Number(t.target_price) || 0, tRegion)}</span> · {tRegion} ·{' '}
+                            <span style={{ color: valid ? (ids ? 'var(--gx-ok)' : 'var(--gx-warn)') : 'var(--gx-bad)' }}>
+                              {valid ? (ids ? L('link valid', 'valid link') : L('link pendek', 'short link')) : L('link tidak valid', 'invalid link')}
+                            </span>
+                          </div>
                         </div>
+                        <RowBtns label={t.title} onEdit={() => p.onOpenTargetUrlModal(t)} onDelete={() => p.onDeleteTargetUrl(t.id)} />
                       </div>
-                      <RowBtns label={t.title} onEdit={() => p.onOpenTargetUrlModal(t)} onDelete={() => p.onDeleteTargetUrl(t.id)} />
+                      {!ids && (
+                        <div className="gx-fixlink">
+                          <CircleAlert size={14} />
+                          <span>
+                            {valid
+                              ? L('Link ini belum berisi ID produk, jadi bot tidak bisa cek harga & stok.', 'This link has no product ID yet, so the bot cannot check price & stock.')
+                              : L('Link ini tidak valid. Perbaiki dulu sebelum dipakai war.', 'This link is invalid. Fix it before using it for a war.')}
+                          </span>
+                          <button type="button" className="gx-btn gx-btn--xs gx-btn--primary" onClick={() => p.onOpenTargetUrlModal(t)}>
+                            {L('Perbaiki', 'Fix')}
+                          </button>
+                        </div>
+                      )}
                     </li>
                   );
                 })}

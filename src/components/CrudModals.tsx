@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Eye, EyeOff, MapPin, UserRound, Link2, Network, CalendarClock, ClipboardPaste, Loader2 } from 'lucide-react';
+import { X, Eye, EyeOff, MapPin, UserRound, Link2, Network, CalendarClock, ClipboardPaste, Loader2, HelpCircle, ChevronDown, Check, CircleAlert } from 'lucide-react';
 import { Address, ShopeeAccount, TargetUrl, ProxyMesh, Schedule, AseanCountryCode } from '../types/index.ts';
 import { ASEAN_REGIONS, ALL_ASEAN_CODES, isAseanCode, formatAseanCurrency } from '../constants/asean.ts';
 import { useLang } from '../lib/i18n.tsx';
@@ -357,6 +357,58 @@ const DOMAIN_TO_REGION: Record<string, AseanCountryCode> = {
   'shopee.ph': 'PH',
 };
 
+/** Panduan singkat cara dapat link produk yang berisi ID (shopid.itemid). */
+const LinkGuide: React.FC<{ domain: string; defaultOpen?: boolean }> = ({ domain, defaultOpen }) => {
+  const { L } = useLang();
+  const [open, setOpen] = useState(!!defaultOpen);
+  return (
+    <div className="gx-guide">
+      <button type="button" className="gx-guide__head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <HelpCircle size={16} />
+        <span>{L('Cara dapat link yang ada ID produk', 'How to get a link with the product ID')}</span>
+        <ChevronDown size={16} className={`gx-guide__chev ${open ? 'is-open' : ''}`} />
+      </button>
+      {open && (
+        <div className="gx-guide__body">
+          <ol>
+            <li>{L('Buka produknya di aplikasi Shopee.', 'Open the product in the Shopee app.')}</li>
+            <li>{L('Tap ikon Bagikan (panah/titik tiga) di kanan atas → "Salin Tautan".', 'Tap the Share icon (arrow/three dots) at the top right → "Copy Link".')}</li>
+            <li>
+              {L('Tempel di kolom bawah, lalu tekan', 'Paste it in the field below, then press')} <b>{L('"Hubungkan & ambil data produk"', '"Integrate & fetch product"')}</b>.
+            </li>
+          </ol>
+          <div className="gx-guide__cmp">
+            <div className="is-ok">
+              <span>
+                <Check size={13} /> {L('Link lengkap (ada ID)', 'Full link (has ID)')}
+              </span>
+              <code>{domain}/Nama-Produk-i.<b>123456789</b>.<b>987654321</b></code>
+            </div>
+            <div className="is-warn">
+              <span>
+                <CircleAlert size={13} /> {L('Link pendek (belum ada ID)', 'Short link (no ID yet)')}
+              </span>
+              <code>s.{domain.replace('https://', '')}/A1bC2dE3</code>
+            </div>
+          </div>
+          <p>
+            {L(
+              'Link pendek dari tombol Bagikan tetap boleh dipakai — tombol "Hubungkan" akan mengubahnya jadi link lengkap otomatis. Kalau sudah hijau "link valid", bot bisa cek harga & stok produknya.',
+              'A short link from the Share button is fine — the "Integrate" button converts it into a full link automatically. Once it turns green "valid link", the bot can check the price & stock.'
+            )}
+          </p>
+          <p className="gx-muted">
+            {L(
+              'Cara lain: buka produk lewat browser HP, link di address bar sudah berisi -i.shopid.itemid.',
+              'Another way: open the product in your phone browser — the address bar link already contains -i.shopid.itemid.'
+            )}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose, onSave, initialData, defaultRegion = 'ID' }) => {
   const { L } = useLang();
   const [title, setTitle] = useState('');
@@ -505,6 +557,7 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
         });
       }}
     >
+      <LinkGuide domain={reg.domain} defaultOpen={!initialData || !ids} />
       <label className="gx-field">
         <span>{L('Link produk Shopee', 'Shopee product link')}</span>
         <div style={{ display: 'flex', gap: 6 }}>
