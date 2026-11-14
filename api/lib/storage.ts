@@ -51,7 +51,8 @@ export type TableName =
   | 'order_history'
   | 'logs'
   | 'announcements'
-  | 'revenues';
+  | 'revenues'
+  | 'push_subscriptions';
 
 export const VALID_TABLES: TableName[] = [
   'users',

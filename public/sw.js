@@ -1,6 +1,6 @@
 /* GaneMaX.Ai service worker — app shell cache + offline fallback.
    Versi dinaikkan tiap rilis supaya cache lama dibuang. */
-const CACHE = 'ganemax-v7';
+const CACHE = 'ganemax-v8';
 const SHELL = ['/app/', '/ganemax-logo.jpg', '/icon-192.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
@@ -46,6 +46,44 @@ self.addEventListener('fetch', (e) => {
         })
         .catch(() => cached);
       return cached || net;
+    })
+  );
+});
+
+/* ------------------------------------------------------------------ */
+/* Push: pengingat sesi tetap masuk walau aplikasi ditutup            */
+/* ------------------------------------------------------------------ */
+self.addEventListener('push', (e) => {
+  let d = {};
+  try {
+    d = e.data ? e.data.json() : {};
+  } catch (_) {
+    d = { title: 'GaneMaX.Ai', body: e.data ? e.data.text() : '' };
+  }
+  const title = d.title || 'GaneMaX.Ai';
+  e.waitUntil(
+    self.registration.showNotification(title, {
+      body: d.body || '',
+      tag: d.tag || 'ganemax',
+      renotify: true,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      vibrate: [120, 60, 120, 60, 240],
+      requireInteraction: true,
+      data: { url: d.url || '/app/' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const target = (e.notification.data && e.notification.data.url) || '/app/';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if (c.url.includes('/app') && 'focus' in c) return c.focus();
+      }
+      return self.clients.openWindow(target);
     })
   );
 });

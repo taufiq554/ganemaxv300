@@ -71,6 +71,12 @@ service cloud.firestore {
       allow write: if isValidId(annId);
     }
 
+    // Langganan push notification (hanya ditulis server lewat API)
+    match /push_subscriptions/{subId} {
+      allow read: if true;
+      allow write: if isValidId(subId);
+    }
+
     // Catatan pendapatan sewa bot (ditulis admin via API)
     match /revenues/{revId} {
       allow read: if true;

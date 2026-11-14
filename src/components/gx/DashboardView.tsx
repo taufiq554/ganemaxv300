@@ -17,6 +17,7 @@ import {
   GraduationCap,
   Hand,
   MapPin,
+  PackageSearch,
   Plus,
   Receipt,
   Server,
@@ -90,6 +91,15 @@ export function normalizeOrder(o: OrderHistoryItem & Record<string, any>): Norma
   };
 }
 
+export interface StockWatch {
+  title: string;
+  price: number | null;
+  stock: number | null;
+  flash: boolean;
+  checkedAt: number;
+  ok: boolean;
+}
+
 export interface ArmState {
   epoch: number;
   label: string;
@@ -129,6 +139,8 @@ interface DashboardViewProps {
   onOpenAnnouncements: () => void;
   runMode: 'open' | 'practice';
   onRunMode: (m: 'open' | 'practice') => void;
+  stockWatch: StockWatch | null;
+  backupCount: number;
   onOpenTargetModal: (t?: TargetUrl) => void;
   onOpenAccountModal: () => void;
   onOpenAddressModal: () => void;
@@ -827,6 +839,50 @@ export const OrdersList: React.FC<{ orders: NormalizedOrder[]; limit?: number; r
 };
 
 
+const StockWatchCard: React.FC<{ w: StockWatch; region: AseanCountryCode }> = ({ w, region }) => {
+  const { L, lang } = useLang();
+  const soldOut = w.stock === 0;
+  return (
+    <section className="gx-card gx-stock" style={{ order: 3 }}>
+      <div className="gx-card__head">
+        <h2 className="gx-card__title">
+          <PackageSearch size={16} /> {L('Pantauan stok & harga', 'Stock & price watch')}
+        </h2>
+        <div className="gx-card__aside">
+          {w.flash ? (
+            <span className="gx-tag gx-tag--flash">
+              <span className="gx-led gx-led--pulse" /> {L('Harga flash aktif', 'Flash price live')}
+            </span>
+          ) : (
+            <span className="gx-tag">{L('Harga normal', 'Normal price')}</span>
+          )}
+        </div>
+      </div>
+      <div className="gx-card__body">
+        <div className="gx-metrics">
+          <div className="gx-metric">
+            <div className="gx-metric__k">{L('Harga sekarang', 'Current price')}</div>
+            <div className={`gx-metric__v ${w.flash ? 'gx-metric__v--ok' : ''}`} style={{ fontSize: 15 }}>
+              {w.price != null ? formatAseanCurrency(w.price, region) : '—'}
+            </div>
+          </div>
+          <div className="gx-metric">
+            <div className="gx-metric__k">{L('Sisa stok', 'Stock left')}</div>
+            <div className={`gx-metric__v ${soldOut ? 'gx-metric__v--bad' : w.stock != null && w.stock < 10 ? 'gx-metric__v--warn' : ''}`}>
+              {w.stock != null ? (soldOut ? L('Habis', 'Sold out') : w.stock) : '—'}
+            </div>
+          </div>
+        </div>
+        <div className="gx-muted" style={{ fontSize: 11.5, marginTop: 8 }}>
+          {w.ok
+            ? `${L('Dicek', 'Checked')} ${relativeTimeId(new Date(w.checkedAt).toISOString(), Date.now(), lang)} · ${w.title}`
+            : L('Cek terakhir ditolak Shopee — tetap dicoba lagi otomatis.', 'Last check was blocked by Shopee — will keep retrying.')}
+        </div>
+      </div>
+    </section>
+  );
+};
+
 /* ------------------------------------------------------------------ */
 /* Dashboard                                                           */
 /* ------------------------------------------------------------------ */
@@ -1001,6 +1057,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
             region={p.region}
             onSeeAll={() => p.onGoTab('targets')}
           />
+          {p.stockWatch && <StockWatchCard w={p.stockWatch} region={p.region} />}
           <ReadinessCard items={checklist} />
           <section style={{ order: 5 }}>
             <SectionHead

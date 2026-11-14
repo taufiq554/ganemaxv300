@@ -36,6 +36,9 @@ import { getNextSession, formatClock } from './lib/time.ts';
 import { parseShopeeLink, buildOpenUrl, isValidHttpUrl } from './lib/shopee.ts';
 import { FireOverlay, FireState } from './components/gx/FireOverlay.tsx';
 import { PracticeOverlay, PracticeState, PracticeResult } from './components/gx/PracticeOverlay.tsx';
+import { loadArmed, saveArmed, loadLogs, saveLogs, clearStoredLogs } from './lib/session-store.ts';
+import { usePushReminder } from './lib/push.ts';
+import { StockWatch } from './components/gx/DashboardView.tsx';
 import { Onboarding, hasOnboarded } from './components/gx/Onboarding.tsx';
 import { FlashSalePanel } from './components/gx/FlashSale.tsx';
 import {
@@ -124,8 +127,25 @@ export const App: React.FC = () => {
       return '';
     }
   });
+  const [backupTargetIds, setBackupTargetIds] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('gx_backup_targets') || '[]');
+      return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, 3) : [];
+    } catch {
+      return [];
+    }
+  });
   const [enginePhase, setEnginePhase] = useState<EnginePhase>('idle');
-  const [armed, setArmed] = useState<ArmState | null>(null);
+  const [armed, setArmed] = useState<ArmState | null>(() => {
+    const stored = loadArmed();
+    return stored ? { epoch: stored.epoch, label: stored.label } : null;
+  });
+  // Jadwal auto-start ikut tersimpan supaya tidak hilang saat halaman di-reload
+  useEffect(() => {
+    saveArmed(armed ? { epoch: armed.epoch, label: armed.label, savedAt: Date.now() } : null);
+  }, [armed]);
+  // Pengingat T-5 menit dari server; jadwalnya ikut tiap kali armed berubah
+  const push = usePushReminder(armed?.epoch ?? null, armed?.label ?? '');
   const [latency, setLatency] = useState<LatencyState>({ history: [], last: null, status: null, reachable: null, checkedAt: null });
   const [notifState, setNotifState] = useState<NotificationPermission | 'unsupported'>(() =>
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
@@ -217,14 +237,34 @@ export const App: React.FC = () => {
     speed_ms: 12,
     saved_amount: 0,
   });
-  const [logs, setLogs] = useState<BotLogItem[]>([
-    {
-      id: 'init_log',
-      time: `${new Date().toLocaleTimeString('id-ID', { hour12: false })}.${String(new Date().getMilliseconds()).padStart(3, '0')}`,
-      text: readLang() === 'en' ? '[SYSTEM] GaneMaX.Ai dashboard ready. Gateway & server clock monitor running.' : '[SYSTEM] Dashboard GaneMaX.Ai siap. Monitor gateway & jam server berjalan.',
+  const [logs, setLogs] = useState<BotLogItem[]>(() => {
+    const stamp = `${new Date().toLocaleTimeString('id-ID', { hour12: false })}.${String(new Date().getMilliseconds()).padStart(3, '0')}`;
+    const en = readLang() === 'en';
+    const boot: BotLogItem = {
+      id: `init_${Date.now()}`,
+      time: stamp,
+      text: en ? '[SYSTEM] GaneMaX.Ai dashboard ready. Gateway & server clock monitor running.' : '[SYSTEM] Dashboard GaneMaX.Ai siap. Monitor gateway & jam server berjalan.',
       type: 'info',
-    },
-  ]);
+    };
+    const restored = loadLogs();
+    if (restored && restored.length) {
+      return [
+        ...restored,
+        {
+          id: `resume_${Date.now()}`,
+          time: stamp,
+          text: en ? `[SYSTEM] ${restored.length} baris log sesi sebelumnya dipulihkan.` : `[SYSTEM] ${restored.length} baris log sesi sebelumnya dipulihkan.`,
+          type: 'info',
+        },
+        boot,
+      ];
+    }
+    return [boot];
+  });
+  // Log disimpan supaya bukti kerja bot tidak hilang saat reload
+  useEffect(() => {
+    saveLogs(logs);
+  }, [logs]);
 
   // Bot Settings
   const [botSettings, setBotSettings] = useState<BotSettings>(() => {
@@ -480,6 +520,25 @@ export const App: React.FC = () => {
     try {
       localStorage.setItem('gx_selected_target', id);
     } catch {}
+    // target utama tidak boleh sekaligus jadi cadangan
+    setBackupTargetIds((prev) => prev.filter((x) => x !== id));
+  };
+
+  /** Target cadangan: dibuka berurutan setelah target utama saat detik 0. */
+  const backupTargets = useMemo(
+    () => backupTargetIds.map((id) => targetUrls.find((t) => t.id === id)).filter((t): t is TargetUrl => !!t && t.id !== selectedTarget?.id),
+    [backupTargetIds, targetUrls, selectedTarget?.id]
+  );
+
+  const toggleBackupTarget = (id: string) => {
+    if (id === selectedTarget?.id) return;
+    setBackupTargetIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id].slice(-3);
+      try {
+        localStorage.setItem('gx_backup_targets', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const licenseThreadCap = currentUser?.role === 'admin' ? 24 : currentUser?.max_threads || 8;
@@ -579,6 +638,79 @@ export const App: React.FC = () => {
 
   const [fireState, setFireState] = useState<FireState | null>(null);
   const [practiceState, setPracticeState] = useState<PracticeState | null>(null);
+  // Pemantau stok & harga produk target, jalan berkala selama menunggu sesi
+  const [stockWatch, setStockWatch] = useState<StockWatch | null>(null);
+  const stockPrevRef = useRef<{ price: number | null; stock: number | null; flash: boolean } | null>(null);
+
+  /** Sekali cek stok/harga target aktif; mencatat perubahan ke log. */
+  const pollStock = useCallback(
+    async (announce: boolean) => {
+      const t = selectedTarget;
+      if (!t?.url || !parseShopeeLink(t.url)) return;
+      const tRegion = isAseanCode(t.region) ? t.region : selectedRegion;
+      const res = await api.checkItem(tRegion, t.url, selectedAccount?.id);
+      const item = res.success ? res.data?.item : null;
+      if (!item) {
+        setStockWatch((prev) => (prev ? { ...prev, checkedAt: Date.now(), ok: false } : { price: null, stock: null, flash: false, checkedAt: Date.now(), ok: false, title: t.title }));
+        return;
+      }
+      const price = item.flash_sale?.price ?? item.price ?? null;
+      const stock = item.flash_sale?.stock ?? item.stock ?? null;
+      const flash = !!item.flash_sale;
+      const prev = stockPrevRef.current;
+      if (announce && prev) {
+        if (!prev.flash && flash) {
+          addLog(L('[STOK] Harga flash sale sudah muncul di produk target!', '[STOCK] Flash sale price is now live on the target product!'), 'success');
+          notify('success', 'GaneMaX.Ai', L('Harga flash sale sudah muncul', 'Flash sale price is live'));
+        }
+        if (prev.price != null && price != null && price !== prev.price) {
+          addLog(
+            L(
+              `[STOK] Harga berubah: ${formatAseanCurrency(prev.price, selectedRegion)} → ${formatAseanCurrency(price, selectedRegion)}`,
+              `[STOCK] Price changed: ${formatAseanCurrency(prev.price, selectedRegion)} → ${formatAseanCurrency(price, selectedRegion)}`
+            ),
+            'warning'
+          );
+        }
+        if (prev.stock != null && stock != null && stock !== prev.stock) {
+          addLog(L(`[STOK] Stok berubah: ${prev.stock} → ${stock}`, `[STOCK] Stock changed: ${prev.stock} → ${stock}`), stock === 0 ? 'error' : 'info');
+        }
+        if (stock === 0 && prev.stock !== 0) {
+          addLog(L('[STOK] Produk target habis. Siapkan target cadangan.', '[STOCK] Target product is sold out. Get a backup ready.'), 'error');
+        }
+      }
+      stockPrevRef.current = { price, stock, flash };
+      setStockWatch({ price, stock, flash, checkedAt: Date.now(), ok: true, title: item.name || t.title });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedTarget?.id, selectedTarget?.url, selectedRegion, selectedAccount?.id, addLog, L]
+  );
+
+  // Jalan selama auto-start aktif: rapat menjelang sesi, longgar kalau masih lama
+  useEffect(() => {
+    if (!armed || !selectedTarget?.url || !parseShopeeLink(selectedTarget.url)) {
+      setStockWatch(null);
+      stockPrevRef.current = null;
+      return;
+    }
+    let alive = true;
+    let timer: number | undefined;
+    const tick = async () => {
+      if (!alive) return;
+      if (document.visibilityState === 'visible') await pollStock(true);
+      if (!alive) return;
+      const remain = armed.epoch - clock.now();
+      // < 3 menit: tiap 20 dtk · < 15 menit: tiap 60 dtk · sisanya: tiap 5 menit
+      const gap = remain < 180_000 ? 20_000 : remain < 900_000 ? 60_000 : 300_000;
+      timer = window.setTimeout(tick, gap);
+    };
+    tick();
+    return () => {
+      alive = false;
+      if (timer) window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [armed?.epoch, selectedTarget?.id, selectedTarget?.url, pollStock]);
 
   // --- Pemeriksaan sebelum war ---
   const runPrechecks = async (): Promise<boolean> => {
@@ -765,7 +897,26 @@ export const App: React.FC = () => {
       addressLabel: selectedAddress ? `${selectedAddress.label} · ${selectedAddress.recipient_name}` : '',
       paymentLabel: paymentSettings?.payment_method ? paymentSettings.payment_method.split('_')[0].toUpperCase() : '',
       voucher: paymentSettings?.custom_voucher_code || '',
+      backups: backupTargets.map((bt) => {
+        const btRegion = isAseanCode(bt.region) ? bt.region : selectedRegion;
+        return {
+          id: bt.id,
+          title: bt.title,
+          href: buildOpenUrl(bt.url, btRegion, mode).href,
+          price: Number(bt.target_price) || 0,
+          region: btRegion,
+        };
+      }),
     });
+    if (backupTargets.length) {
+      addLog(
+        L(
+          `[CADANGAN] ${backupTargets.length} target cadangan siap dibuka kalau produk utama habis: ${backupTargets.map((b) => b.title).join(', ')}`,
+          `[BACKUP] ${backupTargets.length} backup target(s) ready if the main product sells out: ${backupTargets.map((b) => b.title).join(', ')}`
+        ),
+        'info'
+      );
+    }
     isRunningRef.current = false;
     setIsBotRunning(false);
     setEnginePhase('done');
@@ -1359,6 +1510,29 @@ export const App: React.FC = () => {
     if (currentTab === 'admin' && currentUser?.role !== 'admin') setCurrentTab('dashboard');
   }, [currentTab, currentUser?.role]);
 
+  const handleClearLogs = () => {
+    clearStoredLogs();
+    setLogs([]);
+  };
+
+  // Beri tahu user kalau jadwal auto-start selamat dari reload
+  const armRestoredRef = useRef(false);
+  useEffect(() => {
+    if (armRestoredRef.current || !currentUser) return;
+    const stored = loadArmed();
+    if (stored) {
+      armRestoredRef.current = true;
+      addLog(
+        L(
+          `[SCHEDULER] Jadwal auto-start ${stored.label} dipulihkan setelah halaman dimuat ulang.`,
+          `[SCHEDULER] Auto-start schedule ${stored.label} restored after page reload.`
+        ),
+        'success'
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
+
   const handleRequestNotification = () => {
     if (!('Notification' in window)) {
       toast.show(L('Browser ini tidak mendukung notifikasi', 'This browser does not support notifications'));
@@ -1440,6 +1614,9 @@ export const App: React.FC = () => {
     onDeleteTargetUrl: handleDeleteTargetUrl,
     selectedTargetId: selectedTarget?.id || '',
     onSelectTarget: handleSelectTarget,
+    backupTargetIds,
+    onToggleBackupTarget: toggleBackupTarget,
+    push,
     selectedAccountId: selectedAccount?.id || '',
     onSelectAccount: handleSelectAccount,
     onOpenAccountModal: (a?: ShopeeAccount) => {
@@ -1515,7 +1692,7 @@ export const App: React.FC = () => {
             orders={normalizedOrders}
             stats={stats}
             logs={logs}
-            onClearLogs={() => setLogs([])}
+            onClearLogs={handleClearLogs}
             isBotRunning={isBotRunning}
             phase={enginePhase}
             latency={latency}
@@ -1530,6 +1707,8 @@ export const App: React.FC = () => {
             onDismissAnnouncement={dismissAnnouncement}
             onOpenAnnouncements={() => setIsAnnDrawerOpen(true)}
             runMode={runMode}
+            stockWatch={stockWatch}
+            backupCount={backupTargets.length}
             onRunMode={(m) => setBotSettings((prev) => ({ ...prev, runMode: m }))}
             onOpenTargetModal={(t) => {
               setActiveTargetUrl(t || null);
@@ -1592,7 +1771,7 @@ export const App: React.FC = () => {
             clock={clock}
             region={selectedRegion}
             logs={logs}
-            onClearLogs={() => setLogs([])}
+            onClearLogs={handleClearLogs}
             onCopied={toast.show}
           />
         )}

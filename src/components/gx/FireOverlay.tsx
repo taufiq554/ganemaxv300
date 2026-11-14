@@ -17,6 +17,7 @@ export interface FireState {
   addressLabel?: string;
   paymentLabel?: string;
   voucher?: string;
+  backups?: { id: string; title: string; href: string; price: number; region: AseanCountryCode }[];
 }
 
 const Elapsed: React.FC<{ clock: ServerClock; from: number }> = ({ clock, from }) => {
@@ -148,6 +149,20 @@ export const FireOverlay: React.FC<{
                 <CircleX size={18} /> {L('Tidak dapat', 'Missed it')}
               </button>
             </div>
+            {(state.backups?.length ?? 0) > 0 && (
+              <div className="gx-fire__backups">
+                <div className="gx-eyebrow">{L('Produk utama habis? Buka cadangan:', 'Main product sold out? Open a backup:')}</div>
+                <div className="gx-fire__backuplist">
+                  {state.backups!.map((bk) => (
+                    <button key={bk.id} type="button" className="gx-btn gx-btn--sm" onClick={() => onOpen(bk.href)}>
+                      <ShoppingBag size={14} />
+                      <span className="gx-fire__bkname">{bk.title}</span>
+                      {bk.price > 0 && <b>{formatAseanCurrency(bk.price, bk.region)}</b>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <button type="button" className="gx-fire__skip" onClick={() => onOpen(state.href)}>
               {L('Buka Shopee lagi', 'Open Shopee again')}
             </button>

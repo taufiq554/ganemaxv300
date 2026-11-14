@@ -18,6 +18,8 @@ import {
   AuthenticatedRequest,
   SafeUser,
 } from './lib/auth.ts';
+import webpush from 'web-push';
+import crypto from 'crypto';
 
 const app = express();
 app.use(express.json());
@@ -641,6 +643,172 @@ router.post('/proxy-test/:id', requireAuth, async (req: AuthenticatedRequest, re
     return errorRes(res, err.message, 500);
   }
 });
+
+/* ------------------------------------------------------------------ */
+/* PUSH NOTIFICATION (pengingat T-5 menit, tetap masuk walau app tutup) */
+/* ------------------------------------------------------------------ */
+
+const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@ganemaxbot.my.id';
+const PUSH_CRON_SECRET = process.env.PUSH_CRON_SECRET || process.env.MIGRATION_SECRET || '';
+/** Seberapa jauh sebelum sesi pengingat dikirim. */
+const PUSH_LEAD_MS = 5 * 60 * 1000;
+
+let vapidReady = false;
+if (VAPID_PUBLIC && VAPID_PRIVATE) {
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+    vapidReady = true;
+  } catch (err: any) {
+    console.error('[push] VAPID tidak valid:', err?.message);
+  }
+}
+
+const subKey = (endpoint: string) => crypto.createHash('sha256').update(endpoint).digest('hex').slice(0, 32);
+
+/** Kunci publik buat browser. Kalau server belum dikonfigurasi, UI menyembunyikan tombolnya. */
+router.get('/push/key', (_req: Request, res: Response) => successRes(res, { enabled: vapidReady, public_key: vapidReady ? VAPID_PUBLIC : null, lead_ms: PUSH_LEAD_MS }));
+
+/** Simpan/segarkan langganan browser + jadwal yang mau diingatkan. */
+router.post('/push/subscribe', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!vapidReady) return errorRes(res, 'Push notification belum dikonfigurasi di server.', 503);
+    const { subscription, arm_epoch = null, arm_label = '' } = req.body || {};
+    const endpoint = String(subscription?.endpoint || '');
+    const p256dh = String(subscription?.keys?.p256dh || '');
+    const auth = String(subscription?.keys?.auth || '');
+    if (!/^https:\/\//.test(endpoint) || !p256dh || !auth) return errorRes(res, 'Data langganan push tidak lengkap.', 400);
+
+    const id = subKey(endpoint);
+    const row = {
+      user_id: req.user!.id,
+      endpoint: endpoint.slice(0, 600),
+      p256dh: p256dh.slice(0, 200),
+      auth: auth.slice(0, 100),
+      arm_epoch: arm_epoch != null && isFinite(Number(arm_epoch)) ? Number(arm_epoch) : null,
+      arm_label: String(arm_label || '').slice(0, 120),
+      reminded_epoch: null as number | null,
+      updated_at: new Date().toISOString(),
+    };
+    const existing = await storage.get('push_subscriptions', id);
+    if (existing) {
+      if (existing.user_id !== req.user!.id) return errorRes(res, 'Langganan ini milik akun lain.', 403);
+      await storage.update('push_subscriptions', id, row);
+    } else {
+      await storage.create('push_subscriptions', { id, created_at: new Date().toISOString(), ...row });
+    }
+    return successRes(res, { ok: true, id, lead_ms: PUSH_LEAD_MS });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
+/** Hapus langganan (user matikan notifikasi atau izin dicabut). */
+router.post('/push/unsubscribe', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const endpoint = String(req.body?.endpoint || '');
+    if (!endpoint) return errorRes(res, 'Endpoint wajib diisi.', 400);
+    const id = subKey(endpoint);
+    const existing = await storage.get('push_subscriptions', id);
+    if (existing && existing.user_id !== req.user!.id && req.user!.role !== 'admin') return errorRes(res, 'Langganan ini milik akun lain.', 403);
+    if (existing) await storage.delete('push_subscriptions', id);
+    return successRes(res, { ok: true });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
+/** Kirim satu notifikasi uji ke perangkat yang sedang dipakai. */
+router.post('/push/test', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!vapidReady) return errorRes(res, 'Push notification belum dikonfigurasi di server.', 503);
+    const endpoint = String(req.body?.endpoint || '');
+    const row = endpoint ? await storage.get('push_subscriptions', subKey(endpoint)) : null;
+    if (!row || row.user_id !== req.user!.id) return errorRes(res, 'Langganan push tidak ditemukan. Aktifkan ulang notifikasinya.', 404);
+    await sendPush(row, {
+      title: 'GaneMaX.Ai siap',
+      body: 'Notifikasi aktif. Pengingat sesi akan masuk walau aplikasi ditutup.',
+      tag: 'gx-test',
+    });
+    return successRes(res, { ok: true });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
+async function sendPush(row: any, payload: Record<string, any>) {
+  return webpush.sendNotification(
+    { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
+    JSON.stringify(payload),
+    { TTL: 300, urgency: 'high' as any },
+  );
+}
+
+/**
+ * Dipanggil cron (mis. cron-job.org / Vercel Cron) tiap menit.
+ * Mengirim pengingat untuk jadwal yang jatuh dalam PUSH_LEAD_MS ke depan.
+ */
+const dispatchPush = async (req: Request, res: Response) => {
+  try {
+    if (!vapidReady) return errorRes(res, 'Push notification belum dikonfigurasi di server.', 503);
+    // Terima header x-cron-secret, ?secret=, atau Bearer (format cron Vercel)
+    const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    const given = String(req.headers['x-cron-secret'] || req.query.secret || bearer || '');
+    if (!PUSH_CRON_SECRET || given !== PUSH_CRON_SECRET) return errorRes(res, 'Unauthorized', 401);
+
+    const now = Date.now();
+    const rows = await storage.list('push_subscriptions');
+    let sent = 0;
+    let dropped = 0;
+    let failed = 0;
+    let cleaned = 0;
+
+    for (const row of rows as any[]) {
+      const epoch = Number(row.arm_epoch);
+      if (!epoch || !isFinite(epoch)) continue;
+
+      // Jadwal sudah lewat lebih dari 10 menit — bersihkan supaya tidak menumpuk
+      if (epoch < now - 600_000) {
+        await storage.update('push_subscriptions', row.id, { arm_epoch: null, arm_label: '', reminded_epoch: null });
+        cleaned++;
+        continue;
+      }
+      const remain = epoch - now;
+      if (remain > PUSH_LEAD_MS || remain < -30_000) continue;
+      if (Number(row.reminded_epoch) === epoch) continue;
+
+      const mins = Math.max(0, Math.round(remain / 60_000));
+      try {
+        await sendPush(row, {
+          title: mins > 0 ? `Sesi flash sale ${mins} menit lagi` : 'Sesi flash sale dimulai sekarang',
+          body: row.arm_label ? `${row.arm_label} — buka GaneMaX.Ai sekarang.` : 'Buka GaneMaX.Ai dan siapkan jarimu.',
+          tag: `gx-arm-${epoch}`,
+          url: '/app/',
+          epoch,
+        });
+        await storage.update('push_subscriptions', row.id, { reminded_epoch: epoch });
+        sent++;
+      } catch (err: any) {
+        const code = Number(err?.statusCode);
+        // 404/410 = langganan mati (app di-uninstall / izin dicabut)
+        if (code === 404 || code === 410) {
+          await storage.delete('push_subscriptions', row.id);
+          dropped++;
+        } else {
+          // Gagal sementara: reminded_epoch tidak ditandai, jadi dicoba lagi menit depan
+          failed++;
+          console.error('[push] gagal kirim', code || '-', err?.message);
+        }
+      }
+    }
+    return successRes(res, { ok: true, checked: rows.length, sent, dropped, failed, cleaned, server_time: now });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+};
+router.post('/push/dispatch', dispatchPush);
+router.get('/push/dispatch', dispatchPush);
 
 // Cek lisensi sebelum sesi war dimulai
 router.post('/bot/session-start', requireAuth, async (req: AuthenticatedRequest, res: Response) => {

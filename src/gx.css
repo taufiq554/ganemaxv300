@@ -1615,3 +1615,60 @@ body.dark-theme .gx-kpi--hero .gx-kpi__d--up { color: #b9ffdb; }
 .gx-fixlink svg { color: var(--gx-warn); flex-shrink: 0; }
 .gx-fixlink > span { flex: 1; min-width: 0; }
 .gx-fixlink button { flex-shrink: 0; }
+
+/* Target cadangan di layar detik 0 */
+.gx-fire__backups { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; border-top: 1px dashed var(--gx-line); }
+.gx-fire__backuplist { display: flex; flex-direction: column; gap: 6px; }
+.gx-fire__backuplist .gx-btn { justify-content: flex-start; width: 100%; }
+.gx-fire__bkname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-weight: 600; }
+.gx-fire__backuplist b { color: var(--gx-brand); flex-shrink: 0; }
+.gx-stock .gx-metric__v { white-space: normal; }
+
+/* Target cadangan */
+.gx-bkbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 9px;
+  border: 1px solid var(--gx-line);
+  background: var(--gx-surface);
+  color: var(--gx-muted);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.gx-bkbtn:hover { border-color: var(--gx-brand); color: var(--gx-brand); }
+.gx-bkbtn--on {
+  background: color-mix(in srgb, var(--gx-warn) 16%, transparent);
+  border-color: color-mix(in srgb, var(--gx-warn) 55%, transparent);
+  color: var(--gx-warn);
+}
+.gx-bkbtn--on svg { fill: currentColor; }
+.gx-row__note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 9px 40px;
+  font-size: 11.5px;
+  color: var(--gx-warn);
+}
+
+/* Pengingat push */
+.gx-pushbox {
+  border: 1px solid var(--gx-line);
+  border-radius: 12px;
+  padding: 11px 12px;
+  background: var(--gx-surface-2, var(--gx-surface));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gx-pushbox__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.gx-pushbox__title {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 700; color: var(--gx-text);
+}
+.gx-pushbox__btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.gx-hint--warn { color: var(--gx-warn); }

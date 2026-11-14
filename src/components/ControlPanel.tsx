@@ -21,10 +21,12 @@ import {
   CalendarClock,
   SlidersHorizontal,
   CircleAlert,
+  Star,
   Languages,
   RefreshCw,
   Play,
 } from 'lucide-react';
+import { PushStatus } from '../lib/push.ts';
 import { User, TargetUrl, ShopeePayment, BotSettings, AseanCountryCode, ShopeeAccount, Address, ProxyMesh, Schedule } from '../types/index.ts';
 import { ASEAN_REGIONS, ALL_ASEAN_CODES, formatAseanCurrency, paymentFamily, isAseanCode } from '../constants/asean.ts';
 import { AseanFlag } from './AseanFlag.tsx';
@@ -54,6 +56,17 @@ interface ControlPanelProps {
   onDeleteTargetUrl: (id: string) => Promise<void>;
   selectedTargetId: string;
   onSelectTarget: (id: string) => void;
+  backupTargetIds: string[];
+  onToggleBackupTarget: (id: string) => void;
+  push: {
+    status: PushStatus;
+    busy: boolean;
+    error: string | null;
+    leadMs: number;
+    enable: () => Promise<boolean>;
+    disable: () => Promise<void>;
+    sendTest: () => Promise<boolean>;
+  };
   selectedAccountId: string;
   onSelectAccount: (id: string) => void;
   onOpenAccountModal: (a?: ShopeeAccount) => void;
@@ -110,6 +123,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
   const selectedRegion = isAseanCode(p.selectedRegion) ? p.selectedRegion : 'ID';
   const reg = ASEAN_REGIONS[selectedRegion];
   const s = p.botSettings;
+  const push = p.push;
 
   // ---------- Pembayaran (disinkronkan saat data server datang) ----------
   const [payMethod, setPayMethod] = useState('');
@@ -214,6 +228,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
                   const ids = parseShopeeLink(t.url);
                   const valid = isValidHttpUrl(t.url);
                   const tRegion = isAseanCode(t.region) ? t.region : selectedRegion;
+                  const isBackup = p.backupTargetIds.includes(t.id);
+                  const backupFull = !isBackup && p.backupTargetIds.length >= 3;
                   return (
                     <li key={t.id} style={{ borderTop: '1px solid var(--gx-line)' }}>
                       <div className="gx-row" style={{ borderTop: 0 }}>
@@ -227,8 +243,30 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
                             </span>
                           </div>
                         </div>
+                        {!active && (
+                          <button
+                            type="button"
+                            className={`gx-bkbtn ${isBackup ? 'gx-bkbtn--on' : ''}`}
+                            onClick={() => p.onToggleBackupTarget(t.id)}
+                            aria-pressed={isBackup}
+                            title={
+                              isBackup
+                                ? L('Hapus dari target cadangan', 'Remove from backup targets')
+                                : backupFull
+                                  ? L('Cadangan sudah 3 — yang paling lama akan tergeser', 'Already 3 backups — the oldest will be replaced')
+                                  : L('Jadikan target cadangan', 'Make this a backup target')
+                            }
+                          >
+                            <Star size={14} />
+                          </button>
+                        )}
                         <RowBtns label={t.title} onEdit={() => p.onOpenTargetUrlModal(t)} onDelete={() => p.onDeleteTargetUrl(t.id)} />
                       </div>
+                      {isBackup && (
+                        <div className="gx-row__note">
+                          <Star size={12} /> {L('Cadangan — tombolnya muncul di layar war kalau produk utama habis.', 'Backup — its button appears on the war screen if the main product sells out.')}
+                        </div>
+                      )}
                       {!ids && (
                         <div className="gx-fixlink">
                           <CircleAlert size={14} />
@@ -246,6 +284,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
                   );
                 })}
               </ul>
+            )}
+            {p.targetUrls.length > 1 && (
+              <p className="gx-hint" style={{ margin: '10px 2px 0' }}>
+                {L(
+                  'Pilih satu target utama lewat tombol radio. Tandai sampai 3 produk lain dengan bintang sebagai cadangan — kalau yang utama habis, tombol cadangan langsung tersedia di layar war.',
+                  'Pick one main target with the radio button. Star up to 3 other products as backups — if the main one sells out, their buttons are ready on the war screen.',
+                )}
+              </p>
             )}
           </Card>
 
@@ -664,6 +710,43 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
             <button type="button" className="gx-btn gx-btn--sm" style={{ alignSelf: 'flex-start' }} onClick={p.onRequestNotification}>
               <BellRing size={14} /> {L('Izinkan notifikasi browser', 'Allow browser notifications')}
             </button>
+
+            <div className="gx-pushbox">
+              <div className="gx-pushbox__head">
+                <span className="gx-pushbox__title">
+                  <BellRing size={14} /> {L('Pengingat sesi dari server', 'Server session reminder')}
+                </span>
+                {push.status === 'on' && <span className="gx-tag gx-tag--ok">{L('Aktif', 'Active')}</span>}
+              </div>
+              <p className="gx-hint" style={{ margin: 0 }}>
+                {L(
+                  `Dikirim ${Math.round(push.leadMs / 60000)} menit sebelum sesi, langsung dari server — tetap masuk walau aplikasi sudah ditutup.`,
+                  `Sent ${Math.round(push.leadMs / 60000)} minutes before the session, straight from the server — it still arrives after you close the app.`,
+                )}
+              </p>
+              {push.status === 'unsupported' && <p className="gx-hint gx-hint--warn">{L('Browser ini tidak mendukung push. Pakai Chrome di Android, atau pasang dulu PWA-nya di iOS 16.4+.', 'This browser has no push support. Use Chrome on Android, or install the PWA first on iOS 16.4+.')}</p>}
+              {push.status === 'disabled' && <p className="gx-hint gx-hint--warn">{L('Belum dikonfigurasi di server (kunci VAPID kosong). Lihat README bagian Push Notification.', 'Not configured on the server (VAPID keys empty). See the Push Notification section of the README.')}</p>}
+              {push.status === 'blocked' && <p className="gx-hint gx-hint--warn">{L('Notifikasi diblokir untuk situs ini. Izinkan dulu lewat ikon kunci di address bar.', 'Notifications are blocked for this site. Allow them via the padlock icon in the address bar.')}</p>}
+              {push.error && <p className="gx-hint gx-hint--warn">{push.error}</p>}
+              {(push.status === 'off' || push.status === 'on') && (
+                <div className="gx-pushbox__btns">
+                  {push.status === 'off' ? (
+                    <button type="button" className="gx-btn gx-btn--sm gx-btn--primary" disabled={push.busy} onClick={push.enable}>
+                      {L('Aktifkan pengingat', 'Turn on reminders')}
+                    </button>
+                  ) : (
+                    <>
+                      <button type="button" className="gx-btn gx-btn--sm" disabled={push.busy} onClick={push.sendTest}>
+                        {L('Kirim uji', 'Send test')}
+                      </button>
+                      <button type="button" className="gx-btn gx-btn--sm gx-btn--ghost" disabled={push.busy} onClick={push.disable}>
+                        {L('Matikan', 'Turn off')}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </Card>
         {actionBar}

@@ -228,6 +228,22 @@ export const api = {
     return api.post('bot/check-item', { region, url, account_id: accountId });
   },
 
+  async pushKey(): Promise<ApiResponse<{ enabled: boolean; public_key: string | null; lead_ms: number }>> {
+    return api.get('push/key');
+  },
+
+  async pushSubscribe(subscription: any, armEpoch: number | null, armLabel: string): Promise<ApiResponse<{ ok: boolean; lead_ms: number }>> {
+    return api.post('push/subscribe', { subscription, arm_epoch: armEpoch, arm_label: armLabel });
+  },
+
+  async pushUnsubscribe(endpoint: string): Promise<ApiResponse<{ ok: boolean }>> {
+    return api.post('push/unsubscribe', { endpoint });
+  },
+
+  async pushTest(endpoint: string): Promise<ApiResponse<{ ok: boolean }>> {
+    return api.post('push/test', { endpoint });
+  },
+
   async sessionStart(): Promise<ApiResponse<{ ok: boolean; server_time: number }>> {
     return api.post('bot/session-start', {});
   },
