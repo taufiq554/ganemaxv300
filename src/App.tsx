@@ -36,7 +36,8 @@ import { getNextSession, formatClock } from './lib/time.ts';
 import { parseShopeeLink, buildOpenUrl, isValidHttpUrl } from './lib/shopee.ts';
 import { FireOverlay, FireState } from './components/gx/FireOverlay.tsx';
 import { PracticeOverlay, PracticeState, PracticeResult } from './components/gx/PracticeOverlay.tsx';
-import { loadArmed, saveArmed, loadLogs, saveLogs, clearStoredLogs } from './lib/session-store.ts';
+import { loadArmed, saveArmed, loadLogs, saveLogs, clearStoredLogs, flushLogs, savePendingFire, loadPendingFire } from './lib/session-store.ts';
+import { reserveStandbyTab, releaseStandbyTab, openNow } from './lib/autoopen.ts';
 import { usePushReminder } from './lib/push.ts';
 import { StockWatch } from './components/gx/DashboardView.tsx';
 import { Onboarding, hasOnboarded } from './components/gx/Onboarding.tsx';
@@ -262,6 +263,8 @@ export const App: React.FC = () => {
     return [boot];
   });
   // Log disimpan supaya bukti kerja bot tidak hilang saat reload
+  const logsRef = useRef<BotLogItem[]>(logs);
+  logsRef.current = logs;
   useEffect(() => {
     saveLogs(logs);
   }, [logs]);
@@ -862,25 +865,30 @@ export const App: React.FC = () => {
       addLog(L(`[FIRE] Buka manual · jam server ${stamp(now)}`, `[FIRE] Manual open · server time ${stamp(now)}`), 'warning');
     }
 
-    let autoOpened = false;
-    if (!href.startsWith('intent:')) {
-      try {
-        // Catatan: dengan fitur 'noopener' window.open selalu mengembalikan null, jadi opener diputus manual
-        const w = window.open(href, '_blank');
-        autoOpened = !!w;
-        if (w) {
-          try {
-            w.opener = null;
-          } catch {}
-        }
-      } catch {
-        autoOpened = false;
-      }
-    }
+    // Bot yang membuka Shopee, bukan user. Tab siaga sudah dipesan sejak tombol ditekan.
+    const openedVia = openNow(href, () => {
+      // Halaman ini akan pindah ke Shopee: simpan log & jadwal dulu supaya utuh saat kembali
+      flushLogs([
+        ...logsRef.current,
+        {
+          id: `nav_${Date.now()}`,
+          time: stamp(clock.now()),
+          text: L(`[OPEN] Halaman dialihkan ke Shopee lewat ${via}. Kembali ke tab ini setelah checkout.`, `[OPEN] Page redirected to Shopee via ${via}. Come back to this tab after checkout.`),
+          type: 'success',
+        },
+      ]);
+      saveArmed(null);
+      savePendingFire({ targetId: t.id, href, via, scheduledEpoch, firedAt: now });
+    });
+    const autoOpened = openedVia !== 'blocked';
     addLog(
-      autoOpened
-        ? L(`[OPEN] Shopee dibuka otomatis lewat ${via}.`, `[OPEN] Shopee opened automatically via ${via}.`)
-        : L(`[OPEN] Tekan tombol "Buka Shopee" — ${href.startsWith('intent:') ? 'Android butuh satu sentuhan untuk masuk app' : 'browser memblokir pembukaan otomatis'}.`, `[OPEN] Tap "Open Shopee" — ${href.startsWith('intent:') ? 'Android needs one tap to enter the app' : 'the browser blocked auto-open'}.`),
+      openedVia === 'standby-tab'
+        ? L(`[OPEN] Shopee dibuka otomatis di tab siaga lewat ${via}.`, `[OPEN] Shopee opened automatically in the standby tab via ${via}.`)
+        : openedVia === 'popup'
+          ? L(`[OPEN] Shopee dibuka otomatis lewat ${via}.`, `[OPEN] Shopee opened automatically via ${via}.`)
+          : openedVia === 'same-tab'
+            ? L(`[OPEN] Shopee dibuka otomatis lewat ${via} (halaman ini dialihkan).`, `[OPEN] Shopee opened automatically via ${via} (this page redirected).`)
+            : L('[OPEN] Browser memblokir semua cara membuka otomatis — tekan tombol "Buka Shopee".', '[OPEN] The browser blocked every auto-open route — tap "Open Shopee".'),
       autoOpened ? 'success' : 'warning'
     );
     releaseWakeLock();
@@ -946,10 +954,26 @@ export const App: React.FC = () => {
     return true;
   };
 
+  /** Pesan satu tab siaga selagi masih di dalam gesture user, supaya detik 0 tidak diblokir browser. */
+  const armStandbyTab = () => {
+    const ok = reserveStandbyTab(
+      L('GaneMaX.Ai siaga', 'GaneMaX.Ai on standby'),
+      L('Tab ini otomatis membuka produk Shopee tepat di detik 0. Jangan ditutup.', 'This tab opens the Shopee product automatically at second zero. Do not close it.')
+    );
+    addLog(
+      ok
+        ? L('[AUTO-OPEN] Tab siaga disiapkan — bot yang akan membuka Shopee sendiri di detik 0.', '[AUTO-OPEN] Standby tab ready — the bot will open Shopee by itself at second zero.')
+        : L('[AUTO-OPEN] Popup diblokir browser. Cadangan dipakai: halaman ini yang dialihkan ke Shopee di detik 0 (log & jadwal tetap tersimpan).', '[AUTO-OPEN] Popups are blocked. Fallback: this page will redirect to Shopee at second zero (logs & schedule are kept).'),
+      ok ? 'info' : 'warning'
+    );
+    return ok;
+  };
+
   const handleStartBot = async () => {
     if (isRunningRef.current) return;
     if (!guardStart()) return;
     primeAlerts();
+    if (runMode !== 'practice') armStandbyTab();
     clearBotTimers();
     isRunningRef.current = true;
     setIsBotRunning(true);
@@ -977,6 +1001,7 @@ export const App: React.FC = () => {
 
   const handleStopBot = () => {
     const wasRunning = isRunningRef.current;
+    releaseStandbyTab();
     clearBotTimers();
     finishRun('idle');
     releaseWakeLock();
@@ -1054,6 +1079,7 @@ export const App: React.FC = () => {
       return;
     }
     primeAlerts();
+    armStandbyTab();
     setArmed(a);
     addLog(L(`[SCHEDULER] Auto-start sesi ${a.label}. Cek mulai T-60 dtk, Shopee dibuka ${openLeadMs} ms sebelum detik 0.`, `[SCHEDULER] Auto-start for ${a.label}. Checks start at T-60 s, Shopee opens ${openLeadMs} ms before second zero.`), 'info');
     addLog(L('[SCHEDULER] Biarkan halaman ini terbuka & layar menyala.', '[SCHEDULER] Keep this page open and the screen on.'), 'info');
@@ -1062,6 +1088,7 @@ export const App: React.FC = () => {
   };
   const handleDisarm = () => {
     if (armed) addLog(L(`[SCHEDULER] Jadwal ${armed.label} dibatalkan.`, `[SCHEDULER] Schedule ${armed.label} cancelled.`), 'info');
+    releaseStandbyTab();
     setArmed(null);
     releaseWakeLock();
     if (isRunningRef.current) finishRun('idle');
@@ -1529,9 +1556,50 @@ export const App: React.FC = () => {
         ),
         'success'
       );
+      addLog(
+        L(
+          '[AUTO-OPEN] Tab siaga hilang karena halaman dimuat ulang. Di detik 0 halaman ini yang dialihkan ke Shopee — log & jadwal tetap tersimpan.',
+          '[AUTO-OPEN] The standby tab was lost on reload. At second zero this page will redirect to Shopee — logs & schedule are kept.'
+        ),
+        'info'
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
+
+  // Kalau halaman tadi dialihkan ke Shopee, form konfirmasi hasil dimunculkan lagi saat user kembali
+  const fireRestoredRef = useRef(false);
+  useEffect(() => {
+    if (fireRestoredRef.current || !currentUser || !targetUrls.length) return;
+    const pending = loadPendingFire();
+    if (!pending) return;
+    fireRestoredRef.current = true;
+    savePendingFire(null);
+    const t = targetUrls.find((x) => x.id === pending.targetId);
+    if (!t) return;
+    const reg = isAseanCode(t.region) ? t.region : selectedRegion;
+    addLog(
+      L(
+        `[WAR] Kamu kembali dari Shopee. Laporkan hasil checkout "${t.title}" supaya tercatat di riwayat.`,
+        `[WAR] You are back from Shopee. Report the checkout result for "${t.title}" so it is saved to history.`
+      ),
+      'warning'
+    );
+    setFireState({
+      target: t,
+      href: pending.href,
+      via: pending.via,
+      autoOpened: true,
+      scheduledEpoch: pending.scheduledEpoch,
+      firedAt: pending.firedAt,
+      region: reg,
+      accountLabel: '',
+      addressLabel: '',
+      paymentLabel: '',
+      voucher: '',
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, targetUrls.length]);
 
   const handleRequestNotification = () => {
     if (!('Notification' in window)) {

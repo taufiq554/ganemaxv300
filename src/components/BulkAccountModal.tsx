@@ -50,9 +50,9 @@ export const BulkAccountModal: React.FC<BulkAccountModalProps> = ({ isOpen, onCl
         const r = isAseanCode(rRaw.toUpperCase()) ? (rRaw.toUpperCase() as AseanCountryCode) : targetRegion;
         let note = L('Siap diimpor', 'Ready');
         let ok = true;
-        if (u.length < 3 || pw.length < 4) {
+        if (!u || !pw) {
           ok = false;
-          note = L('Username min. 3, password min. 4 karakter', 'Username min 3, password min 4 chars');
+          note = L('Username & password wajib diisi', 'Username & password are required');
         } else if (pin && !/^\d{6}$/.test(pin)) {
           ok = false;
           note = L('PIN harus 6 digit', 'PIN must be 6 digits');

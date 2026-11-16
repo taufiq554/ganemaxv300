@@ -6,6 +6,7 @@ import { BotLogItem } from '../types/index.ts';
  */
 
 const ARM_KEY = 'gx_armed_v1';
+const FIRE_KEY = 'gx_pending_fire_v1';
 const LOG_KEY = 'gx_logs_v1';
 const MAX_LOGS = 400;
 
@@ -78,8 +79,57 @@ export function saveLogs(logs: BotLogItem[]) {
   }, 800);
 }
 
+/** Menulis log seketika (dipakai sebelum halaman pindah ke Shopee). */
+export function flushLogs(logs: BotLogItem[]) {
+  if (typeof window === 'undefined') return;
+  window.clearTimeout(logTimer);
+  try {
+    localStorage.setItem(LOG_KEY, JSON.stringify(logs.slice(-MAX_LOGS)));
+  } catch {
+    try {
+      localStorage.setItem(LOG_KEY, JSON.stringify(logs.slice(-80)));
+    } catch {}
+  }
+}
+
 export function clearStoredLogs() {
   try {
     localStorage.removeItem(LOG_KEY);
   } catch {}
+}
+
+/**
+ * Sesi war yang sedang berjalan saat halaman dialihkan ke Shopee.
+ * Dipakai untuk memunculkan lagi form konfirmasi hasil ketika user kembali.
+ */
+export interface PendingFire {
+  targetId: string;
+  href: string;
+  via: string;
+  scheduledEpoch: number | null;
+  firedAt: number;
+}
+
+export function savePendingFire(f: PendingFire | null) {
+  try {
+    if (f) localStorage.setItem(FIRE_KEY, JSON.stringify(f));
+    else localStorage.removeItem(FIRE_KEY);
+  } catch {}
+}
+
+export function loadPendingFire(): PendingFire | null {
+  try {
+    const raw = localStorage.getItem(FIRE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    if (!v || typeof v.href !== 'string' || typeof v.firedAt !== 'number') return null;
+    // Lewat 2 jam dianggap basi
+    if (v.firedAt < Date.now() - 7_200_000) {
+      localStorage.removeItem(FIRE_KEY);
+      return null;
+    }
+    return v as PendingFire;
+  } catch {
+    return null;
+  }
 }

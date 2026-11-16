@@ -199,6 +199,7 @@ export const api = {
       discount: string;
       stock: number | null;
       sold: number | null;
+      image: string;
     }[];
   }>> {
     return api.post('bot/flash-items', { region, promotion_id: promotionId, limit });
@@ -219,6 +220,7 @@ export const api = {
     with_cookies?: boolean;
     item: null | {
       name: string;
+      image?: string;
       price: number | null;
       price_before_discount: number | null;
       stock: number | null;

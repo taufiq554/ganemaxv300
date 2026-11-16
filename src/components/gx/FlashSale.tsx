@@ -3,6 +3,7 @@ import {
   Flame,
   RefreshCw,
   CircleAlert,
+  ImageOff,
   ChevronRight,
   Crosshair,
   CalendarClock,
@@ -30,6 +31,7 @@ type Item = {
   discount: string;
   stock: number | null;
   sold: number | null;
+  image?: string;
 };
 
 const Countdown: React.FC<{ clock: ServerClock; epoch: number }> = ({ clock, epoch }) => {
@@ -52,6 +54,29 @@ interface FlashSalePanelProps {
   selectedTargetUrl?: string;
   toast: (m: string) => void;
 }
+
+/** Foto produk asli dari CDN Shopee. Kalau gagal dimuat, tampil ikon, bukan gambar rusak. */
+const ProductThumb: React.FC<{ src?: string; alt: string }> = ({ src, alt }) => {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return (
+      <span className="gx-thumb gx-thumb--empty" aria-hidden="true">
+        <ImageOff size={16} />
+      </span>
+    );
+  }
+  return (
+    <img
+      className="gx-thumb"
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+    />
+  );
+};
 
 export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
   region,
@@ -289,7 +314,8 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
                               {items.map((it) => {
                                 const active = selectedTargetUrl && it.url && selectedTargetUrl === it.url;
                                 return (
-                                  <li key={it.item_id} className="gx-row">
+                                  <li key={it.item_id} className="gx-row gx-row--thumb">
+                                    <ProductThumb src={it.image} alt={it.name} />
                                     <div className="gx-row__main">
                                       <div className="gx-row__t" style={{ whiteSpace: 'normal' }}>{it.name}</div>
                                       <div className="gx-row__s">

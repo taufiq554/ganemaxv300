@@ -23,6 +23,8 @@ import {
   CalendarPlus,
   Dices,
   Import,
+  CopyCheck,
+  LayoutTemplate,
   CircleAlert,
 } from 'lucide-react';
 import { Announcement, AnnouncementType, RevenueEntry, User } from '../../types/index.ts';
@@ -291,7 +293,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
     return customers.filter((u) => !has.has(u.id) && findTier(u.license_plan));
   }, [customers, revenues]);
 
+  /** Catatan dobel: user + tanggal + nominal yang sama muncul lebih dari sekali. */
+  const dupeCount = useMemo(() => {
+    const seen = new Set<string>();
+    let n = 0;
+    for (const r of revenues) {
+      const key = `${r.user_id || r.username}|${String(r.paid_at).slice(0, 10)}|${Number(r.amount) || 0}`;
+      if (seen.has(key)) n++;
+      else seen.add(key);
+    }
+    return n;
+  }, [revenues]);
+
+  const runDedupe = async () => {
+    if (!confirm(`Hapus ${dupeCount} catatan pendapatan dobel?\n\nSatu user dengan tanggal & nominal sama hanya disimpan sekali. Catatan paling awal yang dipertahankan.`)) return;
+    const res = await api.post<{ removed: number; kept: number }>('revenues/dedupe', {});
+    if (res.success) {
+      const fresh = await api.get<RevenueEntry[]>('revenues');
+      if (fresh.success && fresh.data) setRevenues(fresh.data);
+      toast(`${res.data?.removed ?? 0} catatan dobel dihapus`);
+    } else toast(res.error?.message || 'Gagal membersihkan');
+  };
+
   const runBackfill = async () => {
+    // Ambil data terbaru dulu supaya tidak mengimpor ulang yang sudah ada
+    const fresh = await api.get<RevenueEntry[]>('revenues');
+    if (fresh.success && fresh.data) setRevenues(fresh.data);
     const total = backfillCandidates.reduce((s, u) => s + (findTier(u.license_plan)?.price || 0), 0);
     if (
       !confirm(
@@ -313,10 +340,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
         created_by: currentUser.id,
       };
     });
-    const res = await api.post<{ items: RevenueEntry[] }>('revenues/bulk', items);
+    const res = await api.post<{ items: RevenueEntry[]; skipped_duplicate?: number }>('revenues/bulk', items);
     if (res.success && res.data?.items) {
       setRevenues((p) => [...res.data!.items, ...p]);
-      toast(`${res.data.items.length} catatan diimpor`);
+      const skipped = res.data.skipped_duplicate || 0;
+      toast(`${res.data.items.length} catatan diimpor${skipped ? ` · ${skipped} dilewati karena sudah ada` : ''}`);
     } else toast(res.error?.message || 'Gagal impor');
   };
 
@@ -518,6 +546,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
             <Kpi label="Rata-rata / transaksi" value={cur.count ? formatRp(cur.total / cur.count) : '—'} />
             <Kpi label={`Total ${yearKey} (s/d bulan ini)`} value={formatRp(ytd)} />
           </div>
+
+          {dupeCount > 0 && (
+            <div className="gx-note gx-note--warn">
+              <CopyCheck size={16} />
+              <div style={{ flex: 1 }}>
+                Ada <b>{dupeCount} catatan pendapatan dobel</b> — user, tanggal, dan nominal yang sama tercatat lebih dari sekali, jadi total pendapatan ikut kelebihan.
+                <div style={{ marginTop: 8 }}>
+                  <button type="button" className="gx-btn gx-btn--xs gx-btn--primary" onClick={runDedupe}>
+                    Hapus yang dobel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {backfillCandidates.length > 0 && (
             <div className="gx-note gx-note--warn">
@@ -866,8 +908,8 @@ const UsersSection: React.FC<{
       toast('Username 3–32 karakter: huruf, angka, titik, _ atau -');
       return;
     }
-    if (password.trim().length < 6) {
-      toast('Password minimal 6 karakter');
+    if (!password.trim()) {
+      toast('Password tidak boleh kosong');
       return;
     }
     const tier = findTier(plan)!;
@@ -1307,6 +1349,101 @@ const RevenueDialog: React.FC<{
   );
 };
 
+/**
+ * Template pengumuman siap pakai. {jam}/{tanggal} diisi otomatis saat dipilih
+ * supaya admin tinggal menyesuaikan angkanya, bukan mengetik dari nol.
+ */
+const ANNOUNCE_TEMPLATES: {
+  key: string;
+  label: string;
+  type: AnnouncementType;
+  pinned?: boolean;
+  title: string;
+  body: string;
+  cta_label?: string;
+  cta_url?: string;
+}[] = [
+  {
+    key: 'maintenance',
+    label: 'Maintenance terjadwal',
+    type: 'maintenance',
+    pinned: true,
+    title: 'Maintenance server {jam}–{jam_akhir} WIB',
+    body:
+      'Halo semua 👋\n\n' +
+      'Server GaneMaX.Ai akan maintenance pada {tanggal} pukul {jam}–{jam_akhir} WIB untuk peningkatan performa.\n\n' +
+      'Selama maintenance:\n' +
+      '• Dashboard mungkin tidak bisa diakses sebentar\n' +
+      '• Jadwal auto-start yang sudah disetel tetap tersimpan\n' +
+      '• Masa aktif lisensi tidak berkurang\n\n' +
+      'Kalau butuh bantuan, chat admin lewat Telegram. Terima kasih sudah sabar 🙏',
+    cta_label: 'Chat admin',
+    cta_url: 'https://t.me/mrpangeranz',
+  },
+  {
+    key: 'update',
+    label: 'Update fitur baru',
+    type: 'info',
+    title: 'Update GaneMaX.Ai — fitur baru',
+    body:
+      'Update baru sudah aktif di dashboard kamu 🎉\n\n' +
+      '• (tulis fitur pertama)\n' +
+      '• (tulis fitur kedua)\n' +
+      '• Perbaikan bug & peningkatan kecepatan\n\n' +
+      'Tidak perlu install ulang — cukup refresh halaman dashboard.',
+  },
+  {
+    key: 'flash',
+    label: 'Info sesi flash sale',
+    type: 'warning',
+    pinned: true,
+    title: 'Flash sale besar {tanggal} — siapkan target',
+    body:
+      'Bakal ada flash sale besar di Shopee pada {tanggal}.\n\n' +
+      'Yang perlu disiapkan dari sekarang:\n' +
+      '1. Tempel link produk di tab Target (pastikan link ada ID produknya)\n' +
+      '2. Pilih 2–3 produk cadangan dengan tombol bintang\n' +
+      '3. Aktifkan auto-start di sesi yang kamu incar\n' +
+      '4. Pastikan saldo ShopeePay/e-wallet cukup dan alamat utama sudah benar\n\n' +
+      'Jangan tutup halaman dashboard menjelang detik 0.',
+  },
+  {
+    key: 'promo',
+    label: 'Promo perpanjangan',
+    type: 'promo',
+    title: 'Promo perpanjangan lisensi',
+    body:
+      'Khusus sampai {tanggal}, perpanjang lisensi dapat harga spesial 🔥\n\n' +
+      '• Paket 30 Hari — (tulis harga promo)\n' +
+      '• Paket 60 Hari — (tulis harga promo)\n\n' +
+      'Perpanjang sebelum masa aktif habis supaya jadwal & target kamu tidak hilang. Bayar via QRIS, aktif otomatis.',
+    cta_label: 'Perpanjang sekarang',
+    cta_url: 'https://t.me/mrpangeranz',
+  },
+  {
+    key: 'reminder',
+    label: 'Pengingat masa aktif',
+    type: 'warning',
+    title: 'Cek masa aktif lisensi kamu',
+    body:
+      'Buat yang lisensinya mendekati habis, segera perpanjang ya.\n\n' +
+      'Kalau lisensi habis, bot tidak bisa dijalankan dan jadwal auto-start otomatis berhenti. ' +
+      'Data target, akun, dan riwayat tetap aman, tinggal perpanjang saja.',
+    cta_label: 'Perpanjang',
+    cta_url: 'https://t.me/mrpangeranz',
+  },
+];
+
+function fillTemplate(text: string): string {
+  const now = new Date();
+  const two = new Date(now.getTime() + 2 * 3600_000);
+  const jam = (d: Date) => `${String(d.getHours()).padStart(2, '0')}.00`;
+  return text
+    .replace(/\{tanggal\}/g, now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }))
+    .replace(/\{jam_akhir\}/g, jam(two))
+    .replace(/\{jam\}/g, jam(now));
+}
+
 const AnnouncementDialog: React.FC<{
   initial: Partial<Announcement>;
   onClose: () => void;
@@ -1322,7 +1459,28 @@ const AnnouncementDialog: React.FC<{
   const [startsAt, setStartsAt] = useState(toLocalInput(initial.starts_at));
   const [expiresAt, setExpiresAt] = useState(toLocalInput(initial.expires_at));
   const [busy, setBusy] = useState(false);
+  const [usedTemplate, setUsedTemplate] = useState('');
   const urlOk = !ctaUrl || /^https?:\/\//i.test(ctaUrl);
+
+  const applyTemplate = (tpl: (typeof ANNOUNCE_TEMPLATES)[number]) => {
+    if ((title.trim() || body.trim()) && usedTemplate !== tpl.key && !confirm('Ganti isi form dengan template ini? Teks yang sudah diketik akan tertimpa.')) return;
+    setTitle(fillTemplate(tpl.title));
+    setBody(fillTemplate(tpl.body));
+    setType(tpl.type);
+    setPinned(!!tpl.pinned);
+    setCtaLabel(tpl.cta_label || '');
+    setCtaUrl(tpl.cta_url || '');
+    setUsedTemplate(tpl.key);
+  };
+
+  const clearTemplate = () => {
+    setTitle('');
+    setBody('');
+    setCtaLabel('');
+    setCtaUrl('');
+    setPinned(false);
+    setUsedTemplate('');
+  };
 
   const preview: Announcement = {
     id: 'preview',
@@ -1371,6 +1529,32 @@ const AnnouncementDialog: React.FC<{
         </>
       }
     >
+      {!initial.id && (
+        <div className="gx-tplbox">
+          <div className="gx-tplbox__head">
+            <LayoutTemplate size={14} /> Template siap pakai
+          </div>
+          <p className="gx-tplbox__hint">Pilih salah satu, isinya langsung terisi beserta tanggal & jam hari ini. Tinggal disesuaikan.</p>
+          <div className="gx-tplbox__list">
+            {ANNOUNCE_TEMPLATES.map((tpl) => (
+              <button
+                key={tpl.key}
+                type="button"
+                className={`gx-btn gx-btn--xs ${usedTemplate === tpl.key ? 'gx-btn--primary' : ''}`}
+                onClick={() => applyTemplate(tpl)}
+              >
+                {tpl.label}
+              </button>
+            ))}
+            {usedTemplate && (
+              <button type="button" className="gx-btn gx-btn--xs gx-btn--ghost" onClick={clearTemplate}>
+                Kosongkan
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="gx-seg" role="group" aria-label="Jenis">
         {(Object.keys(ANNOUNCE_META) as AnnouncementType[]).map((t) => (
           <button key={t} type="button" aria-pressed={type === t} onClick={() => setType(t)}>

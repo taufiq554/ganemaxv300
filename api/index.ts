@@ -317,6 +317,21 @@ const SHOPEE_HEADERS = {
 };
 
 /** Harga Shopee dikirim dikali 100.000 */
+/** CDN gambar Shopee per wilayah. Hash-nya dari field image/images milik produk. */
+const IMG_CDN: Record<string, string> = {
+  ID: 'https://down-id.img.susercontent.com/file/',
+  MY: 'https://down-my.img.susercontent.com/file/',
+  SG: 'https://down-sg.img.susercontent.com/file/',
+  TH: 'https://down-th.img.susercontent.com/file/',
+  VN: 'https://down-vn.img.susercontent.com/file/',
+  PH: 'https://down-ph.img.susercontent.com/file/',
+};
+function shopeeImage(x: any, region: string): string {
+  const hash = String(x?.image || x?.images?.[0] || x?.item_basic?.image || '').trim();
+  if (!hash || /[^\w.-]/.test(hash)) return '';
+  return `${IMG_CDN[region] || IMG_CDN.ID}${hash}`;
+}
+
 const unscale = (v: any) => (v == null || isNaN(Number(v)) ? null : Math.round(Number(v) / 100000));
 const toIso = (sec: any) => {
   const n = Number(sec);
@@ -438,6 +453,7 @@ router.post('/bot/flash-items', requireAuth, async (req: AuthenticatedRequest, r
         discount: x.discount ? String(x.discount) : x.raw_discount ? `${x.raw_discount}%` : '',
         stock: x.promotion_stock ?? x.stock ?? null,
         sold: x.promotion_sold_count ?? x.sold ?? null,
+        image: shopeeImage(x, region),
       };
     });
     return successRes(res, {
@@ -557,6 +573,7 @@ router.post('/bot/check-item', requireAuth, async (req: AuthenticatedRequest, re
         const div = 100000;
         item = {
           name: d.name || d.title,
+          image: shopeeImage(d, region),
           price: d.price != null ? Math.round(Number(d.price) / div) : null,
           price_before_discount: d.price_before_discount ? Math.round(Number(d.price_before_discount) / div) : null,
           stock: d.stock ?? d.normal_stock ?? null,
@@ -1113,6 +1130,36 @@ async function accountQuotaLeft(req: AuthenticatedRequest): Promise<number> {
   return Math.max(0, max - existing.length);
 }
 
+/** Kunci unik satu catatan pendapatan: user + tanggal + nominal. */
+function revenueKey(r: any): string {
+  const day = String(r?.paid_at || '').slice(0, 10);
+  return `${r?.user_id || r?.username || '-'}|${day}|${Number(r?.amount) || 0}`;
+}
+
+/** Bersihkan catatan pendapatan dobel, sisakan yang paling awal dibuat. */
+router.post('/revenues/dedupe', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rows = (await storage.list('revenues')) as any[];
+    const seen = new Map<string, any>();
+    const dupes: any[] = [];
+    for (const r of [...rows].sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')))) {
+      const key = revenueKey(r);
+      if (seen.has(key)) dupes.push(r);
+      else seen.set(key, r);
+    }
+    if (req.body?.dry_run) {
+      return successRes(res, { duplicates: dupes.length, removed: 0, kept: seen.size });
+    }
+    let removed = 0;
+    for (const d of dupes) {
+      if (await storage.delete('revenues', d.id)) removed++;
+    }
+    return successRes(res, { duplicates: dupes.length, removed, kept: seen.size });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
 router.post('/:table/bulk', validateTableParam, requireAuth, guardTableAccess, async (req: AuthenticatedRequest, res: Response) => {
   const table = normalizeTableName(req.params.table)!;
   try {
@@ -1127,10 +1174,28 @@ router.post('/:table/bulk', validateTableParam, requireAuth, guardTableAccess, a
       if (left <= 0) return errorRes(res, 'Kuota akun Shopee untuk paket kamu sudah penuh.', 403);
       items = rawItems.slice(0, left);
     }
+
+    // Pendapatan tidak boleh dobel: satu user + tanggal + nominal = satu catatan.
+    // Ini yang bikin impor massal aman walau tombolnya ditekan dua kali.
+    let revenueSeen = new Set<string>();
+    if (table === 'revenues') {
+      const existing = await storage.list('revenues');
+      revenueSeen = new Set((existing as any[]).map(revenueKey));
+    }
+
     const createdList: any[] = [];
+    let skipped = 0;
     for (const rawItem of items) {
       if (!rawItem || typeof rawItem !== 'object') continue;
       const payload = { ...rawItem };
+      if (table === 'revenues') {
+        const key = revenueKey(payload);
+        if (revenueSeen.has(key)) {
+          skipped++;
+          continue;
+        }
+        revenueSeen.add(key);
+      }
       if (USER_SCOPED_TABLES.includes(table)) {
         if (req.user!.role !== 'admin' || !payload.user_id) {
           payload.user_id = req.user!.id;
@@ -1144,6 +1209,7 @@ router.post('/:table/bulk', validateTableParam, requireAuth, guardTableAccess, a
       res,
       {
         total_imported: createdList.length,
+        skipped_duplicate: skipped,
         items: createdList,
       },
       201

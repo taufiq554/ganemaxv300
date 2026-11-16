@@ -4090,3 +4090,10 @@ body.dark-theme .password-toggle:hover {
 
 
 
+
+/* Pemilih bahasa di kartu login lama */
+.modern-lang-seg {
+  align-self: center;
+  margin-top: 10px;
+  flex: none;
+}
