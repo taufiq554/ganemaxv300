@@ -25,15 +25,19 @@ import {
   Import,
   CopyCheck,
   LayoutTemplate,
+  Images,
+  ArrowUp,
+  ArrowDown,
   CircleAlert,
 } from 'lucide-react';
-import { Announcement, AnnouncementType, RevenueEntry, User } from '../../types/index.ts';
+import { Announcement, AnnouncementType, Banner, BannerFit, BannerLayout, BannerRatio, BannerSlot, RevenueEntry, User } from '../../types/index.ts';
+import { BannerCard, RATIO_HINT, RATIO_VALUE, sortBanners } from './BannerStrip.tsx';
 import { api } from '../../services/api.ts';
 import { LICENSE_TIERS, findTier, formatRp, formatRpShort, LicenseTier } from '../../constants/licenses.ts';
 import { monthKeyWib, monthLabel, shiftMonth, relativeTimeId } from '../../lib/time.ts';
 import { ANNOUNCE_META, AnnouncementCard, isAnnouncementLive, licenseInfo, sortAnnouncements } from './Shell.tsx';
 
-type Section = 'overview' | 'revenue' | 'users' | 'announcements';
+type Section = 'overview' | 'revenue' | 'users' | 'announcements' | 'banners';
 
 interface AdminPanelProps {
   currentUser: User;
@@ -202,6 +206,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
   const [section, setSection] = useState<Section>('overview');
   const [revenues, setRevenues] = useState<RevenueEntry[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [banners, setBanners] = useState<Banner[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const nowMonth = monthKeyWib(Date.now());
@@ -210,9 +215,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    const [r, a, u] = await Promise.all([api.get<RevenueEntry[]>('revenues'), api.get<Announcement[]>('announcements'), api.get<User[]>('users')]);
+    const [r, a, u, bn] = await Promise.all([
+      api.get<RevenueEntry[]>('revenues'),
+      api.get<Announcement[]>('announcements'),
+      api.get<User[]>('users'),
+      api.get<Banner[]>('banners'),
+    ]);
     if (r.success && Array.isArray(r.data)) setRevenues(r.data);
     if (a.success && Array.isArray(a.data)) setAnnouncements(a.data);
+    if (bn.success && Array.isArray(bn.data)) setBanners(bn.data);
     if (u.success && Array.isArray(u.data)) setUsers(u.data);
     if (!r.success || !a.success) setLoadError(r.error?.message || a.error?.message || 'Gagal memuat data admin');
     setLoading(false);
@@ -375,6 +386,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
   const [revDialog, setRevDialog] = useState(false);
   const [extendUser, setExtendUser] = useState<User | null>(null);
   const [annDialog, setAnnDialog] = useState<Partial<Announcement> | null>(null);
+  const [bnrDialog, setBnrDialog] = useState<Partial<Banner> | null>(null);
+
+  /** Tukar urutan dua banner, lalu simpan keduanya. */
+  const moveBanner = async (a: Banner, b: Banner) => {
+    if (!b) return;
+    const oa = a.order ?? 0;
+    const ob = b.order ?? 0;
+    const [ra, rb] = await Promise.all([
+      api.put<Banner>('banners', a.id, { order: ob }),
+      api.put<Banner>('banners', b.id, { order: oa }),
+    ]);
+    if (ra.success && rb.success && ra.data && rb.data) {
+      setBanners((p) => p.map((x) => (x.id === a.id ? ra.data! : x.id === b.id ? rb.data! : x)));
+    } else toast('Gagal mengubah urutan');
+  };
 
   return (
     <>
@@ -399,6 +425,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
         </button>
         <button type="button" aria-pressed={section === 'users'} onClick={() => setSection('users')}>
           <Users size={14} /> Pengguna <span className="gx-count-badge">{customers.length}</span>
+        </button>
+        <button type="button" aria-pressed={section === 'banners'} onClick={() => setSection('banners')}>
+          Banner
         </button>
         <button type="button" aria-pressed={section === 'announcements'} onClick={() => setSection('announcements')}>
           <Megaphone size={14} /> Pengumuman <span className="gx-count-badge">{announcements.filter((a) => isAnnouncementLive(a)).length}</span>
@@ -698,6 +727,113 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
       )}
 
       {/* ================= ANNOUNCEMENTS ================= */}
+      {section === 'banners' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="gx-muted" style={{ fontSize: 13 }}>
+              Banner tampil di Beranda semua user. Tempel link gambar, atur ukuran & posisinya di sini.
+            </span>
+            <button
+              type="button"
+              className="gx-btn gx-btn--sm gx-btn--primary"
+              onClick={() =>
+                setBnrDialog({
+                  title: '',
+                  caption: '',
+                  image_url: '',
+                  link_url: '',
+                  layout: 'wide',
+                  ratio: '16:9',
+                  fit: 'cover',
+                  slot: 'top',
+                  show_text: true,
+                  rounded: true,
+                  order: banners.length,
+                  is_active: true,
+                })
+              }
+            >
+              <Plus size={14} /> Tambah banner
+            </button>
+          </div>
+
+          <div className="gx-note">
+            <Images size={16} />
+            <div>
+              <b>Cara pakai:</b> upload gambarnya dulu ke layanan gambar apa pun (Catbox, ImgBB, Cloudinary, Google Drive link langsung),
+              lalu tempel link gambarnya di sini. Ukuran file sebaiknya di bawah 500 KB supaya cepat terbuka di HP user.
+              Ukuran gambar yang pas mengikuti rasio yang kamu pilih — angkanya muncul di form.
+            </div>
+          </div>
+
+          {banners.length === 0 ? (
+            <div className="gx-empty">Belum ada banner.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {sortBanners(banners).map((b, i, arr) => (
+                <div key={b.id} className="gx-card" style={{ padding: 12 }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+                    <span className={`gx-tag ${b.is_active ? 'gx-tag--ok' : ''}`}>{b.is_active ? 'Tayang' : 'Nonaktif'}</span>
+                    <span className="gx-tag">{SLOT_LABEL[b.slot] || b.slot}</span>
+                    <span className="gx-muted" style={{ fontSize: 11.5 }}>
+                      {b.ratio} · {LAYOUT_LABEL[b.layout] || b.layout}
+                    </span>
+                    <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                      <button
+                        type="button"
+                        className="gx-btn gx-btn--xs"
+                        disabled={i === 0}
+                        title="Naikkan urutan"
+                        onClick={() => moveBanner(b, arr[i - 1])}
+                      >
+                        <ArrowUp size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className="gx-btn gx-btn--xs"
+                        disabled={i === arr.length - 1}
+                        title="Turunkan urutan"
+                        onClick={() => moveBanner(b, arr[i + 1])}
+                      >
+                        <ArrowDown size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className="gx-btn gx-btn--xs"
+                        onClick={async () => {
+                          const res = await api.put<Banner>('banners', b.id, { is_active: !b.is_active });
+                          if (res.success && res.data) setBanners((p) => p.map((x) => (x.id === b.id ? res.data! : x)));
+                          else toast(res.error?.message || 'Gagal');
+                        }}
+                      >
+                        {b.is_active ? 'Matikan' : 'Tayangkan'}
+                      </button>
+                      <button type="button" className="gx-btn gx-btn--xs" onClick={() => setBnrDialog(b)} aria-label="Edit">
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className="gx-btn gx-btn--xs gx-btn--danger"
+                        aria-label="Hapus"
+                        onClick={async () => {
+                          if (!confirm(`Hapus banner "${b.title || 'tanpa judul'}"?`)) return;
+                          const res = await api.delete('banners', b.id);
+                          if (res.success) setBanners((p) => p.filter((x) => x.id !== b.id));
+                          else toast(res.error?.message || 'Gagal menghapus');
+                        }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </span>
+                  </div>
+                  <BannerCard b={b} />
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       {section === 'announcements' && (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -840,6 +976,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
         />
       )}
 
+      {bnrDialog && (
+        <BannerDialog
+          initial={bnrDialog}
+          onClose={() => setBnrDialog(null)}
+          onSave={async (data) => {
+            const res = bnrDialog.id ? await api.put<Banner>('banners', bnrDialog.id, data) : await api.post<Banner>('banners', data);
+            if (res.success && res.data) {
+              setBanners((p) => (bnrDialog.id ? p.map((x) => (x.id === bnrDialog.id ? res.data! : x)) : [...p, res.data!]));
+              toast(bnrDialog.id ? 'Banner diperbarui' : 'Banner ditambahkan');
+              setBnrDialog(null);
+            } else toast(res.error?.message || 'Gagal menyimpan banner');
+          }}
+        />
+      )}
+
       {annDialog && (
         <AnnouncementDialog
           initial={annDialog}
@@ -858,6 +1009,195 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
         />
       )}
     </>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* Banner                                                              */
+/* ------------------------------------------------------------------ */
+
+const SLOT_LABEL: Record<string, string> = {
+  top: 'Atas (paling menonjol)',
+  middle: 'Tengah (bawah kartu sesi)',
+  bottom: 'Bawah (akhir halaman)',
+};
+const LAYOUT_LABEL: Record<string, string> = {
+  wide: 'Lebar penuh',
+  card: 'Kartu bayangan',
+  strip: 'Strip tipis',
+};
+
+const BannerDialog: React.FC<{
+  initial: Partial<Banner>;
+  onClose: () => void;
+  onSave: (data: Partial<Banner>) => Promise<void>;
+}> = ({ initial, onClose, onSave }) => {
+  const [title, setTitle] = useState(initial.title || '');
+  const [caption, setCaption] = useState(initial.caption || '');
+  const [imageUrl, setImageUrl] = useState(initial.image_url || '');
+  const [linkUrl, setLinkUrl] = useState(initial.link_url || '');
+  const [layout, setLayout] = useState<BannerLayout>(initial.layout || 'wide');
+  const [ratio, setRatio] = useState<BannerRatio>(initial.ratio || '16:9');
+  const [fit, setFit] = useState<BannerFit>(initial.fit || 'cover');
+  const [slot, setSlot] = useState<BannerSlot>(initial.slot || 'top');
+  const [showText, setShowText] = useState(initial.show_text ?? true);
+  const [rounded, setRounded] = useState(initial.rounded ?? true);
+  const [active, setActive] = useState(initial.is_active ?? true);
+  const [busy, setBusy] = useState(false);
+
+  const imgOk = !imageUrl || /^https?:\/\//i.test(imageUrl);
+  const linkOk = !linkUrl || /^https?:\/\//i.test(linkUrl);
+  const canSave = !!imageUrl.trim() && imgOk && linkOk && !busy;
+
+  const preview: Banner = {
+    id: 'preview',
+    title,
+    caption,
+    image_url: imageUrl,
+    link_url: '',
+    layout,
+    ratio,
+    fit,
+    slot,
+    show_text: showText,
+    rounded,
+    order: 0,
+    is_active: true,
+  };
+
+  return (
+    <Dialog
+      title={initial.id ? 'Edit banner' : 'Banner baru'}
+      onClose={onClose}
+      wide
+      footer={
+        <>
+          <button type="button" className="gx-btn" onClick={onClose}>
+            Batal
+          </button>
+          <button
+            type="button"
+            className="gx-btn gx-btn--primary"
+            disabled={!canSave}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onSave({
+                  title: title.trim(),
+                  caption: caption.trim(),
+                  image_url: imageUrl.trim(),
+                  link_url: linkUrl.trim(),
+                  layout,
+                  ratio,
+                  fit,
+                  slot,
+                  show_text: showText,
+                  rounded,
+                  order: initial.order ?? 0,
+                  is_active: active,
+                });
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? 'Menyimpan...' : 'Simpan banner'}
+          </button>
+        </>
+      }
+    >
+      <label className="gx-field">
+        <span>Link gambar *</span>
+        <input
+          value={imageUrl}
+          onChange={(e) => setImageUrl(e.target.value.trim())}
+          placeholder="https://files.catbox.moe/contoh.jpg"
+          autoComplete="off"
+          inputMode="url"
+        />
+        {!imgOk && <small className="gx-field__err">Link harus diawali http:// atau https://</small>}
+      </label>
+
+      <div className="gx-bnrprev">
+        <div className="gx-bnrprev__head">
+          <Eye size={14} /> Pratinjau — persis seperti yang dilihat user
+        </div>
+        {imageUrl ? <BannerCard b={preview} /> : <div className="gx-empty" style={{ margin: 0 }}>Tempel link gambar untuk melihat pratinjau.</div>}
+        <p className="gx-bnrsize">
+          Ukuran gambar yang pas untuk rasio {ratio}: <b>{RATIO_HINT[ratio]}</b>. Gambar yang lebih besar tetap aman, yang lebih kecil akan terlihat pecah.
+        </p>
+      </div>
+
+      <div className="gx-bnrgrid">
+        <label className="gx-field">
+          <span>Rasio / ukuran</span>
+          <select value={ratio} onChange={(e) => setRatio(e.target.value as BannerRatio)}>
+            {(Object.keys(RATIO_VALUE) as BannerRatio[]).map((r) => (
+              <option key={r} value={r}>
+                {r} — {RATIO_HINT[r]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="gx-field">
+          <span>Posisi di halaman</span>
+          <select value={slot} onChange={(e) => setSlot(e.target.value as BannerSlot)}>
+            {(Object.keys(SLOT_LABEL) as BannerSlot[]).map((sl) => (
+              <option key={sl} value={sl}>
+                {SLOT_LABEL[sl]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="gx-field">
+          <span>Gaya</span>
+          <select value={layout} onChange={(e) => setLayout(e.target.value as BannerLayout)}>
+            {(Object.keys(LAYOUT_LABEL) as BannerLayout[]).map((lo) => (
+              <option key={lo} value={lo}>
+                {LAYOUT_LABEL[lo]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="gx-field">
+          <span>Cara gambar mengisi</span>
+          <select value={fit} onChange={(e) => setFit(e.target.value as BannerFit)}>
+            <option value="cover">Penuhi bingkai (tepi bisa terpotong)</option>
+            <option value="contain">Muat seluruhnya (ada ruang kosong)</option>
+          </select>
+        </label>
+      </div>
+
+      <label className="gx-field">
+        <span>Judul di atas gambar (opsional)</span>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={70} placeholder="Promo perpanjangan 30 hari" />
+      </label>
+      <label className="gx-field">
+        <span>Teks kecil (opsional)</span>
+        <input value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={90} placeholder="Berlaku sampai 30 November" />
+      </label>
+      <label className="gx-field">
+        <span>Link saat banner diklik (opsional)</span>
+        <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value.trim())} placeholder="https://t.me/mrpangeranz" autoComplete="off" inputMode="url" />
+        {!linkOk && <small className="gx-field__err">Link harus diawali http:// atau https://</small>}
+      </label>
+
+      <div className="gx-bnrgrid">
+        <label className="gx-check">
+          <input type="checkbox" checked={showText} onChange={(e) => setShowText(e.target.checked)} />
+          <span>Tampilkan judul & teks</span>
+        </label>
+        <label className="gx-check">
+          <input type="checkbox" checked={rounded} onChange={(e) => setRounded(e.target.checked)} />
+          <span>Sudut membulat</span>
+        </label>
+        <label className="gx-check">
+          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+          <span>Langsung tayang</span>
+        </label>
+      </div>
+
+    </Dialog>
   );
 };
 

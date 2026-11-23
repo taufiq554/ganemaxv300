@@ -179,3 +179,31 @@ export interface RevenueEntry {
 export type AppTab = 'dashboard' | 'targets' | 'engine' | 'analytics' | 'admin';
 
 export type EnginePhase = 'idle' | 'sync' | 'warm' | 'armed' | 'fire' | 'done' | 'error';
+
+/** Ukuran & gaya banner yang bisa diatur admin dari panel. */
+export type BannerLayout = 'wide' | 'card' | 'strip';
+export type BannerRatio = '16:9' | '21:9' | '4:1' | '3:1' | '1:1';
+export type BannerFit = 'cover' | 'contain';
+export type BannerSlot = 'top' | 'middle' | 'bottom';
+
+export interface Banner {
+  id: string;
+  title: string;
+  /** Teks kecil di bawah judul (opsional). */
+  caption?: string;
+  /** Link gambar yang ditempel admin. */
+  image_url: string;
+  /** Link tujuan saat banner diklik (opsional). */
+  link_url?: string;
+  layout: BannerLayout;
+  ratio: BannerRatio;
+  fit: BannerFit;
+  slot: BannerSlot;
+  /** Tampilkan judul & caption di atas gambar. */
+  show_text: boolean;
+  rounded: boolean;
+  order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}

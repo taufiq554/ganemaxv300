@@ -201,6 +201,8 @@ export const api = {
       sold: number | null;
       image: string;
     }[];
+    with_image?: number;
+    image_fields?: string[];
   }>> {
     return api.post('bot/flash-items', { region, promotion_id: promotionId, limit });
   },

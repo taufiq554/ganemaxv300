@@ -326,9 +326,66 @@ const IMG_CDN: Record<string, string> = {
   VN: 'https://down-vn.img.susercontent.com/file/',
   PH: 'https://down-ph.img.susercontent.com/file/',
 };
-function shopeeImage(x: any, region: string): string {
-  const hash = String(x?.image || x?.images?.[0] || x?.item_basic?.image || '').trim();
-  if (!hash || /[^\w.-]/.test(hash)) return '';
+/** Hash gambar Shopee, mis. "sg-11134201-7rbkr-lq8..." atau 32 karakter heksadesimal. */
+const looksLikeHash = (v: any): v is string =>
+  typeof v === 'string' && /^[\w.-]{16,120}$/.test(v) && !/^https?:/i.test(v) && /[a-z]/i.test(v);
+
+/**
+ * Shopee memakai beberapa bentuk respons yang berbeda-beda untuk flash sale,
+ * dan nama field gambarnya ikut berganti (image, images[], item_basic.image,
+ * hingga aset di dalam item_card). Jadi dicari bertahap, lalu sebagai jaring
+ * terakhir seluruh objek ditelusuri untuk mencari string yang berbentuk hash.
+ */
+export function shopeeImageHash(x: any): string {
+  if (!x || typeof x !== 'object') return '';
+  const direct = [
+    x.image,
+    Array.isArray(x.images) ? x.images[0] : undefined,
+    x.thumbnail,
+    x.cover,
+    x.item_basic?.image,
+    Array.isArray(x.item_basic?.images) ? x.item_basic.images[0] : undefined,
+    x.item?.image,
+    Array.isArray(x.item?.images) ? x.item.images[0] : undefined,
+    x.item_brief?.image,
+    x.item_card?.item_data?.item_card_displayed_asset?.image,
+    x.item_card_displayed_asset?.image,
+  ];
+  for (const v of direct) {
+    if (typeof v === 'string' && v.trim()) {
+      const t = v.trim();
+      if (/^https?:\/\//i.test(t)) return t; // sudah URL penuh
+      if (looksLikeHash(t)) return t;
+    }
+  }
+  // Jaring terakhir: telusuri maksimal 3 tingkat untuk key yang namanya soal gambar
+  const seen = new Set<any>();
+  const walk = (node: any, depth: number): string => {
+    if (!node || typeof node !== 'object' || depth > 3 || seen.has(node)) return '';
+    seen.add(node);
+    for (const [k, v] of Object.entries(node)) {
+      if (!/image|img|thumb|cover|photo|asset/i.test(k)) continue;
+      if (typeof v === 'string' && (looksLikeHash(v) || /^https?:\/\//i.test(v))) return v;
+      if (Array.isArray(v)) {
+        const first = v.find((e) => typeof e === 'string' && looksLikeHash(e));
+        if (first) return first as string;
+      }
+    }
+    for (const v of Object.values(node)) {
+      if (v && typeof v === 'object') {
+        const found = walk(v, depth + 1);
+        if (found) return found;
+      }
+    }
+    return '';
+  };
+  return walk(x, 0);
+}
+
+export function shopeeImage(x: any, region: string): string {
+  const hash = shopeeImageHash(x);
+  if (!hash) return '';
+  if (/^https?:\/\//i.test(hash)) return hash;
   return `${IMG_CDN[region] || IMG_CDN.ID}${hash}`;
 }
 
@@ -456,11 +513,15 @@ router.post('/bot/flash-items', requireAuth, async (req: AuthenticatedRequest, r
         image: shopeeImage(x, region),
       };
     });
+    const withImage = items.filter((i) => !!i.image).length;
     return successRes(res, {
       ok: true,
       latency_ms: latency,
       status: lastStatus,
       items,
+      with_image: withImage,
+      // Dipakai kalau Shopee mengubah nama field gambarnya lagi
+      image_fields: withImage === 0 && raw[0] ? Object.keys(raw[0]).slice(0, 40) : undefined,
       reason: '',
       browse_url: `${config.domain}/flash_sale?promotionId=${promotionId}`,
     });
@@ -1042,7 +1103,7 @@ const USER_SCOPED_TABLES: TableName[] = [
 // Tabel yang hanya boleh dibaca & ditulis admin
 const ADMIN_ONLY_TABLES: TableName[] = ['revenues'];
 // Tabel yang boleh dibaca semua user login, tapi hanya admin yang boleh menulis
-const ADMIN_WRITE_TABLES: TableName[] = ['announcements', 'revenues'];
+const ADMIN_WRITE_TABLES: TableName[] = ['announcements', 'revenues', 'banners'];
 
 function guardTableAccess(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const table = normalizeTableName(req.params.table);

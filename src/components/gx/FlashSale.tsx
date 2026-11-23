@@ -156,9 +156,16 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
     const res = await api.flashItems(region, s.promotion_id, 16);
     setItemsLoading(false);
     if (res.success && res.data) {
-      setItems(res.data.items || []);
+      const list = res.data.items || [];
+      setItems(list);
       setBrowseUrl(res.data.browse_url || '');
-      setItemsNote(res.data.ok ? '' : res.data.reason || L('Daftar produk tidak tersedia.', 'Product list unavailable.'));
+      setItemsNote(
+        res.data.ok
+          ? list.length > 0 && !list.some((i) => i.image)
+            ? L('Shopee tidak mengirim foto untuk sesi ini — nama & harga tetap akurat.', 'Shopee sent no photos for this session — names & prices are still accurate.')
+            : ''
+          : res.data.reason || L('Daftar produk tidak tersedia.', 'Product list unavailable.')
+      );
     } else {
       setItemsNote(res.error?.message || L('Gagal mengambil produk.', 'Failed to fetch products.'));
     }

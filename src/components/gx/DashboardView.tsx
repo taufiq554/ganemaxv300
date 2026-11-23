@@ -45,7 +45,9 @@ import {
   ShopeePayment,
   TargetUrl,
   User,
+  Banner,
 } from '../../types/index.ts';
+import { BannerStrip } from './BannerStrip.tsx';
 import { ASEAN_REGIONS, formatAseanCurrency, paymentFamily } from '../../constants/asean.ts';
 import { ServerClock, useTicker } from '../../lib/useServerClock.ts';
 import { getNextSession, getSessionSlots, pad, splitDuration, formatClock, tzParts, relativeTimeId } from '../../lib/time.ts';
@@ -135,6 +137,7 @@ interface DashboardViewProps {
   onStart: () => void;
   onStop: () => void;
   announcements: Announcement[];
+  banners: Banner[];
   onDismissAnnouncement: (id: string) => void;
   onOpenAnnouncements: () => void;
   runMode: 'open' | 'practice';
@@ -998,6 +1001,8 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
         </div>
       </div>
 
+      <BannerStrip banners={p.banners} slot="top" />
+
       {p.announcements.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <AnnouncementCard a={p.announcements[0]} compact onDismiss={p.announcements[0].pinned ? undefined : () => p.onDismissAnnouncement(p.announcements[0].id)} />
@@ -1011,6 +1016,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
 
       <div className="gx-dash">
         <div className="gx-col">
+          <BannerStrip banners={p.banners} slot="middle" />
           <SessionCard
             region={p.region}
             clock={p.clock}
@@ -1075,6 +1081,8 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
           <TutorialCard onOpenGuide={p.onOpenGuide} onGoTab={p.onGoTab} />
         </div>
       </div>
+
+      <BannerStrip banners={p.banners} slot="bottom" />
     </>
   );
 };

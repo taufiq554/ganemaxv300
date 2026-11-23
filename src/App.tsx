@@ -15,6 +15,7 @@ import {
   Announcement,
   AppTab,
   EnginePhase,
+  Banner,
 } from './types/index.ts';
 import { ASEAN_REGIONS, formatAseanCurrency, isAseanCode, paymentFamily } from './constants/asean.ts';
 import { useLang, readLang } from './lib/i18n.tsx';
@@ -118,6 +119,7 @@ export const App: React.FC = () => {
   const [orderHistory, setOrderHistory] = useState<OrderHistoryItem[]>([]);
   const [usersList, setUsersList] = useState<User[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [banners, setBanners] = useState<Banner[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>(readDismissed);
   const [isAnnDrawerOpen, setIsAnnDrawerOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -364,8 +366,9 @@ export const App: React.FC = () => {
 
   // Fetch all user collections when authenticated
   const loadAnnouncements = useCallback(async () => {
-    const res = await api.get<Announcement[]>('announcements');
+    const [res, bn] = await Promise.all([api.get<Announcement[]>('announcements'), api.get<Banner[]>('banners')]);
     if (res.success && Array.isArray(res.data)) setAnnouncements(res.data);
+    if (bn.success && Array.isArray(bn.data)) setBanners(bn.data);
   }, []);
 
   const loadUserData = useCallback(async () => {
@@ -1772,6 +1775,7 @@ export const App: React.FC = () => {
             onStart={handleStartBot}
             onStop={handleStopBot}
             announcements={visibleAnnouncements}
+            banners={banners}
             onDismissAnnouncement={dismissAnnouncement}
             onOpenAnnouncements={() => setIsAnnDrawerOpen(true)}
             runMode={runMode}

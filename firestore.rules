@@ -2,85 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128;
-    }
-
-    // Connection health test
-    match /test/{docId} {
-      allow read, write: if true;
-    }
-
-    // Users collection
-    match /users/{userId} {
+    // Seluruh data GaneMaX.Ai diakses lewat API server (/api/*), bukan langsung
+    // dari browser. Satu aturan ini menggantikan daftar panjang per koleksi —
+    // izinnya sama persis, dan koleksi baru (banner, push, dll) otomatis ikut
+    // tanpa perlu publish rules lagi tiap ada fitur baru.
+    match /{collection}/{docId} {
       allow read: if true;
-      allow write: if isValidId(userId);
-    }
-
-    // Shopee accounts
-    match /shopee_accounts/{accountId} {
-      allow read: if true;
-      allow write: if isValidId(accountId);
-    }
-
-    // Addresses
-    match /addresses/{addressId} {
-      allow read: if true;
-      allow write: if isValidId(addressId);
-    }
-
-    // Target URLs
-    match /target_urls/{urlId} {
-      allow read: if true;
-      allow write: if isValidId(urlId);
-    }
-
-    // Proxies
-    match /proxies/{proxyId} {
-      allow read: if true;
-      allow write: if isValidId(proxyId);
-    }
-
-    // Schedules
-    match /schedules/{scheduleId} {
-      allow read: if true;
-      allow write: if isValidId(scheduleId);
-    }
-
-    // Shopee Payments
-    match /shopee_payments/{paymentId} {
-      allow read: if true;
-      allow write: if isValidId(paymentId);
-    }
-
-    // Order History
-    match /order_history/{orderId} {
-      allow read: if true;
-      allow write: if isValidId(orderId);
-    }
-
-    // Logs
-    match /logs/{logId} {
-      allow read: if true;
-      allow write: if isValidId(logId);
-    }
-
-    // Pengumuman dashboard (ditulis admin via API)
-    match /announcements/{annId} {
-      allow read: if true;
-      allow write: if isValidId(annId);
-    }
-
-    // Langganan push notification (hanya ditulis server lewat API)
-    match /push_subscriptions/{subId} {
-      allow read: if true;
-      allow write: if isValidId(subId);
-    }
-
-    // Catatan pendapatan sewa bot (ditulis admin via API)
-    match /revenues/{revId} {
-      allow read: if true;
-      allow write: if isValidId(revId);
+      allow write: if docId is string && docId.size() > 0 && docId.size() <= 128;
     }
   }
 }

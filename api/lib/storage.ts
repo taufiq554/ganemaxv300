@@ -51,6 +51,7 @@ export type TableName =
   | 'order_history'
   | 'logs'
   | 'announcements'
+  | 'banners'
   | 'revenues'
   | 'push_subscriptions';
 
@@ -65,6 +66,7 @@ export const VALID_TABLES: TableName[] = [
   'order_history',
   'logs',
   'announcements',
+  'banners',
   'revenues',
 ];
 
@@ -83,6 +85,7 @@ const TABLE_ALIAS_MAP: Record<string, TableName> = {
   'order_history': 'order_history',
   'logs': 'logs',
   'announcements': 'announcements',
+  'banners': 'banners',
   'revenues': 'revenues',
 };
 
