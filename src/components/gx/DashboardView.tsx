@@ -18,6 +18,10 @@ import {
   Hand,
   MapPin,
   PackageSearch,
+  Gauge,
+  BrainCircuit,
+  CircleCheck,
+  ListOrdered,
   Plus,
   Receipt,
   Server,
@@ -48,6 +52,7 @@ import {
   Banner,
 } from '../../types/index.ts';
 import { BannerStrip } from './BannerStrip.tsx';
+import { AdaptiveAdvice, WarSummary } from '../../lib/warstats.ts';
 import { ASEAN_REGIONS, formatAseanCurrency, paymentFamily } from '../../constants/asean.ts';
 import { ServerClock, useTicker } from '../../lib/useServerClock.ts';
 import { getNextSession, getSessionSlots, pad, splitDuration, formatClock, tzParts, relativeTimeId } from '../../lib/time.ts';
@@ -105,6 +110,9 @@ export interface StockWatch {
 export interface ArmState {
   epoch: number;
   label: string;
+  /** Produk khusus untuk jadwal ini. Kosong = pakai target yang sedang dipilih. */
+  targetId?: string;
+  targetTitle?: string;
 }
 
 export const ARM_LEAD_MS = 4500; // engine butuh ±4,5 dtk dari start ke trigger
@@ -133,7 +141,7 @@ interface DashboardViewProps {
   openLeadMs: number;
   armed: ArmState | null;
   onArm: (a: ArmState) => void;
-  onDisarm: () => void;
+  onDisarm: (epoch?: number) => void;
   onStart: () => void;
   onStop: () => void;
   announcements: Announcement[];
@@ -143,6 +151,12 @@ interface DashboardViewProps {
   runMode: 'open' | 'practice';
   onRunMode: (m: 'open' | 'practice') => void;
   stockWatch: StockWatch | null;
+  queue: ArmState[];
+  warSummary: WarSummary;
+  adaptive: AdaptiveAdvice;
+  aiMode: boolean;
+  onUseAdaptive: () => void;
+  onClearStats: () => void;
   backupCount: number;
   onOpenTargetModal: (t?: TargetUrl) => void;
   onOpenAccountModal: () => void;
@@ -194,7 +208,7 @@ const SessionCard: React.FC<{
   clock: ServerClock;
   armed: ArmState | null;
   onArm: (a: ArmState) => void;
-  onDisarm: () => void;
+  onDisarm: (epoch?: number) => void;
   isBotRunning: boolean;
   phase: EnginePhase;
   latencyHistory: number[];
@@ -886,6 +900,180 @@ const StockWatchCard: React.FC<{ w: StockWatch; region: AseanCountryCode }> = ({
   );
 };
 
+/**
+ * Rekap hasil kerja bot: presisi, win rate, dan saran mesin adaptif.
+ * Angkanya berasal dari sesi yang benar-benar dijalankan di perangkat ini.
+ */
+export const WarStatsCard: React.FC<{
+  summary: WarSummary;
+  adaptive: AdaptiveAdvice;
+  aiMode: boolean;
+  onUseAdaptive: () => void;
+  onClear: () => void;
+}> = ({ summary, adaptive, aiMode, onUseAdaptive, onClear }) => {
+  const { L, lang } = useLang();
+  const belum = summary.total === 0 && summary.medianAbsDelta == null;
+
+  const CONF_LABEL = {
+    low: L('rendah', 'low'),
+    medium: L('sedang', 'medium'),
+    high: L('tinggi', 'high'),
+  } as const;
+
+  return (
+    <section className="gx-card gx-warstats" style={{ order: 5 }}>
+      <div className="gx-card__head">
+        <h2 className="gx-card__title">
+          <Gauge size={16} /> {L('Rekap performa bot', 'Bot performance')}
+        </h2>
+        {summary.total > 0 && (
+          <div className="gx-card__aside">
+            <button type="button" className="gx-btn gx-btn--xs gx-btn--ghost" onClick={onClear}>
+              {L('Reset', 'Reset')}
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="gx-card__body">
+        {belum ? (
+          <p className="gx-muted" style={{ fontSize: 12.5, margin: 0, lineHeight: 1.55 }}>
+            {L(
+              'Belum ada sesi terukur. Jalankan bot atau pakai mode Latihan — presisi tiap sesi dicatat di sini sebagai bukti kecepatan.',
+              'No measured sessions yet. Run the bot or use Practice mode — each session\'s precision is recorded here as proof of speed.'
+            )}
+          </p>
+        ) : (
+          <>
+            <div className="gx-metrics gx-metrics--4">
+              <div className="gx-metric">
+                <div className="gx-metric__k">{L('Presisi khas', 'Typical precision')}</div>
+                <div className="gx-metric__v gx-metric__v--ok">
+                  {summary.medianAbsDelta != null ? `±${summary.medianAbsDelta} ms` : '—'}
+                </div>
+              </div>
+              <div className="gx-metric">
+                <div className="gx-metric__k">{L('Terbaik', 'Best')}</div>
+                <div className="gx-metric__v">{summary.bestAbsDelta != null ? `±${summary.bestAbsDelta} ms` : '—'}</div>
+              </div>
+              <div className="gx-metric">
+                <div className="gx-metric__k">{L('Sesi dijalankan', 'Sessions run')}</div>
+                <div className="gx-metric__v">{summary.total}</div>
+              </div>
+              <div className="gx-metric">
+                <div className="gx-metric__k">{L('Tingkat menang', 'Win rate')}</div>
+                <div className={`gx-metric__v ${summary.winRate != null && summary.winRate >= 50 ? 'gx-metric__v--ok' : ''}`}>
+                  {summary.winRate != null ? `${summary.winRate}%` : '—'}
+                </div>
+              </div>
+            </div>
+            {summary.winRate != null && (
+              <div className="gx-muted" style={{ fontSize: 11.5, marginTop: 8 }}>
+                {L(
+                  `${summary.wins} berhasil · ${summary.misses} tidak dapat · dilaporkan sendiri setelah checkout`,
+                  `${summary.wins} won · ${summary.misses} missed · self-reported after checkout`
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="gx-adaptive">
+          <div className="gx-adaptive__head">
+            <span className="gx-adaptive__title">
+              <BrainCircuit size={14} /> {L('Penyetelan adaptif', 'Adaptive tuning')}
+            </span>
+            <span className={`gx-tag gx-tag--${adaptive.confidence === 'high' ? 'ok' : adaptive.confidence === 'medium' ? 'warn' : ''}`}>
+              {L('keyakinan', 'confidence')} {CONF_LABEL[adaptive.confidence]}
+            </span>
+          </div>
+          <div className="gx-adaptive__lead">
+            {adaptive.leadMs} <small>ms</small>
+            <span className="gx-muted">{L('jeda buka disarankan', 'recommended open lead')}</span>
+          </div>
+          <p className="gx-adaptive__why">{lang === 'en' ? adaptive.reasonEn : adaptive.reasonId}</p>
+          {aiMode ? (
+            <div className="gx-adaptive__on">
+              <CircleCheck size={13} /> {L('Mode AI aktif — bot memakai angka ini sendiri tiap sesi.', 'AI mode on — the bot applies this itself every session.')}
+            </div>
+          ) : (
+            <button type="button" className="gx-btn gx-btn--xs gx-btn--primary" onClick={onUseAdaptive}>
+              {L('Pakai mode AI', 'Switch to AI mode')}
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+/** Daftar jadwal yang menunggu giliran. Yang paling atas sedang berjalan. */
+export const ScheduleQueue: React.FC<{
+  queue: ArmState[];
+  clock: ServerClock;
+  region: AseanCountryCode;
+  onCancel: (epoch: number) => void;
+}> = ({ queue, clock, region, onCancel }) => {
+  const { L, locale } = useLang();
+  useTicker(1000);
+  if (queue.length < 2) return null;
+  const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
+  const now = clock.now();
+
+  return (
+    <section className="gx-card" style={{ order: 2 }}>
+      <div className="gx-card__head">
+        <h2 className="gx-card__title">
+          <ListOrdered size={16} /> {L('Antrean jadwal', 'Schedule queue')}
+        </h2>
+        <div className="gx-card__aside">
+          <span className="gx-tag">{queue.length}</span>
+        </div>
+      </div>
+      <div className="gx-card__body">
+        <ul className="gx-list">
+          {queue.map((a, i) => {
+            const remain = a.epoch - now;
+            const jam = Math.floor(remain / 3_600_000);
+            const menit = Math.floor((remain % 3_600_000) / 60_000);
+            const detik = Math.floor((remain % 60_000) / 1000);
+            return (
+              <li key={a.epoch} className="gx-row">
+                <span className={`gx-qnum ${i === 0 ? 'gx-qnum--on' : ''}`}>{i + 1}</span>
+                <div className="gx-row__main">
+                  <div className="gx-row__t">
+                    {a.label} {L('WIB', '')}
+                    {i === 0 && <span className="gx-tag gx-tag--ok" style={{ marginLeft: 6 }}>{L('berjalan', 'active')}</span>}
+                  </div>
+                  <div className="gx-row__s">
+                    {a.targetTitle ? `${a.targetTitle} · ` : ''}
+                    {remain > 0
+                      ? L(`${jam > 0 ? `${jam} jam ` : ''}${menit} menit ${detik} dtk lagi`, `in ${jam > 0 ? `${jam}h ` : ''}${menit}m ${detik}s`)
+                      : L('sedang dieksekusi', 'firing now')}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="gx-btn gx-btn--xs gx-btn--danger"
+                  onClick={() => onCancel(a.epoch)}
+                  aria-label={L(`Batalkan jadwal ${a.label}`, `Cancel schedule ${a.label}`)}
+                >
+                  <X size={12} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="gx-hint" style={{ margin: '10px 2px 0' }}>
+          {L(
+            `Jadwal dijalankan berurutan dari yang paling dekat. Maksimal ${10} sesi menunggu.`,
+            `Schedules run in order, nearest first. Up to ${10} sessions can wait.`
+          )}
+        </p>
+      </div>
+    </section>
+  );
+};
+
 /* ------------------------------------------------------------------ */
 /* Dashboard                                                           */
 /* ------------------------------------------------------------------ */
@@ -1029,6 +1217,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
           />
           {/* order 2 = tepat di bawah kartu sesi, sejajar QuickActions tapi lebih dulu */}
           <BannerStrip banners={p.banners} slot="middle" style={{ order: 2 }} />
+          <ScheduleQueue queue={p.queue} clock={p.clock} region={p.region} onCancel={(e) => p.onDisarm(e)} />
           <QuickActions
             isBotRunning={p.isBotRunning}
             armed={p.armed}
@@ -1065,6 +1254,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
             onSeeAll={() => p.onGoTab('targets')}
           />
           {p.stockWatch && <StockWatchCard w={p.stockWatch} region={p.region} />}
+          <WarStatsCard summary={p.warSummary} adaptive={p.adaptive} aiMode={p.aiMode} onUseAdaptive={p.onUseAdaptive} onClear={p.onClearStats} />
           <ReadinessCard items={checklist} />
           <section style={{ order: 5 }}>
             <SectionHead

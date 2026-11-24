@@ -1882,3 +1882,58 @@ body.dark-theme .gx-bannerwrap__nav { background: rgba(12, 26, 56, .8); }
   .gx-seg--3 { display: inline-flex; width: auto; }
   .gx-seg--3 button { padding: 7px 12px; font-size: 12px; }
 }
+
+/* ---------- Rekap performa & penyetelan adaptif ---------- */
+.gx-metrics--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 560px) { .gx-metrics--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.gx-adaptive {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--gx-line);
+  background: var(--gx-surface-2, var(--gx-surface));
+}
+.gx-adaptive__head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 9px; flex-wrap: wrap;
+}
+.gx-adaptive__title {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 700; color: var(--gx-text);
+}
+.gx-adaptive__lead {
+  display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+  font: 800 26px var(--gx-mono, inherit);
+  letter-spacing: -.03em;
+  color: var(--gx-brand);
+}
+.gx-adaptive__lead small { font-size: 13px; font-weight: 700; }
+.gx-adaptive__lead .gx-muted { font: 600 11.5px var(--gx-sans, inherit); letter-spacing: 0; }
+.gx-adaptive__why {
+  margin: 7px 0 10px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--gx-muted);
+}
+.gx-adaptive__on {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 600; color: var(--gx-ok);
+}
+
+/* Jejak aktivitas user di panel admin */
+.gx-act { font-weight: 600; }
+.gx-act--never { color: var(--gx-bad); }
+.gx-act--cold { color: var(--gx-warn); }
+
+/* Nomor urut antrean jadwal */
+.gx-qnum {
+  flex: none;
+  width: 24px; height: 24px;
+  border-radius: 8px;
+  display: grid; place-items: center;
+  font: 700 11.5px var(--gx-mono, inherit);
+  background: var(--gx-surface-3);
+  color: var(--gx-ink-2);
+}
+.gx-qnum--on { background: var(--gx-brand); color: #fff; }

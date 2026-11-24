@@ -118,7 +118,17 @@ router.post('/login', async (req: Request, res: Response) => {
       }
     }
 
-    const safeUser: SafeUser = sanitizeUser(user);
+    // Jejak aktivitas supaya admin tahu siapa yang benar-benar memakai botnya
+    try {
+      await storage.update('users', user.id, {
+        last_login_at: new Date().toISOString(),
+        login_count: (Number(user.login_count) || 0) + 1,
+      });
+    } catch (actErr) {
+      console.warn('Gagal mencatat aktivitas login:', actErr);
+    }
+
+    const safeUser: SafeUser = sanitizeUser({ ...user, last_login_at: new Date().toISOString() });
     const token = createSessionToken(safeUser);
 
     return successRes(res, {
@@ -840,9 +850,57 @@ const dispatchPush = async (req: Request, res: Response) => {
     let sent = 0;
     let dropped = 0;
     let failed = 0;
+    let licenseSent = 0;
+    let licenseFailed = 0;
     let cleaned = 0;
 
+    // --- Pengingat masa aktif lisensi (H-3, H-1, hari terakhir) ---
+    const userCache = new Map<string, any>();
     for (const row of rows as any[]) {
+      try {
+        if (!userCache.has(row.user_id)) userCache.set(row.user_id, await storage.get('users', row.user_id));
+        const u = userCache.get(row.user_id);
+        if (u?.expired_at) {
+          const exp = new Date(u.expired_at).getTime();
+          /*
+           * daysLeft dihitung membulat ke atas, jadi sisa 5 jam pun bernilai 1.
+           * Artinya 1 = hari terakhir. Nilai 0 dipakai untuk lisensi yang BARU
+           * saja habis (dalam 24 jam terakhir) — saat itulah user paling mungkin
+           * mau memperpanjang.
+           */
+          const expiredRecently = !isNaN(exp) && exp <= now && now - exp < 86_400_000;
+          if (!isNaN(exp) && (exp > now || expiredRecently)) {
+            const daysLeft = expiredRecently ? 0 : Math.ceil((exp - now) / 86_400_000);
+            if ([3, 1, 0].includes(daysLeft)) {
+              const mark = `${new Date(now).toISOString().slice(0, 10)}:${daysLeft}`;
+              if (row.license_reminded !== mark) {
+                await sendPush(row, {
+                  title: daysLeft <= 0 ? 'Lisensi GaneMaX.Ai habis hari ini' : `Lisensi tinggal ${daysLeft} hari`,
+                  body:
+                    daysLeft <= 0
+                      ? 'Perpanjang sekarang supaya jadwal & target kamu tidak berhenti.'
+                      : `Masa aktif habis ${new Date(exp).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })}. Perpanjang biar bot tetap jalan.`,
+                  tag: `gx-lic-${daysLeft}`,
+                  url: '/app/',
+                });
+                await storage.update('push_subscriptions', row.id, { license_reminded: mark });
+                licenseSent++;
+              }
+            }
+          }
+        }
+      } catch (licErr: any) {
+        const code = Number(licErr?.statusCode);
+        if (code === 404 || code === 410) {
+          await storage.delete('push_subscriptions', row.id);
+          dropped++;
+          continue;
+        }
+        // Gagal sementara: penanda tidak ditulis, jadi dicoba lagi menit berikutnya
+        licenseFailed++;
+        console.error('[push] pengingat lisensi gagal', code || '-', licErr?.message);
+      }
+
       const epoch = Number(row.arm_epoch);
       if (!epoch || !isFinite(epoch)) continue;
 
@@ -880,7 +938,7 @@ const dispatchPush = async (req: Request, res: Response) => {
         }
       }
     }
-    return successRes(res, { ok: true, checked: rows.length, sent, dropped, failed, cleaned, server_time: now });
+    return successRes(res, { ok: true, checked: rows.length, sent, license_sent: licenseSent, license_failed: licenseFailed, dropped, failed, cleaned, server_time: now });
   } catch (err: any) {
     return errorRes(res, err.message, 500);
   }
@@ -892,6 +950,10 @@ router.get('/push/dispatch', dispatchPush);
 router.post('/bot/session-start', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!(await assertLicenseActive(req, res))) return;
+    // Penanda user benar-benar menjalankan bot, bukan sekadar login
+    try {
+      await storage.update('users', req.user!.id, { last_run_at: new Date().toISOString() });
+    } catch {}
     return successRes(res, { ok: true, server_time: Date.now() });
   } catch (err: any) {
     return errorRes(res, err.message, 500);

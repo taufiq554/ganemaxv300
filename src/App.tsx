@@ -37,8 +37,9 @@ import { getNextSession, formatClock } from './lib/time.ts';
 import { parseShopeeLink, buildOpenUrl, isValidHttpUrl } from './lib/shopee.ts';
 import { FireOverlay, FireState } from './components/gx/FireOverlay.tsx';
 import { PracticeOverlay, PracticeState, PracticeResult } from './components/gx/PracticeOverlay.tsx';
-import { loadArmed, saveArmed, loadLogs, saveLogs, clearStoredLogs, flushLogs, savePendingFire, loadPendingFire } from './lib/session-store.ts';
+import { loadArmed, saveArmed, loadLogs, saveLogs, clearStoredLogs, flushLogs, savePendingFire, loadPendingFire, loadQueue, saveQueue, QUEUE_LIMIT } from './lib/session-store.ts';
 import { openNow } from './lib/autoopen.ts';
+import { addAttempt, adviseLead, clearAttempts, loadAttempts, setLastResult, summarize, WarAttempt } from './lib/warstats.ts';
 import { usePushReminder } from './lib/push.ts';
 import { StockWatch } from './components/gx/DashboardView.tsx';
 import { Onboarding, hasOnboarded } from './components/gx/Onboarding.tsx';
@@ -139,14 +140,33 @@ export const App: React.FC = () => {
     }
   });
   const [enginePhase, setEnginePhase] = useState<EnginePhase>('idle');
-  const [armed, setArmed] = useState<ArmState | null>(() => {
-    const stored = loadArmed();
-    return stored ? { epoch: stored.epoch, label: stored.label } : null;
+  /**
+   * Antrean jadwal. Dulu cuma satu slot — pasang jadwal baru, yang lama hilang.
+   * Sekarang beberapa sesi bisa menunggu sekaligus (mis. Gajian Sale dan 12.12),
+   * dan yang paling dekat otomatis jadi jadwal aktif.
+   */
+  const [queue, setQueue] = useState<ArmState[]>(() => {
+    const q = loadQueue();
+    if (q.length) return q;
+    const legacy = loadArmed();
+    return legacy ? [{ epoch: legacy.epoch, label: legacy.label }] : [];
   });
+  const armed = useMemo(() => (queue.length ? queue[0] : null), [queue]);
   // Jadwal auto-start ikut tersimpan supaya tidak hilang saat halaman di-reload
   useEffect(() => {
+    saveQueue(queue.map((a) => ({ epoch: a.epoch, label: a.label, targetId: a.targetId, targetTitle: a.targetTitle })));
+    // Slot lama tetap diisi supaya versi sebelumnya tidak kebingungan
     saveArmed(armed ? { epoch: armed.epoch, label: armed.label, savedAt: Date.now() } : null);
-  }, [armed]);
+  }, [queue, armed]);
+
+  /** Tambah jadwal ke antrean, urut dari yang paling dekat, tanpa duplikat jam. */
+  const pushSchedule = (a: ArmState) =>
+    setQueue((prev) => {
+      if (prev.some((x) => Math.abs(x.epoch - a.epoch) < 1000)) return prev;
+      return [...prev, a].sort((x, y) => x.epoch - y.epoch).slice(0, QUEUE_LIMIT);
+    });
+
+  const dropSchedule = (epoch: number) => setQueue((prev) => prev.filter((x) => x.epoch !== epoch));
   // Pengingat T-5 menit dari server; jadwalnya ikut tiap kali armed berubah
   const push = usePushReminder(armed?.epoch ?? null, armed?.label ?? '');
   const [latency, setLatency] = useState<LatencyState>({ history: [], last: null, status: null, reachable: null, checkedAt: null });
@@ -209,9 +229,9 @@ export const App: React.FC = () => {
     if (!isAseanCode(region) || region === selectedRegion) return;
     const reg = ASEAN_REGIONS[region];
     // Jadwal auto-start dihitung dari zona waktu wilayah lama → batalkan supaya tidak meleset
-    if (armed) {
-      setArmed(null);
-      addLog(L('[SCHEDULER] Jadwal auto-start dibatalkan karena wilayah diganti. Pilih ulang sesi.', '[SCHEDULER] Auto-start cancelled because region changed. Pick the session again.'), 'warning');
+    if (queue.length) {
+      setQueue([]);
+      addLog(L(`[SCHEDULER] ${queue.length} jadwal dibatalkan karena wilayah diganti — jam sesi ikut zona waktu. Pilih ulang sesinya.`, `[SCHEDULER] ${queue.length} schedule(s) cancelled because the region changed — session times follow the time zone. Pick them again.`), 'warning');
     }
     setSelectedRegion(region);
     setLatency({ history: [], last: null, status: null, reachable: null, checkedAt: null });
@@ -264,9 +284,11 @@ export const App: React.FC = () => {
     }
     return [boot];
   });
+
+  /** Cermin log yang selalu mutakhir, dipakai saat halaman akan pindah. */
+  const logsRef = useRef<BotLogItem[]>([]);
+  if (logsRef.current.length === 0 && logs.length > 0) logsRef.current = logs;
   // Log disimpan supaya bukti kerja bot tidak hilang saat reload
-  const logsRef = useRef<BotLogItem[]>(logs);
-  logsRef.current = logs;
   useEffect(() => {
     saveLogs(logs);
   }, [logs]);
@@ -348,18 +370,20 @@ export const App: React.FC = () => {
 
   const addLog = useCallback(
     (text: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
-      setLogs((prev) => [
-        ...prev.slice(-400),
-        {
-          id: Math.random().toString(36).substring(2, 9),
-          time: (() => {
-            const d = new Date();
-            return `${d.toLocaleTimeString('id-ID', { hour12: false })}.${String(d.getMilliseconds()).padStart(3, '0')}`;
-          })(),
-          text,
-          type,
-        },
-      ]);
+      const d = new Date();
+      const entry: BotLogItem = {
+        id: Math.random().toString(36).substring(2, 9),
+        time: `${d.toLocaleTimeString('id-ID', { hour12: false })}.${String(d.getMilliseconds()).padStart(3, '0')}`,
+        text,
+        type,
+      };
+      /*
+       * Ref diperbarui seketika, bukan menunggu render. Tanpa ini, baris log
+       * yang ditulis sesaat sebelum halaman pindah ke Shopee ikut hilang —
+       * padahal justru baris itu yang menerangkan apa yang baru saja terjadi.
+       */
+      logsRef.current = [...logsRef.current.slice(-400), entry];
+      setLogs((prev) => [...prev.slice(-400), entry]);
     },
     []
   );
@@ -505,7 +529,7 @@ export const App: React.FC = () => {
     setCurrentUser(null);
     clearBotTimers();
     finishRun('idle');
-    setArmed(null);
+    setQueue([]);
     setUsersList([]);
     setCurrentTab('dashboard');
     addLog(L('[SYSTEM] Kamu sudah keluar.', '[SYSTEM] You have logged out.'), 'info');
@@ -560,7 +584,16 @@ export const App: React.FC = () => {
   const avgLatency = latency.history.length ? latency.history.reduce((x, y) => x + y, 0) / latency.history.length : null;
   const manualLead = Math.max(0, Math.min(5000, Number(botSettings.openLeadMs ?? 800)));
   // Mode AI: jeda buka dihitung dari latensi gateway yang terukur
-  const openLeadMs = botMode === 'ai' && avgLatency != null ? Math.round(Math.max(300, Math.min(2500, 500 + avgLatency * 2)) / 50) * 50 : manualLead;
+  // Riwayat sesi yang terukur — dasar statistik & mesin adaptif
+  const [attempts, setAttempts] = useState<WarAttempt[]>(() => loadAttempts());
+  const warSummary = useMemo(() => summarize(attempts), [attempts]);
+  /**
+   * Mode AI: jeda buka dihitung dari presisi yang BENAR-BENAR terukur di
+   * perangkat ini, bukan dari rumus latensi semata. Makin banyak sesi,
+   * makin tepat sarannya.
+   */
+  const adaptive = useMemo(() => adviseLead(attempts, manualLead, avgLatency), [attempts, manualLead, avgLatency]);
+  const openLeadMs = botMode === 'ai' ? adaptive.leadMs : manualLead;
   const standbyPollMs = botMode === 'stealth' ? 30000 : Math.max(2000, Number(botSettings.pollRate) || 5000);
   const pingSamples = Math.max(1, Math.min(8, Number(botSettings.threadCount) || 1, licenseThreadCap));
   const tz = (code: AseanCountryCode) => (ASEAN_REGIONS[code] || ASEAN_REGIONS.ID).timezone;
@@ -719,6 +752,11 @@ export const App: React.FC = () => {
   }, [armed?.epoch, selectedTarget?.id, selectedTarget?.url, pollStock]);
 
   // --- Pemeriksaan sebelum war ---
+  /** Batas waktu pemeriksaan: diisi saat ada jadwal, supaya tidak pernah menyerempet detik 0. */
+  const fireDeadlineRef = useRef<number | null>(null);
+  /** Sisa waktu sebelum Shopee harus dibuka; Infinity kalau tidak ada jadwal. */
+  const msToFire = () => (fireDeadlineRef.current == null ? Infinity : fireDeadlineRef.current - clock.now());
+
   const runPrechecks = async (): Promise<boolean> => {
     const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
     const t = selectedTarget;
@@ -777,15 +815,27 @@ export const App: React.FC = () => {
     } else {
       addLog(L(`[GATEWAY] ${reg.domain} tidak terjangkau dari server bot. Shopee tetap dibuka langsung dari HP kamu.`, `[GATEWAY] ${reg.domain} unreachable from bot server. Shopee will still open directly on your phone.`), 'warning');
     }
-    if (botMode === 'ai') addLog(L(`[AI] Jeda buka otomatis: ${openLeadMs} ms (dari latensi terukur).`, `[AI] Auto open lead: ${openLeadMs} ms (from measured latency).`), 'info');
+    if (botMode === 'ai')
+      addLog(
+        L(
+          `[AI] Jeda buka ${openLeadMs} ms · keyakinan ${adaptive.confidence} · ${adaptive.reasonId}`,
+          `[AI] Open lead ${openLeadMs} ms · confidence ${adaptive.confidence} · ${adaptive.reasonEn}`
+        ),
+        'info'
+      );
 
     if (t?.url) {
       const ids = parseShopeeLink(t.url);
       addLog(ids ? L(`[PRODUK] Link valid · shopid ${ids.shopId} · itemid ${ids.itemId}`, `[PRODUCT] Valid link · shopid ${ids.shopId} · itemid ${ids.itemId}`) : L('[PRODUK] Link pendek — dibuka apa adanya.', '[PRODUCT] Short link — opened as is.'), ids ? 'info' : 'warning');
-      if (ids && botMode !== 'stealth') {
-        const tries = Math.max(1, Math.min(10, (Number(botSettings.maxRetry) || 0) + 1));
+      // Data produk hanya enak diambil kalau waktunya longgar. Mepet detik 0, lewati.
+      if (ids && botMode !== 'stealth' && msToFire() > 20_000) {
+        const tries = Math.max(1, Math.min(3, (Number(botSettings.maxRetry) || 0) + 1));
         let got = false;
         for (let i = 1; i <= tries && !got; i++) {
+          if (msToFire() < 12_000) {
+            addLog(L('[PRODUK] Dihentikan — sudah dekat detik 0, jangan sampai menunda pembukaan.', '[PRODUCT] Stopped — too close to zero, must not delay the open.'), 'warning');
+            break;
+          }
           addLog(L(`[PRODUK] Mengambil data produk dari Shopee (percobaan ${i}/${tries})…`, `[PRODUCT] Fetching product data from Shopee (attempt ${i}/${tries})…`), 'info');
           const tRegion = isAseanCode(t.region) ? t.region : reg.code;
           const ck = await api.checkItem(tRegion, t.url, acc?.id);
@@ -810,7 +860,7 @@ export const App: React.FC = () => {
             const why = d ? d.reason || `HTTP ${d.status}` : ck.error?.message || 'error';
             addLog(L(`[PRODUK] Ditolak/gagal: ${why}`, `[PRODUCT] Refused/failed: ${why}`), 'warning');
             if (d?.status === 429) notify('ratelimit', 'GaneMaX.Ai', 'HTTP 429');
-            if (i < tries) await new Promise((r) => setTimeout(r, Math.max(0, Number(botSettings.retryDelay) || 0)));
+            if (i < tries) await new Promise((r) => setTimeout(r, Math.min(Math.max(0, Number(botSettings.retryDelay) || 0), Math.max(0, msToFire() - 12_000))));
           }
         }
         if (!got) addLog(L('[PRODUK] Lanjut tanpa data stok.', '[PRODUCT] Continuing without stock data.'), 'info');
@@ -821,8 +871,8 @@ export const App: React.FC = () => {
   };
 
   // --- Detik 0: buka Shopee ---
-  const fire = (scheduledEpoch: number | null) => {
-    const t = selectedTarget;
+  const fire = (scheduledEpoch: number | null, targetOverride?: TargetUrl) => {
+    const t = targetOverride ?? selectedTarget;
     if (!t?.url) {
       addLog(L('[ERROR] Target tidak punya link produk.', '[ERROR] Target has no product link.'), 'error');
       finishRun('error');
@@ -831,6 +881,20 @@ export const App: React.FC = () => {
     setEnginePhase('fire');
     const now = clock.now();
     const delta = scheduledEpoch != null ? now - scheduledEpoch : null;
+
+    // Rekam pengukuran sesi ini: jadi bukti buat user sekaligus bahan mesin adaptif
+    const rec = addAttempt({
+      at: now,
+      targetTitle: t.title,
+      scheduledEpoch,
+      leadMs: openLeadMs,
+      timerDeltaMs: delta,
+      latencyMs: avgLatency,
+      clockAccuracyMs: clock.rttMs != null ? Math.ceil(clock.rttMs / 2) : null,
+      result: 'unknown',
+      practice: runMode === 'practice',
+    });
+    setAttempts((p) => [...p, rec]);
 
     if (runMode === 'practice') {
       const zeroAt = scheduledEpoch != null ? scheduledEpoch + openLeadMs : now;
@@ -960,6 +1024,19 @@ export const App: React.FC = () => {
     clearBotTimers();
     isRunningRef.current = true;
     setIsBotRunning(true);
+
+    /*
+     * Tombol Jalankan = buka Shopee SEKARANG. Pemeriksaan jam, lisensi, ping
+     * gateway, dan pengambilan data produk sengaja dilewati di jalur ini:
+     * semuanya butuh beberapa detik dan di sesi flash sale detik itu menentukan.
+     * Pemeriksaan tetap dijalankan di jalur terjadwal, jauh sebelum detik 0.
+     */
+    if (runMode !== 'practice') {
+      addLog(L('[WAR] Buka langsung — tanpa pemeriksaan awal supaya tidak kehilangan waktu.', '[WAR] Opening immediately — prechecks skipped so no time is lost.'), 'warning');
+      fire(null);
+      return;
+    }
+
     const ok = await runPrechecks();
     if (!ok || !isRunningRef.current) return;
     if (runMode === 'practice') {
@@ -979,7 +1056,6 @@ export const App: React.FC = () => {
       botTimeoutsRef.current.push(tf);
       return;
     }
-    fire(null);
   };
 
   const handleStopBot = () => {
@@ -1004,6 +1080,7 @@ export const App: React.FC = () => {
   logRef.current = { addLog, L, beep };
 
   useEffect(() => {
+    fireDeadlineRef.current = armed ? armed.epoch - openLeadMs : null;
     if (!armed) return;
     precheckStartedRef.current = false;
     milestonesRef.current = new Set();
@@ -1039,11 +1116,11 @@ export const App: React.FC = () => {
       }
       if (fireAt <= 0) {
         window.clearInterval(id);
-        setArmed(null);
+        dropSchedule(armed.epoch);
         if (remain > -60_000) {
           if (!isRunningRef.current && precheckStartedRef.current) return;
           isRunningRef.current = true;
-          fireRef.current(armed.epoch - openLeadMs);
+          fireRef.current(armed.epoch - openLeadMs, armed.targetId ? targetUrls.find((x) => x.id === armed.targetId) : undefined);
         } else {
           log(tr(`[SCHEDULER] Jadwal ${armed.label} terlewat (HP tidur / tab tertutup).`, `[SCHEDULER] Schedule ${armed.label} missed (phone asleep / tab closed).`), 'error');
           finishRun('error');
@@ -1061,7 +1138,11 @@ export const App: React.FC = () => {
       return;
     }
     primeAlerts();
-    setArmed(a);
+    pushSchedule({
+      ...a,
+      targetId: a.targetId ?? selectedTarget?.id,
+      targetTitle: a.targetTitle ?? selectedTarget?.title,
+    });
     addLog(
       L(
         '[AUTO-OPEN] Di detik 0 halaman ini otomatis pindah ke Shopee. Log & jadwal tersimpan, jadi dashboard utuh lagi saat kamu kembali.',
@@ -1074,11 +1155,16 @@ export const App: React.FC = () => {
     requestWakeLock();
     toast.show(L(`Auto-start ${a.label} aktif — biarkan halaman terbuka`, `Auto-start ${a.label} on — keep this page open`));
   };
-  const handleDisarm = () => {
-    if (armed) addLog(L(`[SCHEDULER] Jadwal ${armed.label} dibatalkan.`, `[SCHEDULER] Schedule ${armed.label} cancelled.`), 'info');
-    setArmed(null);
-    releaseWakeLock();
-    if (isRunningRef.current) finishRun('idle');
+  /** Tanpa argumen = batalkan jadwal aktif. Dengan epoch = batalkan satu jadwal di antrean. */
+  const handleDisarm = (epoch?: number) => {
+    const target = epoch != null ? queue.find((x) => x.epoch === epoch) : armed;
+    if (!target) return;
+    addLog(L(`[SCHEDULER] Jadwal ${target.label} dibatalkan.`, `[SCHEDULER] Schedule ${target.label} cancelled.`), 'info');
+    dropSchedule(target.epoch);
+    if (epoch == null || target.epoch === armed?.epoch) {
+      releaseWakeLock();
+      if (isRunningRef.current) finishRun('idle');
+    }
   };
 
   // Jadwal tersimpan → auto-start
@@ -1130,6 +1216,8 @@ export const App: React.FC = () => {
       if (res.success) {
         addLog(L(`[HASIL] Checkout dikonfirmasi${r.orderSn ? ` · no. pesanan ${r.orderSn}` : ''} · tersimpan di riwayat.`, `[RESULT] Checkout confirmed${r.orderSn ? ` · order no. ${r.orderSn}` : ''} · saved to history.`), 'success');
         setStats((p) => ({ ...p, success: p.success + 1 }));
+        setLastResult('win');
+        setAttempts(loadAttempts());
         notify('success', L('Checkout berhasil', 'Checkout success'), t.title);
         loadUserData();
       } else {
@@ -1139,6 +1227,8 @@ export const App: React.FC = () => {
       }
     } else {
       addLog(L('[HASIL] Tidak dapat (kehabisan / gagal). Coba sesi berikutnya.', '[RESULT] Missed (sold out / failed). Try the next session.'), 'warning');
+      setLastResult('miss');
+      setAttempts(loadAttempts());
     }
     setFireState(null);
     setEnginePhase('idle');
@@ -1769,6 +1859,19 @@ export const App: React.FC = () => {
             onOpenAnnouncements={() => setIsAnnDrawerOpen(true)}
             runMode={runMode}
             stockWatch={stockWatch}
+            queue={queue}
+            warSummary={warSummary}
+            adaptive={adaptive}
+            aiMode={botMode === 'ai'}
+            onUseAdaptive={() => {
+              setBotSettings((prev) => ({ ...prev, botMode: 'ai' }));
+              addLog(L('[AI] Mode adaptif diaktifkan — jeda buka disetel sendiri dari data sesi kamu.', '[AI] Adaptive mode on — the open lead now tunes itself from your session data.'), 'success');
+            }}
+            onClearStats={() => {
+              clearAttempts();
+              setAttempts([]);
+              addLog(L('[AI] Riwayat pengukuran dikosongkan.', '[AI] Measurement history cleared.'), 'info');
+            }}
             backupCount={backupTargets.length}
             onRunMode={(m) => setBotSettings((prev) => ({ ...prev, runMode: m }))}
             onOpenTargetModal={(t) => {

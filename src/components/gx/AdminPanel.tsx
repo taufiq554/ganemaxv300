@@ -1211,6 +1211,34 @@ const BannerDialog: React.FC<{
 /* Users section                                                       */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Ringkasan aktivitas user. Admin perlu tahu siapa yang beli lalu tidak pernah
+ * memakai botnya — itu sinyal paling jelas dia tidak akan perpanjang.
+ */
+function lastSeenMs(u: any): number | null {
+  const times = [u.last_run_at, u.last_login_at].map((x) => (x ? new Date(x).getTime() : NaN)).filter((x) => !isNaN(x));
+  return times.length ? Math.max(...times) : null;
+}
+
+function neverUsed(u: any): boolean {
+  return !u.last_login_at && !u.last_run_at;
+}
+
+function activityText(u: any): string {
+  if (neverUsed(u)) return 'belum pernah login';
+  const run = u.last_run_at ? new Date(u.last_run_at).getTime() : null;
+  const seen = lastSeenMs(u);
+  if (run) return `terakhir jalan ${relativeTimeId(new Date(run).toISOString())}`;
+  return `terakhir login ${relativeTimeId(new Date(seen!).toISOString())}`;
+}
+
+function activityTone(u: any): string {
+  if (neverUsed(u)) return 'gx-act gx-act--never';
+  const seen = lastSeenMs(u);
+  const days = seen ? (Date.now() - seen) / 86_400_000 : 999;
+  return days > 14 ? 'gx-act gx-act--cold' : 'gx-act';
+}
+
 const UsersSection: React.FC<{
   currentUser: User;
   users: User[];
@@ -1222,7 +1250,7 @@ const UsersSection: React.FC<{
   reloadRevenues: () => Promise<void>;
 }> = ({ currentUser, users, setUsers, toast, copy, onExtend, reloadRevenues }) => {
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<'all' | 'active' | 'expiring' | 'expired' | 'disabled'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'expiring' | 'expired' | 'disabled' | 'idle'>('all');
   const [showForm, setShowForm] = useState(false);
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
 
@@ -1302,13 +1330,16 @@ const UsersSection: React.FC<{
   };
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: users.length, active: 0, expiring: 0, expired: 0, disabled: 0 };
-    users.forEach((u) => (c[userState(u)] += 1));
+    const c: Record<string, number> = { all: users.length, active: 0, expiring: 0, expired: 0, disabled: 0, idle: 0 };
+    users.forEach((u) => {
+      c[userState(u)] += 1;
+      if (neverUsed(u) && u.role !== 'admin') c.idle += 1;
+    });
     return c;
   }, [users]);
 
   const list = users
-    .filter((u) => (filter === 'all' ? true : userState(u) === filter))
+    .filter((u) => (filter === 'all' ? true : filter === 'idle' ? neverUsed(u) && u.role !== 'admin' : userState(u) === filter))
     .filter((u) => !q || u.username.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
@@ -1422,6 +1453,7 @@ const UsersSection: React.FC<{
                 ['expiring', 'Segera habis'],
                 ['expired', 'Expired'],
                 ['disabled', 'Nonaktif'],
+                ['idle', 'Belum dipakai'],
               ] as const
             ).map(([k, l]) => (
               <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)}>
@@ -1468,6 +1500,7 @@ const UsersSection: React.FC<{
                           </button>
                         </span>
                         <span>dibuat {relativeTimeId(u.created_at)}</span>
+                        <span className={activityTone(u)}>{activityText(u)}</span>
                       </div>
                     </div>
                     <div className="gx-user__actions">

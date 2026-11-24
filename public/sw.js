@@ -1,6 +1,6 @@
 /* GaneMaX.Ai service worker — app shell cache + offline fallback.
    Versi dinaikkan tiap rilis supaya cache lama dibuang. */
-const CACHE = 'ganemax-v11';
+const CACHE = 'ganemax-v12';
 const SHELL = ['/app/', '/ganemax-logo.jpg', '/icon-192.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

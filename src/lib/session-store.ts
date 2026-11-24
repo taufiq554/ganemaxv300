@@ -133,3 +133,42 @@ export function loadPendingFire(): PendingFire | null {
     return null;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Antrean jadwal                                                      */
+/* ------------------------------------------------------------------ */
+
+const QUEUE_KEY = 'gx_queue_v1';
+const MAX_QUEUE = 10;
+
+export interface StoredSchedule {
+  epoch: number;
+  label: string;
+  targetId?: string;
+  targetTitle?: string;
+}
+
+export function loadQueue(): StoredSchedule[] {
+  try {
+    const raw = localStorage.getItem(QUEUE_KEY);
+    if (!raw) return [];
+    const v = JSON.parse(raw);
+    if (!Array.isArray(v)) return [];
+    const cutoff = Date.now() - 120_000;
+    return v
+      .filter((x) => x && typeof x.epoch === 'number' && typeof x.label === 'string' && x.epoch > cutoff)
+      .slice(0, MAX_QUEUE)
+      .sort((a, b) => a.epoch - b.epoch);
+  } catch {
+    return [];
+  }
+}
+
+export function saveQueue(list: StoredSchedule[]) {
+  try {
+    if (!list.length) localStorage.removeItem(QUEUE_KEY);
+    else localStorage.setItem(QUEUE_KEY, JSON.stringify(list.slice(0, MAX_QUEUE)));
+  } catch {}
+}
+
+export const QUEUE_LIMIT = MAX_QUEUE;
