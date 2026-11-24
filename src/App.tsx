@@ -86,7 +86,7 @@ function normalizeSettings(x: BotSettings): BotSettings {
     maxRetry: num(x.maxRetry, 2, 0, 9),
     retryDelay: num(x.retryDelay, 300, 0, 5000),
     openLeadMs: num(x.openLeadMs, 3000, 0, 10000),
-    openMode: x.openMode === 'browser' ? 'browser' : 'app',
+    openMode: 'browser', // bot selalu lewat browser — app Shopee bikin jeda di detik 0
     runMode: x.runMode === 'practice' ? 'practice' : 'open',
   };
 }
@@ -128,6 +128,8 @@ export const App: React.FC = () => {
   const [dismissedIds, setDismissedIds] = useState<string[]>(readDismissed);
   const [isAnnDrawerOpen, setIsAnnDrawerOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  /** Survei "tahu dari mana" hanya ditanyakan saat panduan muncul sendiri (login pertama). */
+  const [askSurvey, setAskSurvey] = useState(false);
   const [selectedTargetId, setSelectedTargetId] = useState<string>(() => {
     try {
       return localStorage.getItem('gx_selected_target') || '';
@@ -317,7 +319,7 @@ export const App: React.FC = () => {
     notifyError: true,
     notifyRateLimit: true,
     openLeadMs: 3000,
-    openMode: "app",
+    openMode: "browser",
     runMode: "open",
     soundAlert: true,
     vibrateAlert: true,
@@ -335,6 +337,13 @@ export const App: React.FC = () => {
         if (Number(saved.openLeadMs) === 800) merged.openLeadMs = 3000;
         try {
           localStorage.setItem('gx_lead_migrated_v1', '1');
+        } catch {}
+      }
+      // v22: bawaan pindah ke browser (app Shopee lambat terbuka). Sekali jalan saja.
+      if (!localStorage.getItem('gx_openmode_v22')) {
+        merged.openMode = 'browser';
+        try {
+          localStorage.setItem('gx_openmode_v22', '1');
         } catch {}
       }
       return normalizeSettings(merged);
@@ -419,6 +428,18 @@ export const App: React.FC = () => {
   /** Data akun sudah pernah termuat — sebelum itu dashboard menampilkan kerangka. */
   const [dataReady, setDataReady] = useState(false);
 
+  /** Ambil foto produk satu target lalu simpan ke server. Mengembalikan true kalau dapat. */
+  const fetchTargetImage = async (t: TargetUrl): Promise<boolean> => {
+    if (!t?.url) return false;
+    const region = isAseanCode(t.region) ? t.region : selectedRegion;
+    const r = await api.productImage(t.url, region, selectedAccountId || undefined);
+    const img = r.success ? r.data?.image : null;
+    if (!img) return false;
+    const up = await api.put<TargetUrl>('target-urls', t.id, { image_url: img });
+    setTargetUrls((prev) => prev.map((x) => (x.id === t.id ? { ...x, ...(up.success && up.data ? up.data : {}), image_url: img } : x)));
+    return true;
+  };
+
   /**
    * Lengkapi foto produk target yang belum punya gambar, di latar belakang.
    * Satu per satu (tidak membanjiri server), tiap target dicoba sekali per sesi.
@@ -426,19 +447,14 @@ export const App: React.FC = () => {
   const imgTriedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!dataReady) return;
-    const todo = targetUrls.filter((t) => !t.image_url && t.url && !imgTriedRef.current.has(t.id)).slice(0, 6);
+    const todo = targetUrls.filter((t) => !t.image_url && t.url && !imgTriedRef.current.has(t.id)).slice(0, 8);
     if (!todo.length) return;
     let cancelled = false;
     (async () => {
       for (const t of todo) {
         if (cancelled) return;
         imgTriedRef.current.add(t.id);
-        const region = isAseanCode(t.region) ? t.region : selectedRegion;
-        const r = await api.productImage(t.url, region, selectedAccountId || undefined);
-        const img = r.success ? r.data?.image : null;
-        if (!img) continue;
-        const up = await api.put<TargetUrl>('target-urls', t.id, { image_url: img });
-        setTargetUrls((prev) => prev.map((x) => (x.id === t.id ? { ...x, ...(up.success && up.data ? up.data : {}), image_url: img } : x)));
+        await fetchTargetImage(t);
       }
     })();
     return () => {
@@ -446,6 +462,13 @@ export const App: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataReady, targetUrls]);
+
+  /** Dipanggil saat user menekan foto kosong di daftar target. */
+  const handleRetryImage = async (t: TargetUrl) => {
+    toast.show(L('Mengambil foto produk…', 'Fetching product photo…'));
+    const ok = await fetchTargetImage(t);
+    toast.show(ok ? L('Foto produk terpasang', 'Product photo attached') : L('Shopee belum mengirim fotonya. Edit target untuk menempel link gambar.', "Shopee didn't send the photo. Edit the target to paste an image link."));
+  };
 
   const loadUserData = useCallback(async () => {
     if (!currentUser) return;
@@ -500,7 +523,10 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     if (currentUser && !hasOnboarded()) {
-      const t = window.setTimeout(() => setShowOnboarding(true), 600);
+      const t = window.setTimeout(() => {
+        setAskSurvey(!currentUser.referral_source);
+        setShowOnboarding(true);
+      }, 600);
       return () => window.clearTimeout(t);
     }
   }, [currentUser?.id]);
@@ -829,12 +855,16 @@ export const App: React.FC = () => {
 
   /** Batas waktu pemeriksaan: diisi saat ada jadwal, supaya tidak pernah menyerempet detik 0. */
   const fireDeadlineRef = useRef<number | null>(null);
+  /** True kalau sesi terjadwal harus dibatalkan (user tekan Stop / lisensi ditolak). */
+  const hardStopRef = useRef(false);
+  const precheckForRef = useRef<number | null>(null);
+
   /** Sisa waktu sebelum Shopee harus dibuka; Infinity kalau tidak ada jadwal. */
   const msToFire = () => (fireDeadlineRef.current == null ? Infinity : fireDeadlineRef.current - clock.now());
 
-  const runPrechecks = async (): Promise<boolean> => {
+  const runPrechecks = async (targetOverride?: TargetUrl): Promise<boolean> => {
     const reg = ASEAN_REGIONS[selectedRegion] || ASEAN_REGIONS.ID;
-    const t = selectedTarget;
+    const t = targetOverride ?? selectedTarget;
     const acc = selectedAccount;
     setEnginePhase('sync');
     addLog(
@@ -863,18 +893,32 @@ export const App: React.FC = () => {
 
     const lic = await api.sessionStart();
     if (!isRunningRef.current) return false;
-    if (!lic.success) {
-      addLog(`[LICENSE] ${lic.error?.message || 'invalid'}`, 'error');
+    if (!lic.success && lic.status === 403) {
+      // Lisensi benar-benar ditolak (habis / dinonaktifkan): sesi dihentikan
+      addLog(`[LISENSI] ${lic.error?.message || 'Lisensi tidak aktif'}`, 'error');
       toast.show(lic.error?.message || L('Lisensi tidak valid', 'Invalid license'));
       notify('error', 'GaneMaX.Ai', lic.error?.message || '');
+      hardStopRef.current = true;
       finishRun('error');
       return false;
     }
-    addLog(L('[LISENSI] Lisensi aktif terverifikasi di server.', '[LICENSE] Active license verified by server.'), 'success');
+    if (!lic.success) {
+      // Server lambat / sinyal jelek / sesi login perlu diperbarui: JANGAN batalkan war.
+      // Shopee dibuka langsung dari HP, tidak bergantung pada server bot.
+      addLog(
+        lic.status === 401
+          ? L('[LISENSI] Sesi login perlu diperbarui (login ulang setelah war). Jadwal tetap jalan.', '[LICENSE] Login session needs renewing (log in again after the war). Schedule continues.')
+          : L(`[LISENSI] Server bot belum menjawab (${lic.error?.message || 'jaringan'}). Jadwal tetap jalan — Shopee dibuka langsung dari HP.`, `[LICENSE] Bot server did not answer (${lic.error?.message || 'network'}). Schedule continues — Shopee opens directly from the phone.`),
+        'warning'
+      );
+    } else addLog(L('[LISENSI] Lisensi aktif terverifikasi di server.', '[LICENSE] Active license verified by server.'), 'success');
 
     setEnginePhase('warm');
     addLog(L(`[GATEWAY] Mengukur ${reg.domain} dengan ${pingSamples} request paralel…`, `[GATEWAY] Measuring ${reg.domain} with ${pingSamples} parallel requests…`), 'info');
-    const pings = await Promise.all(Array.from({ length: pingSamples }, () => api.pingGateway(reg.code)));
+    const pings = await Promise.race([
+      Promise.all(Array.from({ length: pingSamples }, () => api.pingGateway(reg.code))),
+      new Promise<any[]>((r) => setTimeout(() => r([]), 6000)),
+    ]);
     if (!isRunningRef.current) return false;
     const okPings = pings.filter((p) => p.success && p.data && p.data.reachable !== false).map((p) => p.data!);
     if (okPings.length) {
@@ -990,7 +1034,7 @@ export const App: React.FC = () => {
       return;
     }
 
-    const mode = botSettings.openMode === 'browser' ? 'browser' : 'app';
+    const mode = 'browser' as const; // dikunci: app Shopee menambah jeda beberapa detik
     const targetRegion = isAseanCode(t.region) ? t.region : selectedRegion;
     const { href, via } = buildOpenUrl(t.url, targetRegion, mode);
     beep(1320, 220);
@@ -1135,6 +1179,11 @@ export const App: React.FC = () => {
 
   const handleStopBot = () => {
     const wasRunning = isRunningRef.current;
+    if (armed && precheckStartedRef.current) {
+      // Stop saat pemeriksaan jadwal = batalkan jadwal itu
+      hardStopRef.current = true;
+      dropSchedule(armed.epoch);
+    }
     clearBotTimers();
     finishRun('idle');
     releaseWakeLock();
@@ -1149,7 +1198,7 @@ export const App: React.FC = () => {
   const fireRef = useRef(fire);
   fireRef.current = fire;
   startRef.current = handleStartBot;
-  const precheckRef = useRef(runPrechecks);
+  const precheckRef = useRef<(t?: TargetUrl) => Promise<boolean>>(runPrechecks);
   precheckRef.current = runPrechecks;
   const targetUrlsRef = useRef(targetUrls);
   targetUrlsRef.current = targetUrls;
@@ -1160,12 +1209,44 @@ export const App: React.FC = () => {
   const logRef = useRef({ addLog, L, beep });
   logRef.current = { addLog, L, beep };
 
+  /**
+   * Bangunkan server bot sebelum jadwal.
+   *
+   * Server berjalan sebagai fungsi serverless: kalau lama tidak dipakai, request
+   * pertama ikut menunggu proses start (cold start). Dengan menyentuh /health
+   * tiap 4 menit selama ada jadwal, server sudah siap saat detik 0 benar-benar
+   * datang. Hanya jalan kalau halaman terlihat, supaya tidak boros baterai.
+   */
+  useEffect(() => {
+    if (!armed || !currentUser) return;
+    let stop = false;
+    const ping = () => {
+      if (stop || document.visibilityState !== 'visible') return;
+      const left = armed.epoch - clock.now();
+      if (left < -60_000 || left > 3 * 3600_000) return;
+      api.get('health');
+    };
+    ping();
+    const id = window.setInterval(ping, 240_000);
+    return () => {
+      stop = true;
+      window.clearInterval(id);
+    };
+  }, [armed?.epoch, currentUser?.id]);
+
   useEffect(() => {
     fireDeadlineRef.current = armed ? armed.epoch - openLeadMs : null;
     if (!armed) return;
-    precheckStartedRef.current = false;
-    milestonesRef.current = new Set();
-    const id = window.setInterval(() => {
+    // Jangan ulangi pemeriksaan kalau efek ini jalan lagi untuk jadwal yang sama (mis. jeda buka berubah)
+    if (precheckForRef.current !== armed.epoch) {
+      precheckStartedRef.current = false;
+      milestonesRef.current = new Set();
+      hardStopRef.current = false;
+    }
+    let timer = 0;
+    let stopped = false;
+    const tick = () => {
+      if (stopped) return;
       const { addLog: log, L: tr, beep: bp } = logRef.current;
       const remain = armed.epoch - clock.now();
       const fireAt = remain - openLeadMs;
@@ -1187,38 +1268,64 @@ export const App: React.FC = () => {
           if (sec <= 3) bp(880, 90);
         }
       }
+      const tgt = armed.targetId ? targetUrlsRef.current.find((x) => x.id === armed.targetId) : undefined;
       if (remain <= 30_000 && !milestonesRef.current.has('warm')) {
         milestonesRef.current.add('warm');
-        const tgt = armed.targetId ? targetUrlsRef.current.find((x) => x.id === armed.targetId) : selectedTargetRef.current;
-        if (tgt?.url) {
-          const reg = isAseanCode(tgt.region) ? tgt.region : selectedRegionRef.current;
+        const wt = tgt ?? selectedTargetRef.current;
+        if (wt?.url) {
+          const reg = isAseanCode(wt.region) ? wt.region : selectedRegionRef.current;
           warmShopee(reg);
-          prefetchProduct(tgt.url);
+          prefetchProduct(wt.url);
           log(tr('[WARMUP] Sambungan ke Shopee disiapkan & halaman produk diunduh lebih dulu.', '[WARMUP] Connection to Shopee prepared & product page fetched ahead.'), 'info');
         }
       }
-      if (remain <= 60_000 && !precheckStartedRef.current) {
+      if (remain <= 60_000 && fireAt > 0 && !precheckStartedRef.current) {
         precheckStartedRef.current = true;
+        precheckForRef.current = armed.epoch;
         isRunningRef.current = true;
         setIsBotRunning(true);
-        precheckRef.current().then((ok) => {
-          if (ok) log(tr(`[STANDBY] Semua siap. Shopee dibuka ${openLeadMs} ms sebelum ${armed.label}.`, `[STANDBY] All set. Shopee opens ${openLeadMs} ms before ${armed.label}.`), 'success');
-        });
+        precheckRef
+          .current(tgt)
+          .then((ok) => {
+            if (ok) log(tr(`[STANDBY] Semua siap. Shopee dibuka ${openLeadMs} ms sebelum ${armed.label}.`, `[STANDBY] All set. Shopee opens ${openLeadMs} ms before ${armed.label}.`), 'success');
+          })
+          .catch((e) => {
+            // Pemeriksaan gagal total bukan alasan untuk melewatkan war
+            log(tr(`[STANDBY] Pemeriksaan awal terganggu (${e?.message || 'error'}). Jadwal tetap jalan.`, `[STANDBY] Prechecks interrupted (${e?.message || 'error'}). Schedule continues.`), 'warning');
+            isRunningRef.current = true;
+          });
       }
       if (fireAt <= 0) {
-        window.clearInterval(id);
+        stopped = true;
         dropSchedule(armed.epoch);
+        if (hardStopRef.current) return; // dibatalkan user / lisensi ditolak
         if (remain > -60_000) {
-          if (!isRunningRef.current && precheckStartedRef.current) return;
           isRunningRef.current = true;
-          fireRef.current(armed.epoch - openLeadMs, armed.targetId ? targetUrls.find((x) => x.id === armed.targetId) : undefined);
+          fireRef.current(armed.epoch - openLeadMs, tgt);
         } else {
           log(tr(`[SCHEDULER] Jadwal ${armed.label} terlewat (HP tidur / tab tertutup).`, `[SCHEDULER] Schedule ${armed.label} missed (phone asleep / tab closed).`), 'error');
           finishRun('error');
         }
+        return;
       }
-    }, 25);
-    return () => window.clearInterval(id);
+      // Hemat baterai & tetap presisi: jarang saat masih jauh, rapat menjelang detik buka
+      const delay = fireAt > 15_000 ? 250 : fireAt > 1_500 ? 40 : Math.max(1, Math.min(8, fireAt - 2));
+      timer = window.setTimeout(tick, delay);
+    };
+    tick();
+    // Kembali dari latar belakang: langsung cek, jangan menunggu timer yang ditahan browser
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && !stopped) {
+        window.clearTimeout(timer);
+        tick();
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVis);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [armed, openLeadMs]);
 
@@ -1834,6 +1941,7 @@ export const App: React.FC = () => {
 
   const controlPanelProps = {
     currentUser,
+    onRetryImage: handleRetryImage,
     targetUrls,
     accounts,
     addresses,
@@ -1923,7 +2031,10 @@ export const App: React.FC = () => {
         isPlayingMusic={isPlayingMusic}
         onLogout={handleLogout}
         isBotRunning={isBotRunning}
-        onOpenGuide={() => setShowOnboarding(true)}
+        onOpenGuide={() => {
+          setAskSurvey(false);
+          setShowOnboarding(true);
+        }}
       />
 
       <main className="gx-main">
@@ -2136,7 +2247,14 @@ export const App: React.FC = () => {
         onSaveBulk={handleSaveBulkAccounts}
         defaultRegion={selectedRegion}
       />
-      <Onboarding open={showOnboarding} onClose={() => setShowOnboarding(false)} />
+      <Onboarding
+        open={showOnboarding}
+        askSurvey={askSurvey}
+        onClose={() => {
+          setShowOnboarding(false);
+          setAskSurvey(false);
+        }}
+      />
       <PracticeOverlay state={practiceState} clock={clock} onDone={handlePracticeDone} onRetry={handlePracticeRetry} />
       <FireOverlay
         state={fireState}

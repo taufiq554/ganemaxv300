@@ -116,7 +116,8 @@ export function verifySessionToken(token: string): SafeUser | null {
       id: payload.uid,
       username: payload.usr,
       role: payload.rol,
-    };
+      iat: Number(payload.iat) || 0,
+    } as SafeUser & { iat: number };
   } catch {
     return null;
   }
@@ -168,6 +169,15 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     });
   }
 
+  // Perpanjang sesi otomatis: token yang umurnya > 1 hari diganti token baru lewat header,
+  // jadi user yang memakai "Ingat saya" tidak tiba-tiba ditolak setelah 30 hari.
+  const iat = (user as any).iat as number;
+  delete (user as any).iat;
+  if (iat && Date.now() / 1000 - iat > 24 * 3600) {
+    try {
+      res.setHeader('X-Session-Token-Refresh', createSessionToken(user));
+    } catch {}
+  }
   req.user = user;
   next();
 }

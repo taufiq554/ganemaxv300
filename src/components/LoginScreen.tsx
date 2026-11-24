@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { ArrowRight, Eye, EyeOff, Lock, LoaderCircle, QrCode, Send, TriangleAlert, User } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowRight, Eye, EyeOff, Lock, QrCode, Send, TriangleAlert, User } from 'lucide-react';
 import { useLang } from '../lib/i18n.tsx';
+import { AuthScene } from './gx/AuthScene.tsx';
 
 interface LoginScreenProps {
   onLogin: (username: string, password: string) => Promise<boolean>;
@@ -34,6 +35,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onOpenPayment
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  /*
+   * Teks tombol saat login: berganti mengikuti tahap yang benar-benar dikerjakan,
+   * jadi orang tahu proses masih jalan, bukan sekadar ikon berputar.
+   */
+  const STEPS = [
+    L('Menghubungkan ke server…', 'Connecting to server…'),
+    L('Memeriksa lisensi…', 'Verifying license…'),
+    L('Menyiapkan dashboard…', 'Preparing dashboard…'),
+  ];
+  const [stepIdx, setStepIdx] = useState(0);
+  const step = STEPS[Math.min(stepIdx, STEPS.length - 1)];
+  useEffect(() => {
+    if (!isLoading) {
+      setStepIdx(0);
+      return;
+    }
+    const id = window.setInterval(() => setStepIdx((v) => Math.min(v + 1, STEPS.length - 1)), 900);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -58,9 +79,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onOpenPayment
 
   return (
     <div className="nx-auth gx-login">
-      <span className="nx-blob nx-blob--a" aria-hidden="true" />
-      <span className="nx-blob nx-blob--b" aria-hidden="true" />
-      <span className="nx-blob nx-blob--c" aria-hidden="true" />
+      <AuthScene />
 
       <div className="nx-seg" role="group" aria-label="Language">
         <button type="button" aria-pressed={lang === 'id'} onClick={() => setLang('id')}>
@@ -147,8 +166,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onOpenPayment
           <button type="submit" className="nx-login" disabled={isLoading} id="btnLoginSubmit">
             {isLoading ? (
               <>
-                <LoaderCircle size={18} className="nx-spin" />
-                <span>{L('Memeriksa lisensi...', 'Checking license...')}</span>
+                <span className="nx-login__steps">
+                  <span className="nx-spin" aria-hidden="true" />
+                  <span className="nx-login__txt">{step}</span>
+                </span>
+                {/* Tiga ruas = tiga tahap; yang sudah lewat terisi penuh. */}
+                <span className="nx-prog" aria-hidden="true">
+                  {STEPS.map((_, idx) => (
+                    <i key={idx} className={idx < stepIdx ? 'is-done' : idx === stepIdx ? 'is-now' : ''} />
+                  ))}
+                </span>
               </>
             ) : (
               <>

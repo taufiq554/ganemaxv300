@@ -21,7 +21,7 @@ import { AseanCountryCode, TargetUrl } from '../../types/index.ts';
 import { ASEAN_REGIONS, formatAseanCurrency } from '../../constants/asean.ts';
 import { api } from '../../services/api.ts';
 import { ServerClock, useTicker } from '../../lib/useServerClock.ts';
-import { formatClock, getSessionSlots, pad, splitDuration } from '../../lib/time.ts';
+import { formatClock, getSessionSlots, pad, splitDuration, epochFromLocalInput, MIN_LEAD_MS } from '../../lib/time.ts';
 import { isValidHttpUrl } from '../../lib/shopee.ts';
 import { useLang } from '../../lib/i18n.tsx';
 import { upcomingCampaigns, isToday, Campaign } from '../../lib/campaigns.ts';
@@ -373,7 +373,8 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
       toast(L('Link harus diawali https://', 'Link must start with https://'));
       return;
     }
-    const epoch = liveTime ? new Date(liveTime).getTime() : NaN;
+    // Jam LIVE dibaca sebagai jam wilayah target, bukan jam HP
+    const epoch = liveTime ? epochFromLocalInput(liveTime, reg.timezone, now) : null;
     setLiveBusy(true);
     try {
       await onQuickTarget({
@@ -383,11 +384,15 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
         currency: reg.currency,
         target_price: 0,
       });
-      if (!isNaN(epoch) && epoch > now + 3000) {
+      if (epoch != null && epoch > now + MIN_LEAD_MS) {
         onArm({ epoch, label: formatClock(epoch, reg.timezone).slice(0, 5) });
         toast(L('Target LIVE disimpan & auto-start dipasang', 'LIVE target saved & auto-start armed'));
       } else {
-        toast(L('Target LIVE disimpan. Isi waktu untuk auto-start.', 'LIVE target saved. Set a time to auto-start.'));
+        toast(
+          liveTime
+            ? L('Target LIVE disimpan. Jamnya sudah lewat / terlalu dekat, auto-start belum dipasang.', 'LIVE target saved. That time has passed or is too close, so auto-start was not armed.')
+            : L('Target LIVE disimpan. Isi waktu untuk auto-start.', 'LIVE target saved. Set a time to auto-start.')
+        );
       }
       setLiveUrl('');
       setLiveTime('');

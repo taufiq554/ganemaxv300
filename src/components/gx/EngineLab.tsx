@@ -12,6 +12,7 @@ import {
   Globe2,
   MonitorSmartphone,
   Radar,
+  Server,
   Signal,
   Sun,
   TriangleAlert,
@@ -244,7 +245,40 @@ export const EngineLab: React.FC<{
   const tzOk = dev.tz === reg.timezone;
   const NetIcon = dev.netType === 'wifi' ? Wifi : Signal;
 
+  /** Status server bot: dicek saat tab Engine dibuka, dan bisa diulang tiap 60 dtk. */
+  const [srv, setSrv] = useState<{ ok: boolean; ms: number; cold: boolean } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const check = async () => {
+      const t0 = performance.now();
+      const r = await api.get('health');
+      if (!alive) return;
+      const ms = Math.round(performance.now() - t0);
+      // "cold" = instance baru dinyalakan; permintaan berikutnya akan jauh lebih cepat
+      setSrv({ ok: r.success, ms, cold: (r.success && (r.data as any)?.warm === false) || ms > 1200 });
+    };
+    check();
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible') check();
+    }, 60_000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, []);
+
   const rows: { icon: React.ComponentType<any>; label: string; value: string; tone: 'ok' | 'warn' | 'bad' }[] = [
+    {
+      icon: Server,
+      label: L('Server bot', 'Bot server'),
+      value:
+        srv == null
+          ? L('Memeriksa…', 'Checking…')
+          : srv.ok
+          ? L(`Nyala · balas ${srv.ms} ms${srv.cold ? ' (baru bangun)' : ''}`, `Up · replies in ${srv.ms} ms${srv.cold ? ' (just woke up)' : ''}`)
+          : L('Tidak menjawab — coba lagi sebentar lagi', 'Not responding — try again shortly'),
+      tone: srv == null ? 'warn' : srv.ok ? (srv.ms > 1500 ? 'warn' : 'ok') : 'bad',
+    },
     {
       icon: dev.online ? NetIcon : TriangleAlert,
       label: L('Jaringan', 'Network'),

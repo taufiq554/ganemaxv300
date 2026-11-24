@@ -42,11 +42,42 @@ export function tzOffsetMs(epoch: number, tz: string): number {
   return asUtc - Math.floor(epoch / 1000) * 1000;
 }
 
+/**
+ * Ubah isi input <input type="datetime-local"> ("2026-11-25T21:00") menjadi epoch
+ * menurut zona waktu WILAYAH, bukan zona waktu HP.
+ *
+ * Tanpa ini, user di WIB yang menjadwalkan sesi Shopee Singapura meleset 1 jam —
+ * browser menganggap angka yang diketik itu jam HP. Dihitung dua kali supaya
+ * tetap benar kalau tanggalnya jatuh di sisi lain pergantian offset.
+ */
+export function epochFromLocalInput(value: string, tz: string, now: number = Date.now()): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(String(value).trim());
+  if (!m) return null;
+  const [, y, mo, d, h, mi, s] = m;
+  const wall = Date.UTC(+y, +mo - 1, +d, +h, +mi, +(s || 0));
+  let epoch = wall - tzOffsetMs(now, tz);
+  epoch = wall - tzOffsetMs(epoch, tz);
+  return isNaN(epoch) ? null : epoch;
+}
+
+/** Kebalikannya: epoch → "YYYY-MM-DDTHH:mm" pada zona waktu wilayah (buat nilai awal input). */
+export function localInputFromEpoch(epoch: number, tz: string): string {
+  const p = tzParts(epoch, tz);
+  return `${p.y}-${pad(p.m)}-${pad(p.d)}T${pad(p.h)}:${pad(p.mi)}`;
+}
+
 export interface SessionSlot {
   label: string; // "12:00"
   epoch: number; // waktu mulai sesi (UTC ms)
   status: 'past' | 'live' | 'next' | 'later';
 }
+
+/**
+ * Jarak minimum antara "sekarang" dan jam yang dijadwalkan manual.
+ * Lebih besar dari lead maksimum (10 dtk) supaya jadwal yang diterima di kolom
+ * jam custom tidak ditolak lagi satu langkah kemudian.
+ */
+export const MIN_LEAD_MS = 15_000;
 
 /** Jendela "LIVE" setelah sesi dimulai (stok flash sale biasanya habis < 2 menit). */
 export const LIVE_WINDOW_MS = 2 * 60 * 1000;

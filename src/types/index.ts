@@ -12,6 +12,12 @@ export interface User {
   max_accounts?: number;
   max_threads?: number;
   device_limit?: number;
+  /** Jawaban survei "tahu GaneMaX dari mana" (tiktok, youtube, google, …). */
+  referral_source?: string | null;
+  referral_at?: string | null;
+  last_login_at?: string | null;
+  last_run_at?: string | null;
+  login_count?: number;
   created_at: string;
 }
 

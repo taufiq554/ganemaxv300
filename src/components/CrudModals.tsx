@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Eye, EyeOff, MapPin, UserRound, Link2, Network, CalendarClock, ClipboardPaste, Loader2, HelpCircle, ChevronDown, Check, CircleAlert } from 'lucide-react';
+import { CalendarClock, Check, ChevronDown, CircleAlert, ClipboardPaste, Eye, EyeOff, HelpCircle, Link2, Loader2, MapPin, Network, RefreshCw, UserRound, X } from 'lucide-react';
 import { Address, ShopeeAccount, TargetUrl, ProxyMesh, Schedule, AseanCountryCode } from '../types/index.ts';
 import { Ring, Skel } from './gx/Skeleton.tsx';
 import { ProductThumb } from './gx/ProductThumb.tsx';
@@ -423,6 +423,7 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
   const [fetchNote, setFetchNote] = useState('');
   const [image, setImage] = useState('');
   const [imgState, setImgState] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
+  const [imgReason, setImgReason] = useState('');
   const imgReq = React.useRef(0);
   const { busy, error, setError, save } = useSaver(onSave, onClose);
 
@@ -532,16 +533,18 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
   };
 
   /** Ambil foto produk dari link (otomatis, tanpa menimpa isian lain). */
-  const fetchImage = async (link: string, reg0: AseanCountryCode) => {
+  const fetchImage = async (link: string, reg0: AseanCountryCode, force = false) => {
     const id = ++imgReq.current;
     setImgState('loading');
-    const r = await api.productImage(link, reg0);
+    setImgReason('');
+    const r = await api.productImage(link, reg0, undefined, force);
     if (id !== imgReq.current) return; // sudah ada link yang lebih baru
     if (r.success && r.data?.image) {
       setImage(r.data.image);
       setImgState('ok');
       if (r.data.title) setTitle((t) => (t.trim() ? t : String(r.data!.title).slice(0, 120)));
     } else {
+      setImgReason(r.success ? r.data?.reason || '' : r.error?.message || '');
       setImgState('fail');
     }
   };
@@ -638,9 +641,39 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
               ? L('Mengambil foto produk dari Shopee…', 'Fetching product photo from Shopee…')
               : imgState === 'ok'
               ? L('Foto produk terpasang otomatis ✓', 'Product photo attached ✓')
-              : L('Shopee belum mengirim fotonya. Target tetap bisa disimpan; foto dicoba lagi otomatis nanti.', "Shopee didn't send the photo. You can still save; it will retry later.")}
+              : imgReason || L('Shopee belum mengirim fotonya. Target tetap bisa disimpan.', "Shopee didn't send the photo. You can still save.")}
           </small>
+          {imgState === 'fail' && (
+            <button
+              type="button"
+              className="gx-btn gx-btn--xs"
+              style={{ marginLeft: 'auto', flex: 'none' }}
+              onClick={() => fetchImage(url.trim(), regionFromHost(url.trim()) || region, true)}
+            >
+              <RefreshCw size={12} /> {L('Coba lagi', 'Retry')}
+            </button>
+          )}
         </div>
+      )}
+      {imgState === 'fail' && (
+        <label className="gx-field">
+          <span>{L('Link gambar produk (opsional)', 'Product image link (optional)')}</span>
+          <input
+            inputMode="url"
+            placeholder="https://down-id.img.susercontent.com/file/…"
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              if (/^https:\/\/[^/]*(susercontent\.com|shopee\.[a-z.]+|shopeemobile\.com)\//i.test(v)) {
+                imgReq.current++;
+                setImage(v);
+                setImgState('ok');
+              }
+            }}
+          />
+          <small style={{ color: 'var(--gx-ink-3)', fontSize: 11.5 }}>
+            {L('Di Shopee: tekan lama foto produk → Salin alamat gambar, lalu tempel di sini.', 'In Shopee: long-press the product photo → Copy image address, then paste here.')}
+          </small>
+        </label>
       )}
       <label className="gx-field">
         <span>{L('Nama produk', 'Product name')}</span>

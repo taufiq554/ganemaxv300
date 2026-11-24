@@ -35,7 +35,7 @@ import { User, TargetUrl, ShopeePayment, BotSettings, AseanCountryCode, ShopeeAc
 import { ASEAN_REGIONS, ALL_ASEAN_CODES, formatAseanCurrency, paymentFamily, isAseanCode } from '../constants/asean.ts';
 import { AseanFlag } from './AseanFlag.tsx';
 import { api } from '../services/api.ts';
-import { parseShopeeLink, isValidHttpUrl, isAndroid } from '../lib/shopee.ts';
+import { parseShopeeLink, isValidHttpUrl, isAndroid, buildOpenUrl, shopeeLoginUrl } from '../lib/shopee.ts';
 import { useLang } from '../lib/i18n.tsx';
 import { relativeTimeId } from '../lib/time.ts';
 
@@ -60,6 +60,7 @@ interface ControlPanelProps {
   onDeleteTargetUrl: (id: string) => Promise<void>;
   selectedTargetId: string;
   onSelectTarget: (id: string) => void;
+  onRetryImage?: (t: TargetUrl) => void;
   backupTargetIds: string[];
   onToggleBackupTarget: (id: string) => void;
   clock: ServerClock;
@@ -242,7 +243,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
                     <li key={t.id} style={{ borderTop: '1px solid var(--gx-line)' }}>
                       <div className="gx-row" style={{ borderTop: 0 }}>
                         <Radio name="active-target" checked={active} onChange={() => p.onSelectTarget(t.id)} label={t.title} />
-                        <ProductThumb src={t.image_url} alt={t.title} />
+                        {t.image_url ? (
+                          <ProductThumb src={t.image_url} alt={t.title} />
+                        ) : (
+                          <button type="button" className="gx-thumbbtn" onClick={() => p.onRetryImage?.(t)} aria-label={L('Ambil foto produk', 'Fetch product photo')} title={L('Ambil foto produk', 'Fetch product photo')}>
+                            <ProductThumb src={undefined} alt={t.title} />
+                          </button>
+                        )}
                         <div className="gx-row__main" onClick={() => p.onSelectTarget(t.id)} style={{ cursor: 'pointer' }}>
                           <div className="gx-row__t">{t.title}</div>
                           <div className="gx-row__s">
@@ -687,14 +694,44 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
                 <option value="practice">{L('Latihan — bot jalan sendiri, ukur tap kamu', 'Practice — bot runs itself, measures your tap')}</option>
               </select>
             </label>
-            <label className="gx-field">
+            <div className="gx-field">
               <span>{L('Cara membuka', 'Open method')}</span>
-              <select value={s.openMode || 'app'} onChange={(e) => p.onUpdateSettings({ ...s, openMode: e.target.value as 'app' | 'browser' })}>
-                <option value="app">{L('App Shopee', 'Shopee app')} {isAndroid() ? L('(langsung masuk app)', '(opens the app)') : ''}</option>
-                <option value="browser">{L('Browser (tab baru)', 'Browser (new tab)')}</option>
-              </select>
-            </label>
+              <div className="gx-fixedval">
+                <Globe size={14} /> {L('Browser', 'Browser')}
+                <small>
+                  {L(
+                    'App Shopee sengaja tidak dipakai: membukanya lewat app menambah jeda beberapa detik di detik 0.',
+                    'The Shopee app is deliberately not used: opening it adds several seconds at second zero.'
+                  )}
+                </small>
+              </div>
+            </div>
           </div>
+          {true && (
+            <div className="gx-shoplogin">
+              <div>
+                <b>{L('Login Shopee di browser dulu', 'Log in to Shopee in the browser first')}</b>
+                <small>
+                  {L(
+                    'Bot membuka produk di browser (Chrome), bukan app. Login sekali di browser supaya saat detik 0 kamu langsung bisa beli.',
+                    'The bot opens products in the browser (Chrome), not the app. Log in once in the browser so you can buy right at second zero.'
+                  )}
+                </small>
+              </div>
+              <button
+                type="button"
+                className="gx-btn gx-btn--primary gx-btn--sm"
+                data-testid="shopee-login-browser"
+                onClick={() => {
+                  const { href } = buildOpenUrl(shopeeLoginUrl(selectedRegion), selectedRegion, 'browser');
+                  if (isAndroid()) window.location.href = href;
+                  else window.open(href, '_blank', 'noopener');
+                }}
+              >
+                {L('Login Shopee', 'Log in to Shopee')}
+              </button>
+            </div>
+          )}
           <div className="gx-field" style={{ marginTop: 14 }}>
             <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
               {L('Buka Shopee lebih awal', 'Open Shopee early')}

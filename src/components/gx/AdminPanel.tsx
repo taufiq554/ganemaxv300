@@ -34,6 +34,7 @@ import {
   Send,
   CheckCircle2,
 } from 'lucide-react';
+import { REFERRAL_SOURCES } from './Onboarding.tsx';
 import { Announcement, AnnouncementType, Banner, BannerFit, BannerLayout, BannerRatio, BannerSlot, ProxyStockItem, RevenueEntry, User } from '../../types/index.ts';
 import { BannerCard, RATIO_HINT, RATIO_VALUE, sortBanners } from './BannerStrip.tsx';
 import { Ring, SkelKpi, SkelList } from './Skeleton.tsx';
@@ -520,6 +521,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
             <Kpi label="Habis ≤ 7 hari" value={String(counts.expiring)} sub="Peluang perpanjangan" />
             <Kpi label="Sudah expired" value={String(counts.expired)} sub={`${counts.disabled} dinonaktifkan`} />
           </div>
+
+          <SourceCard users={customers} />
 
           <div className="gx-grid gx-grid--2">
             <section className="gx-card">
@@ -1547,6 +1550,47 @@ const ProxySection: React.FC<{
         </div>
       </details>
     </>
+  );
+};
+
+/** Rekap jawaban "tahu GaneMaX dari mana" — tahu kanal mana yang paling menghasilkan user. */
+const SourceCard: React.FC<{ users: User[] }> = ({ users }) => {
+  const rows = REFERRAL_SOURCES.map((o) => ({ ...o, n: users.filter((u) => u.referral_source === o.id).length }))
+    .filter((r) => r.n > 0)
+    .sort((a, b) => b.n - a.n);
+  const answered = users.filter((u) => u.referral_source && u.referral_source !== 'lewati').length;
+  const max = rows[0]?.n || 1;
+
+  return (
+    <section className="gx-card">
+      <div className="gx-card__head">
+        <h2 className="gx-card__title">
+          <Megaphone size={16} /> Dari mana user tahu GaneMaX
+        </h2>
+        <div className="gx-card__aside">
+          <span className="gx-tag">
+            {answered}/{users.length} menjawab
+          </span>
+        </div>
+      </div>
+      <div className="gx-card__body">
+        {rows.length === 0 ? (
+          <div className="gx-empty">Belum ada jawaban. Pertanyaan ini muncul saat user login pertama kali.</div>
+        ) : (
+          <ul className="gx-srcstat">
+            {rows.map((r) => (
+              <li key={r.id}>
+                <span>{r.label}</span>
+                <span className="gx-srcstat__bar">
+                  <i style={{ width: `${Math.round((r.n / max) * 100)}%` }} />
+                </span>
+                <b className="gx-mono">{r.n}</b>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
   );
 };
 

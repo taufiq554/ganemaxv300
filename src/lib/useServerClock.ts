@@ -93,6 +93,13 @@ export function useServerClock(intervalMs = 60_000, onSync?: (r: SyncResult, man
 export function useTicker(intervalMs = 50) {
   const [, setT] = useState(0);
   useEffect(() => {
+    // Interval panjang: timer biasa (tidak membangunkan setiap frame). Pendek: rAF.
+    if (intervalMs >= 200) {
+      const id = window.setInterval(() => {
+        if (document.visibilityState === 'visible') setT((v) => (v + 1) % 1_000_000);
+      }, intervalMs);
+      return () => window.clearInterval(id);
+    }
     let raf = 0;
     let last = 0;
     const loop = (ts: number) => {

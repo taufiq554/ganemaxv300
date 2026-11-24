@@ -19,6 +19,7 @@ import {
   MapPin,
   PackageSearch,
   Gauge,
+  Globe2,
   BrainCircuit,
   CircleCheck,
   ListOrdered,
@@ -54,12 +55,13 @@ import {
 import { BannerStrip } from './BannerStrip.tsx';
 import { Skel, SkelList } from './Skeleton.tsx';
 import { ProductThumb } from './ProductThumb.tsx';
+import { ReinstallNotice } from './ReinstallNotice.tsx';
 import { AdaptiveAdvice, WarSummary } from '../../lib/warstats.ts';
 import { ASEAN_REGIONS, formatAseanCurrency, paymentFamily } from '../../constants/asean.ts';
 import { ServerClock, useTicker } from '../../lib/useServerClock.ts';
-import { getNextSession, getSessionSlots, pad, splitDuration, formatClock, tzParts, relativeTimeId } from '../../lib/time.ts';
+import { getNextSession, getSessionSlots, pad, splitDuration, formatClock, tzParts, relativeTimeId, epochFromLocalInput, localInputFromEpoch, MIN_LEAD_MS } from '../../lib/time.ts';
 import { AnnouncementCard, licenseInfo } from './Shell.tsx';
-import { parseShopeeLink, isValidHttpUrl } from '../../lib/shopee.ts';
+import { parseShopeeLink, isValidHttpUrl, buildOpenUrl, shopeeLoginUrl, isAndroid } from '../../lib/shopee.ts';
 import { useLang } from '../../lib/i18n.tsx';
 
 /* ------------------------------------------------------------------ */
@@ -108,6 +110,8 @@ export interface StockWatch {
   checkedAt: number;
   ok: boolean;
 }
+
+export const BROWSER_LOGIN_KEY = 'gx_shopee_browser_login';
 
 export interface ArmState {
   epoch: number;
@@ -205,6 +209,38 @@ const WaveLine: React.FC<{ data: number[] }> = ({ data }) => {
     </svg>
   );
 };
+const WaveLineMemo = React.memo(WaveLine);
+
+/**
+ * Angka hitung mundur. Diperbarui langsung ke DOM tiap frame lewat ref, tanpa
+ * render ulang React, jadi milidetik bergerak mulus tanpa membebani halaman.
+ */
+const CountDigits: React.FC<{ clock: ServerClock; epoch: number | null; showMs: boolean }> = ({ clock, epoch, showMs }) => {
+  const mainRef = useRef<HTMLSpanElement>(null);
+  const msRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    let lastMain = '';
+    const draw = () => {
+      const d = splitDuration(epoch != null ? epoch - clock.now() : 0);
+      const main = `${pad(d.h)}:${pad(d.m)}:${pad(d.s)}`;
+      if (main !== lastMain && mainRef.current) {
+        mainRef.current.textContent = main;
+        lastMain = main;
+      }
+      if (msRef.current) msRef.current.textContent = `.${pad(d.ms, 3)}`;
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => cancelAnimationFrame(raf);
+  }, [clock, epoch]);
+  return (
+    <div className="gx-session__count" aria-live="off">
+      <span ref={mainRef}>00:00:00</span>
+      {showMs && <span ref={msRef}>.000</span>}
+    </div>
+  );
+};
 
 const SessionCard: React.FC<{
   region: AseanCountryCode;
@@ -218,11 +254,13 @@ const SessionCard: React.FC<{
   blocked: string | null;
 }> = ({ region, clock, armed, onArm, onDisarm, isBotRunning, phase, latencyHistory, blocked }) => {
   const { L, lang, locale } = useLang();
-  useTicker(41);
+  // Kartu ini cukup digambar ulang tiap detik; angka milidetik punya loop sendiri (CountDigits)
+  useTicker(1000);
   const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
   const [showMs, setShowMs] = useState(true);
   const [customOpen, setCustomOpen] = useState(false);
   const [customVal, setCustomVal] = useState('');
+  const [customErr, setCustomErr] = useState('');
   const now = clock.now();
   const todaySlots = getSessionSlots(now, reg.flashSaleSchedule, reg.timezone);
   // Kalau semua sesi hari ini sudah lewat, tampilkan jadwal besok
@@ -231,7 +269,6 @@ const SessionCard: React.FC<{
   const live = slots.find((s) => s.status === 'live');
   const next = getNextSession(now, reg.flashSaleSchedule, reg.timezone);
   const target = armed || next;
-  const d = splitDuration(target ? target.epoch - now : 0);
 
   const dayLabel = (() => {
     if (!target) return '';
@@ -241,12 +278,41 @@ const SessionCard: React.FC<{
     return new Date(target.epoch).toLocaleDateString(locale, { weekday: 'long', timeZone: reg.timezone });
   })();
 
+  /**
+   * Jam yang diketik dibaca sebagai jam WILAYAH (bukan jam HP), dan setiap
+   * penolakan diberi alasan — sebelumnya tombol ini diam saja kalau waktunya
+   * tidak dipakai, jadi kelihatan seperti error.
+   */
   const armCustom = () => {
-    const epoch = new Date(customVal).getTime();
-    if (!customVal || isNaN(epoch) || epoch <= now + 3000) return;
+    const raw = customVal.trim();
+    if (!raw) {
+      setCustomErr(L('Isi tanggal & jamnya dulu.', 'Pick a date and time first.'));
+      return;
+    }
+    const epoch = epochFromLocalInput(raw, reg.timezone, now);
+    if (epoch == null) {
+      setCustomErr(L('Format waktu belum lengkap.', 'Incomplete date/time.'));
+      return;
+    }
+    if (epoch <= now) {
+      setCustomErr(L(`Waktu itu sudah lewat di ${reg.timezoneLabel.split(' ')[0]}.`, 'That time has already passed.'));
+      return;
+    }
+    if (epoch - now < MIN_LEAD_MS) {
+      setCustomErr(L('Minimal 15 detik dari sekarang — bot butuh ancang-ancang.', 'At least 15 seconds from now — the bot needs a run-up.'));
+      return;
+    }
+    setCustomErr('');
     onArm({ epoch, label: formatClock(epoch, reg.timezone).slice(0, 5) });
     setCustomOpen(false);
     setCustomVal('');
+  };
+
+  /** Isi input dengan sesi berikutnya supaya user tidak mengetik dari nol. */
+  const openCustom = () => {
+    setCustomErr('');
+    setCustomVal(localInputFromEpoch((next?.epoch ?? now) + (next ? 0 : 3_600_000), reg.timezone));
+    setCustomOpen(true);
   };
 
   const status = isBotRunning
@@ -266,10 +332,7 @@ const SessionCard: React.FC<{
         </button>
       </div>
 
-      <div className="gx-session__count" aria-live="off">
-        {pad(d.h)}:{pad(d.m)}:{pad(d.s)}
-        {showMs && <span>.{pad(d.ms, 3)}</span>}
-      </div>
+      <CountDigits clock={clock} epoch={target?.epoch ?? null} showMs={showMs} />
 
       <div className="gx-session__sub">
         <span className="gx-session__pill">
@@ -281,7 +344,7 @@ const SessionCard: React.FC<{
         </span>
       </div>
 
-      <WaveLine data={latencyHistory} />
+      <WaveLineMemo data={latencyHistory} />
 
       <div className="gx-session__slots" role="list" aria-label={isTomorrow ? L('Jadwal sesi besok', "Tomorrow's sessions") : L('Jadwal sesi hari ini', "Today's sessions")}>
         {slots.map((s) => {
@@ -309,16 +372,29 @@ const SessionCard: React.FC<{
         </span>
         {customOpen ? (
           <span className="gx-session__custom">
-            <input type="datetime-local" value={customVal} onChange={(e) => setCustomVal(e.target.value)} aria-label={L('Waktu custom', 'Custom time')} />
-            <button type="button" onClick={armCustom} disabled={!customVal}>
+            <input
+              type="datetime-local"
+              value={customVal}
+              min={localInputFromEpoch(now + MIN_LEAD_MS, reg.timezone)}
+              onChange={(e) => {
+                setCustomVal(e.target.value);
+                setCustomErr('');
+              }}
+              aria-label={L('Waktu custom', 'Custom time')}
+              aria-invalid={!!customErr}
+            />
+            <button type="button" onClick={armCustom}>
               {L('Set', 'Set')}
             </button>
-            <button type="button" onClick={() => setCustomOpen(false)} aria-label={L('Batal', 'Cancel')}>
+            <button type="button" onClick={() => { setCustomOpen(false); setCustomErr(''); }} aria-label={L('Batal', 'Cancel')}>
               <X size={14} />
             </button>
+            <small className="gx-session__customnote" role={customErr ? 'alert' : undefined}>
+              {customErr || L(`Jam ${reg.timezoneLabel.split(' ')[0]}, mengikuti wilayah target.`, `${reg.timezoneLabel.split(' ')[0]} time, following the target region.`)}
+            </small>
           </span>
         ) : (
-          <button type="button" className="gx-session__link" onClick={() => setCustomOpen(true)} disabled={!!blocked}>
+          <button type="button" className="gx-session__link" onClick={openCustom} disabled={!!blocked}>
             {L('Jam custom', 'Custom time')}
           </button>
         )}
@@ -1098,6 +1174,16 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
       ? L('Link target belum valid. Edit target dan tempel link produk Shopee.', 'Target link is invalid. Edit the target and paste a Shopee product link.')
       : null;
 
+  // Ditandai lokal: kita tidak bisa melihat status login Shopee di browser lain,
+  // jadi yang dicatat adalah "user sudah pernah membuka halaman login dari sini".
+  const browserLoginDone = (() => {
+    try {
+      return !!localStorage.getItem(BROWSER_LOGIN_KEY);
+    } catch {
+      return false;
+    }
+  })();
+
   const ids = parseShopeeLink(p.selectedTarget?.url);
   const linkOk = isValidHttpUrl(p.selectedTarget?.url);
 
@@ -1156,6 +1242,24 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
       action: () => p.onGoTab('targets'),
     },
     {
+      key: 'browserlogin',
+      label: L('Login Shopee di browser', 'Shopee login in browser'),
+      value: browserLoginDone
+        ? L('Sudah · sesi tersimpan di browser', 'Done · session saved in the browser')
+        : L('Bot buka di browser, bukan app', 'The bot opens in the browser, not the app'),
+      ok: browserLoginDone,
+      icon: Globe2,
+      color: '#6366F1',
+      action: () => {
+        const { href } = buildOpenUrl(shopeeLoginUrl(p.region), p.region, 'browser');
+        try {
+          localStorage.setItem(BROWSER_LOGIN_KEY, String(Date.now()));
+        } catch {}
+        if (isAndroid()) window.location.href = href;
+        else window.open(href, '_blank', 'noopener');
+      },
+    },
+    {
       key: 'clock',
       label: L('Jam server', 'Server clock'),
       value: p.clock.synced ? `${L('Sinkron', 'Synced')} · ${p.clock.offsetMs > 0 ? '+' : ''}${p.clock.offsetMs} ms` : L('Menyinkronkan…', 'Syncing…'),
@@ -1176,7 +1280,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
   ];
 
   const nowEpoch = p.clock.now();
-  const next = getNextSession(nowEpoch, reg.flashSaleSchedule, reg.timezone);
+  const next = getNextSession(nowEpoch + 12_000, /* sesi yang < 12 dtk lagi sudah tidak keburu dijadwalkan */ reg.flashSaleSchedule, reg.timezone);
   const todayLabel = new Date(nowEpoch).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: reg.timezone });
 
   return (
@@ -1195,6 +1299,8 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
           </button>
         </div>
       </div>
+
+      <ReinstallNotice />
 
       <BannerStrip banners={p.banners} slot="top" />
 
@@ -1245,7 +1351,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
             latency={p.latency}
             clock={p.clock}
             leadMs={p.openLeadMs}
-            mode={p.botSettings.openMode || 'app'}
+            mode="browser"
             region={p.region}
           />
           <LiveConsole logs={p.logs} onClear={p.onClearLogs} onCopied={p.onCopied} style={{ order: 11 }} />

@@ -61,7 +61,8 @@ export type TableName =
   | 'announcements'
   | 'banners'
   | 'revenues'
-  | 'push_subscriptions';
+  | 'push_subscriptions'
+  | 'image_cache';
 
 export const VALID_TABLES: TableName[] = [
   'users',

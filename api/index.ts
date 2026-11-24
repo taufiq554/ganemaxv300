@@ -1,4 +1,5 @@
 import net from 'net';
+import tls from 'tls';
 import express, { Request, Response, NextFunction } from 'express';
 import {
   storage,
@@ -60,10 +61,23 @@ function validateTableParam(req: Request, res: Response, next: NextFunction) {
 
 const router = express.Router();
 
+/*
+ * Penanda kapan instance ini mulai hidup. Server berjalan model serverless:
+ * instance baru dibuat saat ada permintaan dan dimatikan saat sepi, jadi yang
+ * bisa dijamin bukan "tidak pernah mati", melainkan selalu siap menerima
+ * permintaan. Ping berkala (cron) menjaga instance tetap hangat supaya
+ * permintaan pertama user tidak kena cold start.
+ */
+const BOOTED_AT = Date.now();
+
 // 1. Health Check
 router.get('/health', async (_req: Request, res: Response) => {
+  res.set('Cache-Control', 'no-store');
+  const uptime = Date.now() - BOOTED_AT;
   return successRes(res, {
     status: 'ok',
+    uptime_ms: uptime,
+    warm: uptime > 5000, // instance ini sudah melayani permintaan sebelumnya
     timestamp: new Date().toISOString(),
     service: 'Ganemax Shopee Flash Sale API',
     storage_provider: storage.getAdapterName(),
@@ -649,6 +663,135 @@ async function resolveShopeeUrl(url: string): Promise<string> {
   return cur;
 }
 
+/**
+ * GET HTTPS lewat proxy HTTP (CONNECT tunnel), tanpa paket tambahan.
+ *
+ * Perlu karena Shopee sering menolak permintaan dari IP pusat data (server
+ * Vercel), sementara proxy milik user biasanya diterima. Hanya dipakai untuk
+ * membaca data produk — bukan untuk checkout.
+ */
+function httpsGetViaProxy(
+  px: { host: string; port: number; username?: string; password?: string },
+  url: string,
+  headers: Record<string, string>,
+  timeoutMs = 7000,
+): Promise<{ status: number; body: string } | null> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v: { status: number; body: string } | null) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try {
+        sock.destroy();
+      } catch {}
+      resolve(v);
+    };
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    let u: URL;
+    try {
+      u = new URL(url);
+    } catch {
+      return finish(null);
+    }
+    const sock = net.connect(px.port, px.host);
+    sock.on('error', () => finish(null));
+    sock.on('connect', () => {
+      const auth = px.username
+        ? `Proxy-Authorization: Basic ${Buffer.from(`${px.username}:${px.password || ''}`).toString('base64')}\r\n`
+        : '';
+      sock.write(`CONNECT ${u.hostname}:443 HTTP/1.1\r\nHost: ${u.hostname}:443\r\n${auth}\r\n`);
+    });
+    let preamble = '';
+    const onData = (buf: Buffer) => {
+      preamble += buf.toString('latin1');
+      if (!/\r\n\r\n/.test(preamble)) return;
+      sock.removeListener('data', onData);
+      if (!/^HTTP\/1\.[01] 2\d\d/.test(preamble)) return finish(null);
+      const tlsSock = tls.connect({ socket: sock, servername: u.hostname }, () => {
+        const path = `${u.pathname}${u.search}`;
+        const head = Object.entries(headers)
+          .map(([k, v]) => `${k}: ${v}\r\n`)
+          .join('');
+        tlsSock.write(`GET ${path} HTTP/1.1\r\nHost: ${u.hostname}\r\n${head}Accept-Encoding: identity\r\nConnection: close\r\n\r\n`);
+      });
+      tlsSock.on('error', () => finish(null));
+      const chunks: Buffer[] = [];
+      let size = 0;
+      tlsSock.on('data', (d: Buffer) => {
+        size += d.length;
+        if (size > 1_500_000) return finish(null); // halaman produk tidak sebesar ini
+        chunks.push(d);
+      });
+      tlsSock.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8');
+        const cut = raw.indexOf('\r\n\r\n');
+        if (cut < 0) return finish(null);
+        const status = Number(/^HTTP\/1\.[01] (\d{3})/.exec(raw)?.[1] || 0);
+        let body = raw.slice(cut + 4);
+        // Transfer-Encoding: chunked → gabungkan potongannya
+        if (/transfer-encoding:\s*chunked/i.test(raw.slice(0, cut))) {
+          let out = '';
+          let rest = body;
+          for (;;) {
+            const m = /^([0-9a-fA-F]+)[^\r\n]*\r\n/.exec(rest);
+            if (!m) break;
+            const len = parseInt(m[1], 16);
+            if (!len) break;
+            out += rest.slice(m[0].length, m[0].length + len);
+            rest = rest.slice(m[0].length + len + 2);
+          }
+          body = out || body;
+        }
+        finish({ status, body });
+      });
+    };
+    sock.on('data', onData);
+  });
+}
+
+/** Proxy aktif milik user, dipakai sebagai jalur cadangan saat Shopee menolak server. */
+async function userProxy(userId: string): Promise<{ host: string; port: number; username?: string; password?: string } | null> {
+  if (!userId) return null;
+  try {
+    const list = (await storage.list('proxies', { user_id: userId })) as any[];
+    const live = list.find((p) => p.status === 'active') || list[0];
+    if (!live || !live.host || !live.port) return null;
+    return { host: String(live.host), port: Number(live.port), username: live.username, password: live.password };
+  } catch {
+    return null;
+  }
+}
+
+/** Cache gambar lintas instance (serverless mati-hidup, Map di memori jarang kepakai). */
+async function cachedImage(itemId: string): Promise<string> {
+  if (!itemId) return '';
+  const hit = imageCache.get(itemId);
+  if (hit && Date.now() - hit.at < 12 * 3600_000) return hit.image;
+  try {
+    const row: any = await storage.get('image_cache', `item_${itemId}`);
+    if (row?.image && Date.now() - new Date(row.updated_at || row.created_at || 0).getTime() < 7 * 86_400_000) {
+      rememberImage(itemId, row.image);
+      return row.image;
+    }
+  } catch {}
+  return '';
+}
+
+async function storeImage(itemId: string, image: string, title?: string) {
+  if (!itemId || !image) return;
+  rememberImage(itemId, image);
+  try {
+    await storage.create('image_cache', {
+      id: `item_${itemId}`,
+      item_id: itemId,
+      image,
+      title: title || undefined,
+      updated_at: new Date().toISOString(),
+    });
+  } catch {}
+}
+
 async function tryJson(url: string, headers: Record<string, string>, ms = 3500): Promise<any> {
   try {
     const r = await fetch(url, { headers, signal: AbortSignal.timeout(ms) });
@@ -659,16 +802,60 @@ async function tryJson(url: string, headers: Record<string, string>, ms = 3500):
   }
 }
 
+/** Ambil og:image dari HTML halaman produk. */
+function ogImageFromHtml(html: string): { image: string; title: string } {
+  const pick = (prop: string) =>
+    new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i').exec(html)?.[1] ||
+    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, 'i').exec(html)?.[1] ||
+    '';
+  return { image: (pick('og:image') || '').replace(/&amp;/g, '&'), title: pick('og:title') };
+}
+
+const PREVIEW_UA = 'Mozilla/5.0 (compatible; GaneMaXBot/1.0; +https://ganemaxbot.my.id) link preview bot';
+
+/** Ambil og:image + og:title dari halaman (dibatasi 4 dtk per halaman). */
+async function fetchOgImage(urls: string[], ua: string): Promise<{ image: string; title: string }> {
+  for (const u of Array.from(new Set(urls))) {
+    try {
+      const r = await fetch(u, { headers: { 'User-Agent': ua, Accept: 'text/html', 'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8' }, signal: AbortSignal.timeout(4000) });
+      if (!r.ok) continue;
+      const html = (await r.text()).slice(0, 600_000);
+      const meta = (prop: string) => {
+        const a = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i'));
+        const b = html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, 'i'));
+        return (a?.[1] || b?.[1] || '').replace(/&amp;/g, '&');
+      };
+      let img = meta('og:image') || meta('twitter:image');
+      if (!img) {
+        // JSON-LD Product { "image": ... }
+        const ld = html.match(/"image"\s*:\s*\[?\s*"(https:[^"]+susercontent\.com[^"]+)"/i);
+        if (ld) img = ld[1].replace(/\\\//g, '/');
+      }
+      if (img && isShopeeImage(img)) return { image: img, title: meta('og:title') };
+    } catch (_) {}
+  }
+  return { image: '', title: '' };
+}
+
 /**
  * Cari foto produk dari link target. Urutannya: cache → API item Shopee →
  * API halaman produk → meta og:image di HTML. Shopee kadang menolak request
  * server; kalau semua gagal, hasilnya kosong (bukan gambar palsu).
+ */
+/**
+ * Cari foto produk dari link target.
+ *
+ * Urutan: cache (memori → Firestore) → API Shopee dari server → API Shopee lewat
+ * proxy milik user → og:image dari HTML (server, lalu proxy). Shopee kerap
+ * menolak IP pusat data, jadi jalur proxy yang bikin hasilnya jauh lebih sering
+ * dapat. Kalau semua gagal, hasilnya kosong dengan alasan — bukan gambar palsu.
  */
 router.post('/bot/product-image', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const region = String(req.body?.region || 'ID').toUpperCase();
     const config = REGIONAL_DOMAINS[region] || REGIONAL_DOMAINS.ID;
     const raw = String(req.body?.url || '').trim().slice(0, 2000);
+    const force = req.body?.force === true;
     let host = '';
     try {
       host = new URL(raw).hostname;
@@ -679,9 +866,9 @@ router.post('/bot/product-image', requireAuth, async (req: AuthenticatedRequest,
 
     const url = await resolveShopeeUrl(raw);
     const ids = parseShopeeLink(url);
-    if (ids) {
-      const hit = imageCache.get(ids.itemId);
-      if (hit && Date.now() - hit.at < 12 * 3600_000) return successRes(res, { image: hit.image, source: 'cache', item_id: ids.itemId });
+    if (ids && !force) {
+      const hit = await cachedImage(ids.itemId);
+      if (hit) return successRes(res, { image: hit, title: null, source: 'cache', item_id: ids.itemId, tried: ['cache'] });
     }
 
     let cookie = '';
@@ -692,59 +879,127 @@ router.post('/bot/product-image', requireAuth, async (req: AuthenticatedRequest,
         if (acc && acc.user_id === req.user!.id && acc.cookies) cookie = String(acc.cookies).replace(/[\r\n]+/g, ' ').trim().slice(0, 8000);
       } catch (_) {}
     }
-    const headers: Record<string, string> = {
+    const jsonHeaders: Record<string, string> = {
       'User-Agent': MOBILE_UA,
       Accept: 'application/json',
       Referer: `${config.domain}/`,
       'X-Requested-With': 'XMLHttpRequest',
       ...(cookie ? { Cookie: cookie } : {}),
     };
+    const htmlHeaders: Record<string, string> = {
+      'User-Agent': MOBILE_UA,
+      Accept: 'text/html,application/xhtml+xml',
+      'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8',
+      ...(cookie ? { Cookie: cookie } : {}),
+    };
 
+    const apiUrls = ids
+      ? [
+          `${config.domain}/api/v4/item/get?itemid=${ids.itemId}&shopid=${ids.shopId}`,
+          `${config.domain}/api/v4/pdp/get_pc?item_id=${ids.itemId}&shop_id=${ids.shopId}`,
+          `${config.domain}/api/v4/pdp/get?item_id=${ids.itemId}&shop_id=${ids.shopId}&detail_level=0`,
+        ]
+      : [];
+
+    const tried: string[] = [];
     let image = '';
     let title = '';
     let source = '';
-    if (ids) {
-      const [a, b] = await Promise.all([
-        tryJson(`${config.domain}/api/v4/item/get?itemid=${ids.itemId}&shopid=${ids.shopId}`, headers),
-        tryJson(`${config.domain}/api/v4/pdp/get_pc?item_id=${ids.itemId}&shop_id=${ids.shopId}`, headers),
-      ]);
-      for (const [j, name] of [[a, 'item'], [b, 'pdp']] as const) {
-        const d = j?.data?.item || j?.data || j?.item;
-        const img = d ? shopeeImage(d, region) : '';
-        if (img) {
-          image = img;
-          title = String(d.name || d.title || '');
-          source = name;
-          break;
-        }
+
+    const takeJson = (j: any, name: string) => {
+      const d = j?.data?.item || j?.data || j?.item;
+      const img = d ? shopeeImage(d, region) : '';
+      if (!img) return false;
+      image = img;
+      title = String(d.name || d.title || '');
+      source = name;
+      return true;
+    };
+
+    // 1) API langsung dari server
+    for (const u of apiUrls) {
+      tried.push('api');
+      if (takeJson(await tryJson(u, jsonHeaders), 'api')) break;
+    }
+
+    // 2) API lewat proxy user (IP rumahan lebih jarang ditolak Shopee)
+    const px = image ? null : await userProxy(req.user!.id);
+    if (!image && px) {
+      for (const u of apiUrls) {
+        tried.push('api-proxy');
+        const r = await httpsGetViaProxy(px, u, { ...jsonHeaders, 'Accept-Encoding': 'identity' });
+        if (!r || r.status >= 400) continue;
+        let j: any = null;
+        try {
+          j = JSON.parse(r.body);
+        } catch {}
+        if (takeJson(j, 'api-proxy')) break;
       }
     }
+
+    // 3) og:image dari HTML — server dulu, lalu proxy
     if (!image) {
+      tried.push('og');
       try {
-        const r = await fetch(url, { headers: { 'User-Agent': MOBILE_UA, Accept: 'text/html' }, signal: AbortSignal.timeout(4000) });
-        const html = (await r.text()).slice(0, 400_000);
-        const m =
-          html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-          html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-        if (m && isShopeeImage(m[1])) {
-          image = m[1].replace(/&amp;/g, '&');
+        const r = await fetch(url, { headers: htmlHeaders, signal: AbortSignal.timeout(5000) });
+        const og = ogImageFromHtml((await r.text()).slice(0, 400_000));
+        if (og.image && isShopeeImage(og.image)) {
+          image = og.image;
+          title = og.title;
           source = 'og';
-          const t = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
-          if (t) title = t[1];
         }
       } catch (_) {}
     }
+    if (!image && px) {
+      tried.push('og-proxy');
+      const r = await httpsGetViaProxy(px, url, htmlHeaders, 8000);
+      if (r && r.status < 400) {
+        const og = ogImageFromHtml(r.body.slice(0, 400_000));
+        if (og.image && isShopeeImage(og.image)) {
+          image = og.image;
+          title = og.title;
+          source = 'og-proxy';
+        }
+      }
+    }
+
     if (image && !isShopeeImage(image)) image = '';
-    if (image && ids) rememberImage(ids.itemId, image);
+    if (image && ids) await storeImage(ids.itemId, image, title);
+
     return successRes(res, {
       image: image || null,
       title: title || null,
       source: source || null,
       item_id: ids?.itemId || null,
-      reason: image ? '' : 'Shopee tidak mengirim gambar untuk produk ini ke server (bisa coba lagi nanti).',
+      tried,
+      reason: image
+        ? ''
+        : px
+        ? 'Shopee menolak permintaan server dan proxy untuk produk ini. Coba lagi nanti, atau isi link foto sendiri di form target.'
+        : 'Shopee menolak permintaan dari server (IP pusat data). Paket proxy bikin pengambilan foto jauh lebih sering berhasil, atau isi link foto sendiri di form target.',
     });
   } catch (err: any) {
     return errorRes(res, err.message, 500);
+  }
+});
+
+/**
+ * Teruskan gambar CDN Shopee lewat server kita.
+ * Dipakai kalau CDN menolak dibuka langsung dari halaman app (hotlink).
+ */
+router.get('/img', async (req: Request, res: Response) => {
+  try {
+    const u = String(req.query.u || '');
+    if (!u || !isShopeeImage(u)) return res.status(400).end();
+    const r = await fetch(u, { headers: { 'User-Agent': MOBILE_UA, Referer: 'https://shopee.co.id/' }, signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return res.status(502).end();
+    const type = r.headers.get('content-type') || 'image/jpeg';
+    if (!/^image\//i.test(type)) return res.status(415).end();
+    res.setHeader('Content-Type', type);
+    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800');
+    return res.end(Buffer.from(await r.arrayBuffer()));
+  } catch {
+    return res.status(502).end();
   }
 });
 
@@ -1335,6 +1590,21 @@ router.post('/push/dispatch', dispatchPush);
 router.get('/push/dispatch', dispatchPush);
 
 // Cek lisensi sebelum sesi war dimulai
+/** Simpan jawaban survei "tahu GaneMaX dari mana" (sekali per user, tidak menimpa). */
+router.post('/me/survey', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const source = String(req.body?.source || '').trim().toLowerCase().slice(0, 32);
+    if (!source) return errorRes(res, 'Pilihan tidak valid', 400);
+    const me: any = await storage.get('users', req.user!.id);
+    if (me && !me.referral_source) {
+      await storage.update('users', req.user!.id, { referral_source: source, referral_at: new Date().toISOString() });
+    }
+    return successRes(res, { ok: true, source });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
 router.post('/bot/session-start', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!(await assertLicenseActive(req, res))) return;

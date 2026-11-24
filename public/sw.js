@@ -1,7 +1,7 @@
 /* GaneMaX.Ai service worker — app shell cache + offline fallback.
    Versi dinaikkan tiap rilis supaya cache lama dibuang. */
-const CACHE = 'ganemax-v15';
-const SHELL = ['/app/', '/ganemax-logo.jpg', '/icon-192.png', '/manifest.webmanifest'];
+const CACHE = 'ganemax-v16';
+const SHELL = ['/app/', '/ganemax-logo.jpg', '/icon-192.png?v=22', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -31,6 +31,11 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(req).catch(() => caches.match('/app/').then((r) => r || caches.match(req)))
     );
+    return;
+  }
+  // Manifest & ikon app: selalu ambil yang terbaru (warna & ikon app di HP ikut terbarui)
+  if (url.pathname.endsWith('.webmanifest') || /^\/(icon-|apple-touch-icon)/.test(url.pathname)) {
+    e.respondWith(fetch(req).catch(() => caches.match(req)));
     return;
   }
   // Aset statis: cache dulu, lalu jaringan

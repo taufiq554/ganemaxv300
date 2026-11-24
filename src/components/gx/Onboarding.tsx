@@ -13,11 +13,43 @@ import {
   X,
   Check,
   Clock3,
+  Music2,
+  Youtube,
+  Search,
+  Instagram,
+  Facebook,
+  Send,
+  Users,
+  Ellipsis,
+  Chrome,
+  Sparkles,
 } from 'lucide-react';
 import { useLang } from '../../lib/i18n.tsx';
 import { usePwaInstall } from '../../lib/pwa.ts';
+import { api } from '../../services/api.ts';
 
 const DONE_KEY = 'gx_onboarded_v1';
+const SURVEY_KEY = 'gx_survey_v1';
+
+/** Pilihan "tahu GaneMaX dari mana". Nilai disimpan apa adanya supaya mudah direkap. */
+export const REFERRAL_SOURCES: { id: string; label: string; en: string; icon: React.ComponentType<any> }[] = [
+  { id: 'tiktok', label: 'TikTok', en: 'TikTok', icon: Music2 },
+  { id: 'youtube', label: 'YouTube', en: 'YouTube', icon: Youtube },
+  { id: 'google', label: 'Google / Pencarian', en: 'Google / Search', icon: Search },
+  { id: 'instagram', label: 'Instagram', en: 'Instagram', icon: Instagram },
+  { id: 'facebook', label: 'Facebook', en: 'Facebook', icon: Facebook },
+  { id: 'telegram', label: 'Telegram / WhatsApp', en: 'Telegram / WhatsApp', icon: Send },
+  { id: 'teman', label: 'Teman / rekomendasi', en: 'A friend', icon: Users },
+  { id: 'lainnya', label: 'Lainnya', en: 'Other', icon: Ellipsis },
+];
+
+export function hasAnsweredSurvey(): boolean {
+  try {
+    return !!localStorage.getItem(SURVEY_KEY);
+  } catch {
+    return false;
+  }
+}
 
 export function hasOnboarded(): boolean {
   try {
@@ -48,11 +80,11 @@ const STEPS: Step[] = [
     ],
   },
   {
-    icon: UserRound,
-    title: ['2. Lengkapi akun & pembayaran', '2. Set up account & payment'],
+    icon: Chrome,
+    title: ['2. Login Shopee di browser', '2. Log in to Shopee in the browser'],
     body: [
-      'Login akun Shopee kamu langsung di app Shopee HP ini, lalu isi alamat & saldo/PIN di sana. Di dashboard cukup pilih metode bayar.',
-      'Log in to your Shopee account in the Shopee app on this phone, and set address & balance/PIN there. In the dashboard just pick the payment method.',
+      'Bot membuka produk di browser (bukan app Shopee) karena jauh lebih cepat. Buka tab Engine → tombol "Login Shopee", login sekali di Chrome, dan pastikan alamat & metode bayar sudah siap di akun Shopee kamu.',
+      'The bot opens products in the browser (not the Shopee app) because it is much faster. Go to the Engine tab → "Log in to Shopee", log in once in Chrome, and make sure your address & payment method are ready in your Shopee account.',
     ],
   },
   {
@@ -67,20 +99,37 @@ const STEPS: Step[] = [
     icon: Hand,
     title: ['4. Tap "Beli" di detik 0', '4. Tap "Buy" at second zero'],
     body: [
-      'Tepat di detik 0, bot membuka produk di Shopee. Kamu tinggal tap "Beli Sekarang" lalu bayar. Coba dulu mode Latihan untuk mengukur kecepatan tap kamu.',
-      'Right at second zero the bot opens the product in Shopee. Just tap "Buy Now" and pay. Try Practice mode first to measure your tap speed.',
+      'Tepat di detik 0, bot membuka halaman produk di browser. Kamu tinggal tap "Beli Sekarang" lalu bayar. Coba dulu mode Latihan untuk mengukur kecepatan tap kamu.',
+      'Right at second zero the bot opens the product page in the browser. Just tap "Buy Now" and pay. Try Practice mode first to measure your tap speed.',
     ],
   },
 ];
 
-export const Onboarding: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+export const Onboarding: React.FC<{ open: boolean; onClose: () => void; askSurvey?: boolean }> = ({ open, onClose, askSurvey = false }) => {
   const { L, lang } = useLang();
   const [i, setI] = useState(0);
+  const [survey, setSurvey] = useState(() => askSurvey && !hasAnsweredSurvey());
+  const [sending, setSending] = useState('');
   const pwa = usePwaInstall();
 
   useEffect(() => {
-    if (open) setI(0);
-  }, [open]);
+    if (open) {
+      setI(0);
+      setSurvey(askSurvey && !hasAnsweredSurvey());
+    }
+  }, [open, askSurvey]);
+
+  /** Simpan jawaban survei ke server; kalau server gagal, panduan tetap lanjut. */
+  const pickSource = async (id: string) => {
+    if (sending) return;
+    setSending(id);
+    try {
+      localStorage.setItem(SURVEY_KEY, id);
+    } catch {}
+    await api.post('me/survey', { source: id });
+    setSending('');
+    setSurvey(false);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -96,6 +145,42 @@ export const Onboarding: React.FC<{ open: boolean; onClose: () => void }> = ({ o
     markOnboarded();
     onClose();
   };
+
+  if (survey) {
+    return (
+      <div className="gx-overlay gx-overlay--center" role="dialog" aria-modal="true" aria-label={L('Tahu GaneMaX dari mana?', 'How did you hear about GaneMaX?')}>
+        <div className="gx-onb gx-onb--survey" onClick={(e) => e.stopPropagation()}>
+          <div className="gx-onb__hero">
+            <span className="gx-onb__badge">{L('Satu pertanyaan', 'One question')}</span>
+            <div className="gx-onb__iconwrap">
+              <Sparkles size={34} />
+            </div>
+          </div>
+          <div className="gx-onb__body">
+            <h3>{L('Tahu GaneMaX.Ai dari mana?', 'How did you hear about GaneMaX.Ai?')}</h3>
+            <p>{L('Biar kami tahu harus berterima kasih ke siapa. Pilih satu.', 'So we know who to thank. Pick one.')}</p>
+            <div className="gx-srcgrid" role="group">
+              {REFERRAL_SOURCES.map((o) => {
+                const OIcon = o.icon;
+                return (
+                  <button key={o.id} type="button" className="gx-src" onClick={() => pickSource(o.id)} disabled={!!sending} data-source={o.id}>
+                    <OIcon size={18} />
+                    <span>{L(o.label, o.en)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="gx-onb__foot">
+            <span className="gx-hint" style={{ margin: 0 }}>{L('Jawaban ini tidak memengaruhi lisensi kamu.', 'This does not affect your license.')}</span>
+            <button type="button" className="gx-btn gx-btn--sm" onClick={() => pickSource('lewati')} disabled={!!sending}>
+              {L('Lewati', 'Skip')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const last = i === STEPS.length - 1;
   const step = STEPS[i];

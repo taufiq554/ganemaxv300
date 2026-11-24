@@ -37,107 +37,103 @@ export interface ApiResponse<T = any> {
   success: boolean;
   data: T | null;
   error: { message: string } | null;
+  /** Kode HTTP (0 = jaringan putus / waktu habis). */
+  status?: number;
+}
+
+/** Simpan token baru kalau server memperpanjang sesi (header X-Session-Token-Refresh). */
+function captureRefresh(res: Response) {
+  const t = res.headers.get('X-Session-Token-Refresh');
+  if (!t) return;
+  try {
+    if (localStorage.getItem('shopee_bot_token')) localStorage.setItem('shopee_bot_token', t);
+    if (localStorage.getItem('SECURE_APP_TOKEN')) localStorage.setItem('SECURE_APP_TOKEN', t);
+  } catch (_) {}
+}
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Satu pintu untuk semua request ke server:
+ * - batas waktu (default 15 dtk) supaya tidak pernah menggantung,
+ * - coba ulang otomatis saat jaringan putus / server sedang bangun (502/503/504),
+ *   hanya untuk request yang aman diulang (GET, PUT, DELETE, atau `retry` eksplisit).
+ */
+async function request<T>(
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  url: string,
+  body?: any,
+  opts: { timeoutMs?: number; retries?: number } = {}
+): Promise<ApiResponse<T>> {
+  const idempotent = method !== 'POST';
+  const retries = opts.retries ?? (idempotent ? 2 : 0);
+  const timeoutMs = opts.timeoutMs ?? 15000;
+  let last: ApiResponse<T> = { success: false, data: null, error: { message: 'Tidak ada koneksi' }, status: 0 };
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: getSessionHeaders(),
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      captureRefresh(res);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        last = { success: false, data: null, error: json.error || { message: `HTTP Error ${res.status}` }, status: res.status };
+        if ([502, 503, 504].includes(res.status) && attempt < retries) {
+          await wait(600 * (attempt + 1));
+          continue;
+        }
+        return last;
+      }
+      return { success: true, data: (json.data ?? json) as T, error: null, status: res.status };
+    } catch (err: any) {
+      const aborted = err?.name === 'AbortError';
+      last = {
+        success: false,
+        data: null,
+        error: { message: aborted ? 'Server tidak menjawab (waktu habis)' : navigator.onLine === false ? 'Internet terputus' : err?.message || 'Jaringan bermasalah' },
+        status: 0,
+      };
+      if (attempt < retries) {
+        await wait(600 * (attempt + 1));
+        continue;
+      }
+      return last;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return last;
+}
+
+function withQuery(base: string, params: Record<string, any>) {
+  const query = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== '') query.append(k, String(v));
+  }
+  const qs = query.toString();
+  return `${base}${qs ? '?' + qs : ''}`;
 }
 
 export const api = {
   async get<T = any>(endpoint: string, params: Record<string, any> = {}): Promise<ApiResponse<T>> {
-    try {
-      const query = new URLSearchParams();
-      for (const [k, v] of Object.entries(params)) {
-        if (v !== undefined && v !== null && v !== '') {
-          query.append(k, String(v));
-        }
-      }
-      const qs = query.toString();
-      const res = await fetch(`/api/${endpoint}${qs ? '?' + qs : ''}`, {
-        headers: getSessionHeaders(),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || json.success === false) {
-        return {
-          success: false,
-          data: null,
-          error: json.error || { message: `HTTP Error ${res.status}` },
-        };
-      }
-      return { success: true, data: json.data ?? json, error: null };
-    } catch (err: any) {
-      return { success: false, data: null, error: { message: err.message } };
-    }
+    return request<T>('GET', withQuery(`/api/${endpoint}`, params));
   },
 
-  async post<T = any>(endpoint: string, payload: any): Promise<ApiResponse<T>> {
-    try {
-      const res = await fetch(`/api/${endpoint}`, {
-        method: 'POST',
-        headers: getSessionHeaders(),
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || json.success === false) {
-        return {
-          success: false,
-          data: null,
-          error: json.error || { message: `HTTP Error ${res.status}` },
-        };
-      }
-      return { success: true, data: json.data ?? json, error: null };
-    } catch (err: any) {
-      return { success: false, data: null, error: { message: err.message } };
-    }
+  async post<T = any>(endpoint: string, payload: any, opts?: { timeoutMs?: number; retries?: number }): Promise<ApiResponse<T>> {
+    return request<T>('POST', `/api/${endpoint}`, payload, opts);
   },
 
-  async put<T = any>(
-    endpoint: string,
-    id: string,
-    payload: any,
-    params: Record<string, any> = {}
-  ): Promise<ApiResponse<T>> {
-    try {
-      const query = new URLSearchParams();
-      for (const [k, v] of Object.entries(params)) {
-        if (v !== undefined && v !== null && v !== '') {
-          query.append(k, String(v));
-        }
-      }
-      const qs = query.toString();
-      const res = await fetch(`/api/${endpoint}/${id}${qs ? '?' + qs : ''}`, {
-        method: 'PUT',
-        headers: getSessionHeaders(),
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || json.success === false) {
-        return {
-          success: false,
-          data: null,
-          error: json.error || { message: `HTTP Error ${res.status}` },
-        };
-      }
-      return { success: true, data: json.data ?? json, error: null };
-    } catch (err: any) {
-      return { success: false, data: null, error: { message: err.message } };
-    }
+  async put<T = any>(endpoint: string, id: string, payload: any, params: Record<string, any> = {}): Promise<ApiResponse<T>> {
+    return request<T>('PUT', withQuery(`/api/${endpoint}/${id}`, params), payload);
   },
 
   async delete(endpoint: string, id: string): Promise<ApiResponse<{ success: boolean; id: string }>> {
-    try {
-      const res = await fetch(`/api/${endpoint}/${id}`, {
-        method: 'DELETE',
-        headers: getSessionHeaders(),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || json.success === false) {
-        return {
-          success: false,
-          data: null,
-          error: json.error || { message: `HTTP Error ${res.status}` },
-        };
-      }
-      return { success: true, data: json.data, error: null };
-    } catch (err: any) {
-      return { success: false, data: null, error: { message: err.message } };
-    }
+    return request('DELETE', `/api/${endpoint}/${id}`);
   },
 
   async login(username: string, password: string): Promise<ApiResponse<{ user: User; token: string }>> {
@@ -232,8 +228,8 @@ export const api = {
     return api.post('bot/check-item', { region, url, account_id: accountId });
   },
 
-  async productImage(url: string, region: string, accountId?: string): Promise<ApiResponse<{ image: string | null; title: string | null; source: string | null; item_id: string | null; reason?: string }>> {
-    return api.post('bot/product-image', { url, region, account_id: accountId });
+  async productImage(url: string, region: string, accountId?: string, force?: boolean): Promise<ApiResponse<{ image: string | null; title: string | null; source: string | null; item_id: string | null; reason?: string }>> {
+    return api.post('bot/product-image', { url, region, account_id: accountId, force: !!force });
   },
 
   async sellProxy(payload: {
@@ -265,7 +261,8 @@ export const api = {
   },
 
   async sessionStart(): Promise<ApiResponse<{ ok: boolean; server_time: number }>> {
-    return api.post('bot/session-start', {});
+    // Aman diulang (hanya mencatat waktu jalan), batas waktu pendek karena dipanggil menjelang sesi
+    return api.post('bot/session-start', {}, { timeoutMs: 8000, retries: 2 });
   },
 
   async confirmOrder(params: {
