@@ -374,7 +374,7 @@ const EngineMonitor: React.FC<{
   const avg = latency.history.length ? Math.round(latency.history.reduce((a, b) => a + b, 0) / latency.history.length) : null;
 
   return (
-    <section className="gx-card" style={{ order: 6 }}>
+    <section className="gx-card" style={{ order: 9 }}>
       <div className="gx-card__head">
         <h2 className="gx-card__title">
           <Activity size={16} /> {L('Monitor engine', 'Engine monitor')}
@@ -512,7 +512,7 @@ const SetupList: React.FC<{
   const { L, lang, locale } = useLang();
   const priceRegion = ((selected?.region as AseanCountryCode) || region) as AseanCountryCode;
   return (
-    <section style={{ order: 3 }}>
+    <section style={{ order: 5 }}>
       <SectionHead
         title={L('Setup war', 'War setup')}
         action={
@@ -577,7 +577,7 @@ const QuickActions: React.FC<{
 }> = ({ isBotRunning, armed, next, blocked, onStart, onStop, onArm, onDisarm, onTarget, onHistory, runMode, onRunMode }) => {
   const { L, lang, locale } = useLang();
   return (
-  <section style={{ order: 2 }}>
+  <section style={{ order: 3 }}>
     <SectionHead
       title={L('Aksi cepat', 'Quick actions')}
       action={
@@ -683,7 +683,7 @@ const ReadinessCard: React.FC<{ items: CheckItem[] }> = ({ items }) => {
   const done = items.filter((i) => i.ok).length;
   const pct = Math.round((done / items.length) * 100);
   return (
-    <section className="gx-card gx-ready" style={{ order: 4 }}>
+    <section className="gx-card gx-ready" style={{ order: 7 }}>
       <div className="gx-ready__top">
         <div>
           <div className="gx-ready__k">{L('Kesiapan war', 'War readiness')}</div>
@@ -860,7 +860,7 @@ const StockWatchCard: React.FC<{ w: StockWatch; region: AseanCountryCode }> = ({
   const { L, lang } = useLang();
   const soldOut = w.stock === 0;
   return (
-    <section className="gx-card gx-stock" style={{ order: 3 }}>
+    <section className="gx-card gx-stock" style={{ order: 6 }}>
       <div className="gx-card__head">
         <h2 className="gx-card__title">
           <PackageSearch size={16} /> {L('Pantauan stok & harga', 'Stock & price watch')}
@@ -921,7 +921,7 @@ export const WarStatsCard: React.FC<{
   } as const;
 
   return (
-    <section className="gx-card gx-warstats" style={{ order: 5 }}>
+    <section className="gx-card gx-warstats" style={{ order: 8 }}>
       <div className="gx-card__head">
         <h2 className="gx-card__title">
           <Gauge size={16} /> {L('Rekap performa bot', 'Bot performance')}
@@ -1216,7 +1216,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
             blocked={blocked}
           />
           {/* order 2 = tepat di bawah kartu sesi, sejajar QuickActions tapi lebih dulu */}
-          <BannerStrip banners={p.banners} slot="middle" style={{ order: 2 }} />
+          <BannerStrip banners={p.banners} slot="middle" style={{ order: 4 }} />
           <ScheduleQueue queue={p.queue} clock={p.clock} region={p.region} onCancel={(e) => p.onDisarm(e)} />
           <QuickActions
             isBotRunning={p.isBotRunning}
@@ -1241,7 +1241,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
             mode={p.botSettings.openMode || 'app'}
             region={p.region}
           />
-          <LiveConsole logs={p.logs} onClear={p.onClearLogs} onCopied={p.onCopied} style={{ order: 7 }} />
+          <LiveConsole logs={p.logs} onClear={p.onClearLogs} onCopied={p.onCopied} style={{ order: 11 }} />
         </div>
 
         <div className="gx-col">
@@ -1256,7 +1256,7 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
           {p.stockWatch && <StockWatchCard w={p.stockWatch} region={p.region} />}
           <WarStatsCard summary={p.warSummary} adaptive={p.adaptive} aiMode={p.aiMode} onUseAdaptive={p.onUseAdaptive} onClear={p.onClearStats} />
           <ReadinessCard items={checklist} />
-          <section style={{ order: 5 }}>
+          <section style={{ order: 10 }}>
             <SectionHead
               title={L('Checkout terakhir', 'Recent checkouts')}
               action={
@@ -1337,7 +1337,7 @@ const TutorialCard: React.FC<{ onOpenGuide: () => void; onGoTab: (t: AppTab) => 
   };
 
   return (
-    <section className="gx-card gx-tut" style={{ order: 6 }}>
+    <section className="gx-card gx-tut" style={{ order: 12 }}>
       <button type="button" className="gx-tut__head" onClick={toggle} aria-expanded={open}>
         <span className="gx-tut__icon">
           <GraduationCap size={17} />

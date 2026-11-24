@@ -28,16 +28,18 @@ import {
   Images,
   ArrowUp,
   ArrowDown,
+  Server,
+  Zap,
   CircleAlert,
 } from 'lucide-react';
-import { Announcement, AnnouncementType, Banner, BannerFit, BannerLayout, BannerRatio, BannerSlot, RevenueEntry, User } from '../../types/index.ts';
+import { Announcement, AnnouncementType, Banner, BannerFit, BannerLayout, BannerRatio, BannerSlot, ProxyStockItem, RevenueEntry, User } from '../../types/index.ts';
 import { BannerCard, RATIO_HINT, RATIO_VALUE, sortBanners } from './BannerStrip.tsx';
 import { api } from '../../services/api.ts';
 import { LICENSE_TIERS, findTier, formatRp, formatRpShort, LicenseTier } from '../../constants/licenses.ts';
 import { monthKeyWib, monthLabel, shiftMonth, relativeTimeId } from '../../lib/time.ts';
 import { ANNOUNCE_META, AnnouncementCard, isAnnouncementLive, licenseInfo, sortAnnouncements } from './Shell.tsx';
 
-type Section = 'overview' | 'revenue' | 'users' | 'announcements' | 'banners';
+type Section = 'overview' | 'revenue' | 'users' | 'announcements' | 'banners' | 'proxy';
 
 interface AdminPanelProps {
   currentUser: User;
@@ -207,6 +209,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
   const [revenues, setRevenues] = useState<RevenueEntry[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [proxyStock, setProxyStock] = useState<ProxyStockItem[]>([]);
+  const [sellFor, setSellFor] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const nowMonth = monthKeyWib(Date.now());
@@ -215,15 +219,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    const [r, a, u, bn] = await Promise.all([
+    const [r, a, u, bn, ps] = await Promise.all([
       api.get<RevenueEntry[]>('revenues'),
       api.get<Announcement[]>('announcements'),
       api.get<User[]>('users'),
       api.get<Banner[]>('banners'),
+      api.get<ProxyStockItem[]>('proxy_stock'),
     ]);
     if (r.success && Array.isArray(r.data)) setRevenues(r.data);
     if (a.success && Array.isArray(a.data)) setAnnouncements(a.data);
     if (bn.success && Array.isArray(bn.data)) setBanners(bn.data);
+    if (ps.success && Array.isArray(ps.data)) setProxyStock(ps.data);
     if (u.success && Array.isArray(u.data)) setUsers(u.data);
     if (!r.success || !a.success) setLoadError(r.error?.message || a.error?.message || 'Gagal memuat data admin');
     setLoading(false);
@@ -429,6 +435,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
         </button>
         <button type="button" aria-pressed={section === 'banners'} onClick={() => setSection('banners')}>
           Banner
+        </button>
+        <button type="button" aria-pressed={section === 'proxy'} onClick={() => setSection('proxy')}>
+          Proxy <span className="gx-count-badge">{proxyStock.filter((x) => !x.assigned_user_id).length}</span>
         </button>
         <button type="button" aria-pressed={section === 'announcements'} onClick={() => setSection('announcements')}>
           <Megaphone size={14} /> Pengumuman <span className="gx-count-badge">{announcements.filter((a) => isAnnouncementLive(a)).length}</span>
@@ -713,6 +722,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
       {/* ================= USERS ================= */}
       {section === 'users' && (
         <UsersSection
+          onSellProxy={(u) => {
+            setSection('proxy');
+            toast(`Pilih ${u.username} di daftar "Jual ke user" di bawah`);
+          }}
           currentUser={currentUser}
           users={users}
           setUsers={setUsers}
@@ -728,6 +741,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
       )}
 
       {/* ================= ANNOUNCEMENTS ================= */}
+      {section === 'proxy' && (
+        <ProxySection
+          stock={proxyStock}
+          setStock={setProxyStock}
+          users={users.filter((u) => u.role !== 'admin')}
+          toast={toast}
+          copy={copy}
+          onSold={(rev) => {
+            if (rev) setRevenues((p) => [rev, ...p]);
+          }}
+        />
+      )}
+
       {section === 'banners' && (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -1208,6 +1234,229 @@ const BannerDialog: React.FC<{
 };
 
 /* ------------------------------------------------------------------ */
+/* Proxy: stok & penjualan                                             */
+/* ------------------------------------------------------------------ */
+
+const PROXY_PRICE_DEFAULT = 100000;
+
+/** Teks siap kirim ke pembeli setelah proxy diberikan. */
+function proxyInfoText(u: User, p: any): string {
+  const auth = p.username ? `Username : ${p.username}\nPassword : ${p.password || '-'}\n` : '';
+  const exp = p.expires_at
+    ? new Date(p.expires_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+    : 'tanpa batas';
+  return (
+    `Halo kak ${u.username}, API proxy kamu sudah aktif 🎉\n\n` +
+    `Host     : ${p.host}\n` +
+    `Port     : ${p.port}\n` +
+    auth +
+    `Aktif s/d: ${exp}\n\n` +
+    `Proxy ini sudah otomatis masuk ke dashboard kamu — buka tab Engine, bagian Proxy. ` +
+    `Tinggal tekan Tes untuk memastikan jalan.\n\n` +
+    `Terima kasih sudah order 🙏`
+  );
+}
+
+const ProxySection: React.FC<{
+  stock: ProxyStockItem[];
+  setStock: React.Dispatch<React.SetStateAction<ProxyStockItem[]>>;
+  users: User[];
+  toast: (m: string) => void;
+  copy: (text: string, msg: string) => void;
+  onSold: (rev: RevenueEntry | null) => void;
+}> = ({ stock, setStock, users, toast, copy, onSold }) => {
+  const [bulk, setBulk] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [q, setQ] = useState('');
+  const [price, setPrice] = useState(PROXY_PRICE_DEFAULT);
+  const [days, setDays] = useState(30);
+  const [method, setMethod] = useState('QRIS');
+
+  const free = stock.filter((x) => !x.assigned_user_id);
+  const sold = stock.filter((x) => x.assigned_user_id);
+  const buyers = users.filter((u) => !q || u.username.toLowerCase().includes(q.toLowerCase()));
+
+  /** Satu proxy per baris: host:port atau host:port:user:pass */
+  const addBulk = async () => {
+    const lines = bulk
+      .split(/\n+/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (!lines.length) return;
+    const items = lines
+      .map((l) => {
+        const parts = l.split(':').map((x) => x.trim());
+        const [host, port, username, password] = parts;
+        const portNum = Number(port);
+        if (!host || !isFinite(portNum) || portNum <= 0 || portNum > 65535) return null;
+        return { host, port: portNum, username: username || undefined, password: password || undefined, created_at: new Date().toISOString() };
+      })
+      .filter(Boolean);
+    const buruk = lines.length - items.length;
+    if (!items.length) {
+      toast('Tidak ada baris yang formatnya benar');
+      return;
+    }
+    setBusy(true);
+    const res = await api.post<{ items: ProxyStockItem[] }>('proxy_stock/bulk', items);
+    setBusy(false);
+    if (res.success && res.data?.items) {
+      setStock((p) => [...p, ...res.data!.items]);
+      setBulk('');
+      toast(`${res.data.items.length} proxy masuk stok${buruk ? ` · ${buruk} baris dilewati` : ''}`);
+    } else toast(res.error?.message || 'Gagal menambah stok');
+  };
+
+  const sellTo = async (u: User) => {
+    if (!free.length) {
+      toast('Stok proxy habis — tambah dulu di atas');
+      return;
+    }
+    if (!confirm(`Jual proxy ke ${u.username} seharga Rp ${price.toLocaleString('id-ID')}?\n\nProxy langsung masuk ke dashboard user dan pemasukan otomatis tercatat.`)) return;
+    setBusy(true);
+    const res = await api.sellProxy({ user_id: u.id, amount: price, method, days });
+    setBusy(false);
+    if (!res.success || !res.data) {
+      toast(res.error?.message || 'Gagal menjual proxy');
+      return;
+    }
+    const { proxy, revenue } = res.data;
+    setStock((p) => p.map((x) => (x.host === proxy.host && String(x.port) === String(proxy.port) && !x.assigned_user_id ? { ...x, assigned_user_id: u.id, assigned_username: u.username, assigned_at: new Date().toISOString() } : x)));
+    onSold(revenue || null);
+    copy(proxyInfoText(u, proxy), `Proxy terkirim ke ${u.username} — info sudah disalin`);
+  };
+
+  return (
+    <>
+      <div className="gx-kpis">
+        <div className="gx-card gx-kpi gx-kpi--hero">
+          <div className="gx-kpi__k">Stok siap jual</div>
+          <div className="gx-kpi__v">{free.length}</div>
+          <div className="gx-kpi__d">@ Rp {price.toLocaleString('id-ID')}</div>
+        </div>
+        <div className="gx-card gx-kpi">
+          <div className="gx-kpi__k">Sudah terjual</div>
+          <div className="gx-kpi__v">{sold.length}</div>
+          <div className="gx-kpi__d">tercatat di pemasukan</div>
+        </div>
+      </div>
+
+      <section className="gx-card">
+        <div className="gx-card__head">
+          <h2 className="gx-card__title">
+            <Server size={16} /> Tambah stok proxy
+          </h2>
+        </div>
+        <div className="gx-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <p className="gx-hint" style={{ margin: 0 }}>
+            Satu proxy per baris. Format: <b>host:port</b> atau <b>host:port:username:password</b>.
+          </p>
+          <textarea
+            className="gx-input"
+            rows={5}
+            value={bulk}
+            onChange={(e) => setBulk(e.target.value)}
+            placeholder={'103.12.34.56:8080\n103.12.34.57:8080:userku:passku'}
+            style={{ fontFamily: 'var(--gx-mono, monospace)', fontSize: 12.5 }}
+          />
+          <button type="button" className="gx-btn gx-btn--primary" style={{ alignSelf: 'flex-start' }} onClick={addBulk} disabled={busy || !bulk.trim()}>
+            <Plus size={14} /> {busy ? 'Menyimpan…' : 'Masukkan ke stok'}
+          </button>
+        </div>
+      </section>
+
+      <section className="gx-card">
+        <div className="gx-card__head">
+          <h2 className="gx-card__title">
+            <Wallet size={16} /> Jual ke user
+          </h2>
+        </div>
+        <div className="gx-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="gx-formgrid gx-formgrid--3">
+            <label className="gx-field">
+              <span>Harga (Rp)</span>
+              <input type="number" min={0} step={5000} value={price} onChange={(e) => setPrice(Math.max(0, Number(e.target.value) || 0))} />
+            </label>
+            <label className="gx-field">
+              <span>Masa aktif (hari)</span>
+              <input type="number" min={0} value={days} onChange={(e) => setDays(Math.max(0, Number(e.target.value) || 0))} />
+            </label>
+            <label className="gx-field">
+              <span>Metode bayar</span>
+              <select value={method} onChange={(e) => setMethod(e.target.value)}>
+                <option value="QRIS">QRIS</option>
+                <option value="Transfer">Transfer</option>
+                <option value="E-Wallet">E-Wallet</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </label>
+          </div>
+
+          <div style={{ position: 'relative' }}>
+            <Search size={15} style={{ position: 'absolute', left: 11, top: 12, color: 'var(--gx-ink-3)' }} />
+            <input className="gx-input" style={{ paddingLeft: 34 }} placeholder="Cari user pembeli…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari user pembeli" />
+          </div>
+
+          {free.length === 0 && (
+            <div className="gx-note gx-note--warn">
+              <CircleAlert size={16} />
+              <span>Stok proxy habis. Tambah dulu di kotak atas sebelum bisa menjual.</span>
+            </div>
+          )}
+
+          {buyers.length === 0 ? (
+            <div className="gx-empty">Tidak ada user yang cocok.</div>
+          ) : (
+            <ul className="gx-list">
+              {buyers.slice(0, 30).map((u) => (
+                <li key={u.id} className="gx-row">
+                  <span className="gx-avatar">{u.username.slice(0, 1)}</span>
+                  <div className="gx-row__main">
+                    <div className="gx-row__t">{u.username}</div>
+                    <div className="gx-row__s">{sold.filter((x) => x.assigned_user_id === u.id).length} proxy sudah dibeli</div>
+                  </div>
+                  <button type="button" className="gx-btn gx-btn--xs gx-btn--primary" onClick={() => sellTo(u)} disabled={busy || free.length === 0}>
+                    <Zap size={12} /> Jual &amp; kirim
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      {sold.length > 0 && (
+        <section className="gx-card">
+          <div className="gx-card__head">
+            <h2 className="gx-card__title">Riwayat proxy terjual</h2>
+          </div>
+          <div className="gx-card__body">
+            <ul className="gx-list">
+              {sold
+                .slice()
+                .sort((a, b) => String(b.assigned_at || '').localeCompare(String(a.assigned_at || '')))
+                .slice(0, 20)
+                .map((x) => (
+                  <li key={x.id} className="gx-row">
+                    <div className="gx-row__main">
+                      <div className="gx-row__t gx-mono">
+                        {x.host}:{x.port}
+                      </div>
+                      <div className="gx-row__s">
+                        {x.assigned_username} · {x.assigned_at ? relativeTimeId(x.assigned_at) : '-'}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        </section>
+      )}
+    </>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /* Users section                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -1246,9 +1495,10 @@ const UsersSection: React.FC<{
   toast: (m: string) => void;
   copy: (text: string, msg: string) => void;
   onExtend: (u: User) => void;
+  onSellProxy: (u: User) => void;
   onRevenueCreated: (r: RevenueEntry) => void;
   reloadRevenues: () => Promise<void>;
-}> = ({ currentUser, users, setUsers, toast, copy, onExtend, reloadRevenues }) => {
+}> = ({ currentUser, users, setUsers, toast, copy, onExtend, onSellProxy, reloadRevenues }) => {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'expiring' | 'expired' | 'disabled' | 'idle'>('all');
   const [showForm, setShowForm] = useState(false);
@@ -1507,6 +1757,11 @@ const UsersSection: React.FC<{
                       <button type="button" className="gx-btn gx-btn--xs" onClick={() => copy(accountInfoText(u), `Info akun ${u.username} disalin`)} title="Salin info akun">
                         <Copy size={12} /> Info
                       </button>
+                      {u.role !== 'admin' && (
+                        <button type="button" className="gx-btn gx-btn--xs" onClick={() => onSellProxy(u)} title="Jual API proxy ke user ini">
+                          <Server size={12} /> Proxy
+                        </button>
+                      )}
                       {u.role !== 'admin' && (
                         <button type="button" className="gx-btn gx-btn--xs" onClick={() => onExtend(u)}>
                           <CalendarPlus size={12} /> Perpanjang

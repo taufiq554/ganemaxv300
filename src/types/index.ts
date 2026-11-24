@@ -67,6 +67,31 @@ export interface ProxyMesh {
   latency_ms?: number;
   last_checked?: string;
   created_at?: string;
+  /** Kredensial, diisi kalau proxy butuh login. */
+  username?: string;
+  password?: string;
+  label?: string;
+  /** Diisi saat proxy ini dijual admin ke user. */
+  sold_price?: number;
+  sold_at?: string;
+  expires_at?: string;
+}
+
+/** Proxy yang sudah disiapkan admin tapi belum ada pemiliknya. */
+export interface ProxyStockItem {
+  id: string;
+  host: string;
+  port: number | string;
+  username?: string;
+  password?: string;
+  region?: AseanCountryCode;
+  label?: string;
+  note?: string;
+  /** Terisi begitu proxy diberikan ke seorang user. */
+  assigned_user_id?: string | null;
+  assigned_username?: string | null;
+  assigned_at?: string | null;
+  created_at?: string;
 }
 
 export interface Schedule {
@@ -168,7 +193,7 @@ export interface RevenueEntry {
   username?: string | null;
   plan?: string | null;
   amount: number;
-  type: 'new' | 'renewal' | 'upgrade' | 'manual';
+  type: 'new' | 'renewal' | 'upgrade' | 'manual' | 'proxy';
   method?: string;
   note?: string;
   paid_at: string;

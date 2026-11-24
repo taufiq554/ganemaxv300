@@ -1163,7 +1163,7 @@ const USER_SCOPED_TABLES: TableName[] = [
 ];
 
 // Tabel yang hanya boleh dibaca & ditulis admin
-const ADMIN_ONLY_TABLES: TableName[] = ['revenues'];
+const ADMIN_ONLY_TABLES: TableName[] = ['revenues', 'proxy_stock'];
 // Tabel yang boleh dibaca semua user login, tapi hanya admin yang boleh menulis
 const ADMIN_WRITE_TABLES: TableName[] = ['announcements', 'revenues', 'banners'];
 
@@ -1260,6 +1260,89 @@ function revenueKey(r: any): string {
 }
 
 /** Bersihkan catatan pendapatan dobel, sisakan yang paling awal dibuat. */
+/**
+ * Jual satu proxy ke seorang user: ambil dari stok (atau pakai data manual),
+ * daftarkan sebagai milik user itu, dan catat pemasukannya — sekali klik.
+ */
+router.post('/proxy/sell', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { user_id, stock_id, amount = 100000, method = 'QRIS', days = 30, manual, note } = req.body || {};
+    if (!user_id) return errorRes(res, 'User tujuan wajib dipilih.', 400);
+
+    const buyer: any = await storage.get('users', String(user_id));
+    if (!buyer) return errorRes(res, 'User tidak ditemukan.', 404);
+
+    // Sumber proxy: dari stok, atau diketik manual oleh admin
+    let source: any = null;
+    if (stock_id) {
+      source = await storage.get('proxy_stock', String(stock_id));
+      if (!source) return errorRes(res, 'Proxy stok tidak ditemukan.', 404);
+      if (source.assigned_user_id) return errorRes(res, 'Proxy itu sudah terjual ke user lain.', 409);
+    } else if (manual && manual.host && manual.port) {
+      source = { ...manual };
+    } else {
+      // Ambil otomatis yang pertama belum terpakai
+      const stock = (await storage.list('proxy_stock')) as any[];
+      source = stock
+        .filter((x) => !x.assigned_user_id)
+        .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')))[0];
+      if (!source) return errorRes(res, 'Stok proxy habis. Tambah stok dulu atau isi manual.', 409);
+    }
+
+    const port = Number(source.port);
+    if (!source.host || !isFinite(port) || port <= 0 || port > 65535) {
+      return errorRes(res, 'Data proxy tidak valid (host/port).', 400);
+    }
+
+    const now = new Date();
+    const expires = Number(days) > 0 ? new Date(now.getTime() + Number(days) * 86_400_000).toISOString() : undefined;
+
+    const proxy = await storage.create('proxies', {
+      user_id: String(user_id),
+      host: String(source.host).trim(),
+      port,
+      username: source.username ? String(source.username) : undefined,
+      password: source.password ? String(source.password) : undefined,
+      region: source.region,
+      label: source.label || 'Proxy GaneMaX',
+      status: 'active',
+      sold_price: Number(amount) || 0,
+      sold_at: now.toISOString(),
+      expires_at: expires,
+      created_at: now.toISOString(),
+    });
+
+    // Proxy manual tidak punya id stok, jadi tidak ada yang perlu ditandai
+    if (source.id) {
+      await storage.update('proxy_stock', source.id, {
+        assigned_user_id: String(user_id),
+        assigned_username: buyer.username,
+        assigned_at: now.toISOString(),
+      });
+    }
+
+    let revenue: any = null;
+    if (Number(amount) > 0) {
+      revenue = await storage.create('revenues', {
+        user_id: String(user_id),
+        username: buyer.username,
+        plan: 'proxy',
+        amount: Number(amount),
+        type: 'proxy',
+        method: String(method),
+        note: note ? String(note) : `Penjualan API proxy ${source.host}:${port}`,
+        paid_at: now.toISOString(),
+        created_by: req.user!.username,
+        created_at: now.toISOString(),
+      });
+    }
+
+    return successRes(res, { proxy, revenue, buyer: sanitizeUser(buyer) }, 201);
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
 router.post('/revenues/dedupe', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const rows = (await storage.list('revenues')) as any[];

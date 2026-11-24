@@ -232,6 +232,18 @@ export const api = {
     return api.post('bot/check-item', { region, url, account_id: accountId });
   },
 
+  async sellProxy(payload: {
+    user_id: string;
+    stock_id?: string;
+    amount?: number;
+    method?: string;
+    days?: number;
+    note?: string;
+    manual?: { host: string; port: number | string; username?: string; password?: string; region?: string; label?: string };
+  }): Promise<ApiResponse<{ proxy: any; revenue: any; buyer: any }>> {
+    return api.post('proxy/sell', payload);
+  },
+
   async pushKey(): Promise<ApiResponse<{ enabled: boolean; public_key: string | null; lead_ms: number }>> {
     return api.get('push/key');
   },

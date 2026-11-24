@@ -46,6 +46,7 @@ export type TableName =
   | 'addresses'
   | 'target_urls'
   | 'proxies'
+  | 'proxy_stock'
   | 'schedules'
   | 'shopee_payments'
   | 'order_history'
@@ -61,6 +62,7 @@ export const VALID_TABLES: TableName[] = [
   'addresses',
   'target_urls',
   'proxies',
+  'proxy_stock',
   'schedules',
   'shopee_payments',
   'order_history',
@@ -78,6 +80,8 @@ const TABLE_ALIAS_MAP: Record<string, TableName> = {
   'target-urls': 'target_urls',
   'target_urls': 'target_urls',
   'proxies': 'proxies',
+  'proxy_stock': 'proxy_stock',
+  'proxy-stock': 'proxy_stock',
   'schedules': 'schedules',
   'shopee-payments': 'shopee_payments',
   'shopee_payments': 'shopee_payments',
