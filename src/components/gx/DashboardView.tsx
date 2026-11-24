@@ -1016,7 +1016,6 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
 
       <div className="gx-dash">
         <div className="gx-col">
-          <BannerStrip banners={p.banners} slot="middle" />
           <SessionCard
             region={p.region}
             clock={p.clock}
@@ -1028,6 +1027,8 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
             latencyHistory={p.latency.history}
             blocked={blocked}
           />
+          {/* order 2 = tepat di bawah kartu sesi, sejajar QuickActions tapi lebih dulu */}
+          <BannerStrip banners={p.banners} slot="middle" style={{ order: 2 }} />
           <QuickActions
             isBotRunning={p.isBotRunning}
             armed={p.armed}

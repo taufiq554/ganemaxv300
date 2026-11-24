@@ -399,6 +399,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
     ]);
     if (ra.success && rb.success && ra.data && rb.data) {
       setBanners((p) => p.map((x) => (x.id === a.id ? ra.data! : x.id === b.id ? rb.data! : x)));
+      onAnnouncementsChanged();
     } else toast('Gagal mengubah urutan');
   };
 
@@ -802,8 +803,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
                         className="gx-btn gx-btn--xs"
                         onClick={async () => {
                           const res = await api.put<Banner>('banners', b.id, { is_active: !b.is_active });
-                          if (res.success && res.data) setBanners((p) => p.map((x) => (x.id === b.id ? res.data! : x)));
-                          else toast(res.error?.message || 'Gagal');
+                          if (res.success && res.data) {
+                            setBanners((p) => p.map((x) => (x.id === b.id ? res.data! : x)));
+                            onAnnouncementsChanged();
+                          } else toast(res.error?.message || 'Gagal');
                         }}
                       >
                         {b.is_active ? 'Matikan' : 'Tayangkan'}
@@ -818,8 +821,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
                         onClick={async () => {
                           if (!confirm(`Hapus banner "${b.title || 'tanpa judul'}"?`)) return;
                           const res = await api.delete('banners', b.id);
-                          if (res.success) setBanners((p) => p.filter((x) => x.id !== b.id));
-                          else toast(res.error?.message || 'Gagal menghapus');
+                          if (res.success) {
+                            setBanners((p) => p.filter((x) => x.id !== b.id));
+                            onAnnouncementsChanged();
+                          } else toast(res.error?.message || 'Gagal menghapus');
                         }}
                       >
                         <Trash2 size={12} />
@@ -984,6 +989,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
             const res = bnrDialog.id ? await api.put<Banner>('banners', bnrDialog.id, data) : await api.post<Banner>('banners', data);
             if (res.success && res.data) {
               setBanners((p) => (bnrDialog.id ? p.map((x) => (x.id === bnrDialog.id ? res.data! : x)) : [...p, res.data!]));
+              onAnnouncementsChanged(); // segarkan juga banner yang tampil di dashboard
               toast(bnrDialog.id ? 'Banner diperbarui' : 'Banner ditambahkan');
               setBnrDialog(null);
             } else toast(res.error?.message || 'Gagal menyimpan banner');
