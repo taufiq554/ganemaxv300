@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   Flame,
   RefreshCw,
   CircleAlert,
   ImageOff,
+  CalendarHeart,
+  Wallet,
   ChevronRight,
   Crosshair,
   CalendarClock,
@@ -19,6 +21,7 @@ import { ServerClock, useTicker } from '../../lib/useServerClock.ts';
 import { formatClock, getSessionSlots, pad, splitDuration } from '../../lib/time.ts';
 import { isValidHttpUrl } from '../../lib/shopee.ts';
 import { useLang } from '../../lib/i18n.tsx';
+import { upcomingCampaigns, isToday } from '../../lib/campaigns.ts';
 
 type Session = { promotion_id: string; name: string; start_time: string; end_time: string | null; type: number };
 type Item = {
@@ -78,6 +81,82 @@ const ProductThumb: React.FC<{ src?: string; alt: string }> = ({ src, alt }) => 
   );
 };
 
+/**
+ * Kampanye besar Shopee (tanggal kembar & Gajian Sale). Tanggalnya berulang
+ * tiap tahun jadi bisa dihitung jauh hari; jam sesinya tetap menunggu Shopee.
+ */
+const MegaEvents: React.FC<{ region: AseanCountryCode; clock: ServerClock }> = ({ region, clock }) => {
+  const { L, locale } = useLang();
+  useTicker(1000);
+  const now = clock.now();
+  const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
+  const list = useMemo(() => upcomingCampaigns(region, now, 14).slice(0, 10), [region, Math.floor(now / 3_600_000)]);
+
+  const sisa = (ms: number) => {
+    if (ms <= 0) return L('sedang berlangsung', 'happening now');
+    const hari = Math.floor(ms / 86_400_000);
+    const jam = Math.floor((ms % 86_400_000) / 3_600_000);
+    const menit = Math.floor((ms % 3_600_000) / 60_000);
+    if (hari > 0) return L(`${hari} hari ${jam} jam lagi`, `in ${hari}d ${jam}h`);
+    if (jam > 0) return L(`${jam} jam ${menit} menit lagi`, `in ${jam}h ${menit}m`);
+    return L(`${menit} menit lagi`, `in ${menit}m`);
+  };
+
+  const TIER_ICON = { mega: Flame, twin: CalendarHeart, payday: Wallet } as const;
+
+  return (
+    <>
+      <div className="gx-note">
+        <Info size={15} />
+        <span>
+          {L(
+            'Shopee menggelar kampanye ini pada tanggal yang sama tiap tahun, jadi kamu bisa siap-siap dari jauh hari. Jam sesinya baru pasti saat sesinya terbit — cek tab "Jadwal & produk" pada hari-H.',
+            'Shopee runs these campaigns on the same dates every year, so you can prepare well ahead. Exact session times are only confirmed once sessions go live — check the "Schedule & products" tab on the day.'
+          )}
+        </span>
+      </div>
+
+      <ul className="gx-list gx-events">
+        {list.map((c) => {
+          const hariIni = isToday(c, now);
+          const Icon = TIER_ICON[c.tier];
+          return (
+            <li key={c.id} className={`gx-row gx-event ${hariIni ? 'gx-event--now' : ''}`}>
+              <span className={`gx-event__badge gx-event__badge--${c.tier}`}>
+                <Icon size={15} />
+              </span>
+              <div className="gx-row__main">
+                <div className="gx-row__t">
+                  {L(c.nameId, c.nameEn)}
+                  {c.tier === 'mega' && <span className="gx-tag gx-tag--flash" style={{ marginLeft: 6 }}>MEGA</span>}
+                  {hariIni && <span className="gx-tag gx-tag--ok" style={{ marginLeft: 6 }}>{L('HARI INI', 'TODAY')}</span>}
+                </div>
+                <div className="gx-row__s">
+                  {new Intl.DateTimeFormat(locale, {
+                    timeZone: reg.timezone,
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  }).format(new Date(c.startsAt))}{' '}
+                  · {sisa(c.startsAt - now)}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <small className="gx-muted">
+        {L(
+          `Waktu mengikuti zona ${reg.timezoneLabel}. Gajian Sale jatuh tiap tanggal 25.`,
+          `Times follow ${reg.timezoneLabel}. Payday Sale falls on the 25th of each month.`
+        )}
+      </small>
+    </>
+  );
+};
+
 export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
   region,
   clock,
@@ -90,7 +169,7 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
 }) => {
   const { L, locale } = useLang();
   const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
-  const [tab, setTab] = useState<'schedule' | 'live'>('schedule');
+  const [tab, setTab] = useState<'schedule' | 'events' | 'live'>('schedule');
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(false);
@@ -248,16 +327,21 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
         </div>
       </div>
       <div className="gx-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div className="gx-seg" role="group" aria-label={L('Jenis flash sale', 'Flash sale type')}>
+        <div className="gx-seg gx-seg--3" role="group" aria-label={L('Jenis flash sale', 'Flash sale type')}>
           <button type="button" aria-pressed={tab === 'schedule'} onClick={() => setTab('schedule')}>
             <CalendarClock size={14} /> {L('Jadwal & produk', 'Schedule & products')}
+          </button>
+          <button type="button" aria-pressed={tab === 'events'} onClick={() => setTab('events')}>
+            <CalendarHeart size={14} /> {L('Event besar', 'Mega events')}
           </button>
           <button type="button" aria-pressed={tab === 'live'} onClick={() => setTab('live')}>
             <Radio size={14} /> {L('Shopee LIVE', 'Shopee LIVE')}
           </button>
         </div>
 
-        {tab === 'schedule' ? (
+        {tab === 'events' ? (
+          <MegaEvents region={region} clock={clock} />
+        ) : tab === 'schedule' ? (
           <>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <button type="button" className="gx-btn gx-btn--sm gx-btn--primary" onClick={loadSessions} disabled={loading}>

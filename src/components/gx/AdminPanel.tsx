@@ -417,7 +417,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
         </div>
       </div>
 
-      <div className="gx-seg" role="group" aria-label="Bagian admin">
+      <div className="gx-seg gx-seg--wrap" role="group" aria-label="Bagian admin">
         <button type="button" aria-pressed={section === 'overview'} onClick={() => setSection('overview')}>
           <LayoutGrid size={14} /> Ringkasan
         </button>

@@ -100,12 +100,16 @@ export const BannerStrip: React.FC<{ banners: Banner[]; slot: BannerSlot; style?
     if (idx > list.length - 1) setIdx(0);
   }, [list.length, idx]);
 
-  // Geser otomatis tiap 6 detik, berhenti saat hanya ada satu banner
+  /**
+   * Geser otomatis tiap 6 detik. Hitungannya diulang setiap kali slide berpindah,
+   * termasuk saat user menekan panah atau menggeser sendiri — supaya banner tidak
+   * melompat lagi sedetik setelah disentuh.
+   */
   useEffect(() => {
     if (list.length < 2) return;
-    const t = window.setInterval(() => setIdx((i) => (i + 1) % list.length), 6000);
-    return () => window.clearInterval(t);
-  }, [list.length]);
+    const t = window.setTimeout(() => setIdx((i) => (i + 1) % list.length), 6000);
+    return () => window.clearTimeout(t);
+  }, [list.length, idx]);
 
   /**
    * Selama geser halus berlangsung, browser terus memicu onScroll dengan posisi
