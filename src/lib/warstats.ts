@@ -134,7 +134,7 @@ export interface AdaptiveAdvice {
 }
 
 export const LEAD_MIN = 120;
-export const LEAD_MAX = 2500;
+export const LEAD_MAX = 10000;
 
 /**
  * Menghitung jeda buka dari data yang benar-benar terukur di perangkat ini:
@@ -153,20 +153,18 @@ export function adviseLead(list: WarAttempt[], currentLeadMs: number, liveLatenc
   const n = deltas.length;
 
   if (n < 3) {
-    // Belum cukup data: andalkan latensi saja, itupun dengan hati-hati
-    const base = lat != null ? clamp(Math.round(lat * 0.8) + 250, LEAD_MIN, LEAD_MAX) : currentLeadMs;
+    /*
+     * Belum cukup bukti: pakai setelan user apa adanya. Dulu di sini jeda
+     * dihitung dari latensi saja dan hasilnya bisa ratusan ms — jauh lebih
+     * pendek dari waktu yang dibutuhkan halaman Shopee untuk tampil, sehingga
+     * produk baru muncul setelah sesi lewat.
+     */
     return {
-      leadMs: base,
+      leadMs: clamp(currentLeadMs, LEAD_MIN, LEAD_MAX),
       confidence: 'low',
       samples: n,
-      reasonId:
-        lat != null
-          ? `Baru ${n} sesi terukur. Sementara dihitung dari latensi ${lat} ms.`
-          : `Baru ${n} sesi terukur dan latensi belum terbaca. Jeda dibiarkan apa adanya.`,
-      reasonEn:
-        lat != null
-          ? `Only ${n} measured sessions. Using gateway latency ${lat} ms for now.`
-          : `Only ${n} measured sessions and no latency reading yet. Lead left as is.`,
+      reasonId: `Baru ${n} sesi terukur — memakai setelan kamu dulu. Penyetelan otomatis mulai setelah 3 sesi.`,
+      reasonEn: `Only ${n} measured sessions — using your setting for now. Auto-tuning starts after 3 sessions.`,
     };
   }
 

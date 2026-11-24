@@ -1937,3 +1937,219 @@ body.dark-theme .gx-bannerwrap__nav { background: rgba(12, 26, 56, .8); }
   color: var(--gx-ink-2);
 }
 .gx-qnum--on { background: var(--gx-brand); color: #fff; }
+
+/* ==================================================================== */
+/* Ukuran pas di HP (Android & iPhone)                                   */
+/* ==================================================================== */
+html, body { background: var(--gx-bg); }
+html { -webkit-text-size-adjust: 100%; }
+/* 100vh di HP ikut menghitung area di bawah bilah browser → kelebihan tinggi.
+   dvh mengikuti tinggi layar yang benar-benar terlihat. */
+.gx-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  .gx-shell { padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px)); }
+}
+/* Header lengket tidak boleh masuk ke bawah notch / bilah status */
+.gx-topbar { padding-top: env(safe-area-inset-top, 0px); }
+/* Kiri-kanan untuk HP landscape berponi */
+.gx-main {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+/* Cegah geser horizontal tak sengaja dari elemen yang sedikit kelebaran */
+body { overflow-x: hidden; }
+
+/* Pilihan jeda buka */
+.gx-leadchips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.gx-leadchips button {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 9px 4px;
+  border: 1px solid var(--gx-line);
+  border-radius: 12px;
+  background: var(--gx-surface);
+  color: var(--gx-ink);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color .15s, background .15s;
+}
+.gx-leadchips button b { font-size: 13px; }
+.gx-leadchips button small { font-size: 10px; color: var(--gx-ink-3); white-space: nowrap; }
+.gx-leadchips button[aria-pressed='true'] {
+  border-color: var(--gx-brand);
+  background: color-mix(in srgb, var(--gx-brand) 10%, var(--gx-surface));
+}
+.gx-leadchips button[aria-pressed='true'] small { color: var(--gx-brand); }
+.gx-leadchips button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ==================================================================== */
+/* Loading modern: kerangka + kilau, dan cincin kecil untuk tombol      */
+/* ==================================================================== */
+.gx-skel {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--gx-ink) 7%, var(--gx-surface));
+  vertical-align: middle;
+}
+.gx-skel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--gx-surface) 75%, transparent) 50%,
+    transparent 100%
+  );
+  animation: gx-shimmer 1.35s ease-in-out infinite;
+}
+body.dark-theme .gx-skel { background: color-mix(in srgb, #ffffff 7%, var(--gx-surface)); }
+body.dark-theme .gx-skel::after {
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, .07) 50%, transparent 100%);
+}
+@keyframes gx-shimmer { to { transform: translateX(100%); } }
+
+.gx-skelrow { gap: 11px; align-items: center; animation: gx-fadein .35s ease both; }
+@keyframes gx-fadein { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+/* Cincin pemuat di dalam tombol */
+.gx-ring {
+  display: inline-block;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  opacity: .85;
+  animation: gx-rot .7s linear infinite;
+}
+@keyframes gx-rot { to { transform: rotate(360deg); } }
+
+/* Data yang baru datang muncul halus, bukan meloncat */
+.gx-reveal { animation: gx-fadein .3s ease both; }
+
+/* Hanya untuk pembaca layar */
+.gx-sr {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gx-skel::after, .gx-ring, .gx-skelrow, .gx-reveal { animation: none; }
+}
+
+/* ---------- Kartu utama event besar (desain sendiri, bukan aset Shopee) ---------- */
+.gx-mega {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  padding: 18px 16px 16px;
+  color: #fff;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .18), transparent 55%),
+    linear-gradient(145deg, #2563eb, #1e3a8a);
+  box-shadow: 0 10px 28px rgba(30, 58, 138, .28);
+}
+.gx-mega--mega {
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .2), transparent 55%),
+    linear-gradient(145deg, #f97316, #c2410c);
+  box-shadow: 0 10px 28px rgba(194, 65, 12, .3);
+}
+.gx-mega--payday {
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .18), transparent 55%),
+    linear-gradient(145deg, #10b981, #047857);
+}
+.gx-mega__top { display: flex; align-items: center; gap: 14px; }
+.gx-mega__code {
+  flex: none;
+  font: 900 44px/1 var(--gx-sans, inherit);
+  letter-spacing: -.04em;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, .14);
+}
+.gx-mega__meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gx-mega__meta b { font-size: 15.5px; line-height: 1.25; }
+.gx-mega__meta span { font-size: 11.5px; opacity: .88; }
+.gx-mega__eyebrow {
+  font-size: 10px !important;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  opacity: .82 !important;
+}
+.gx-mega__count {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin: 16px 0 14px;
+}
+.gx-mega__count > div {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 9px 0 7px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .16);
+  backdrop-filter: blur(4px);
+}
+.gx-mega__count b { font: 800 22px/1 var(--gx-mono, inherit); font-variant-numeric: tabular-nums; }
+.gx-mega__count small { font-size: 10px; opacity: .85; }
+.gx-mega__live {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin: 14px 0 12px;
+  font-size: 13px; font-weight: 700;
+}
+.gx-mega__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.gx-mega__btn {
+  background: #fff !important;
+  color: #1e293b !important;
+  border-color: transparent !important;
+  font-weight: 700;
+}
+.gx-mega__btn--ghost {
+  background: rgba(255, 255, 255, .16) !important;
+  color: #fff !important;
+  text-decoration: none;
+}
+.gx-mega__btn:disabled { opacity: .78; }
+
+/* ---------- Lab engine ---------- */
+.gx-lab__ping {
+  border: 1px solid var(--gx-line);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--gx-surface-2, var(--gx-surface));
+  display: flex; flex-direction: column; gap: 10px;
+}
+.gx-lab__pinghead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.gx-lab__pinghead > span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; }
+.gx-lab__suggest {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 12px; line-height: 1.45;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--gx-brand) 9%, transparent);
+  color: var(--gx-ink);
+}
+.gx-lab__suggest span { flex: 1 1 180px; }
+.gx-lab__suggest svg { flex: none; color: var(--gx-brand); }
+.gx-lab__dev .gx-row { gap: 11px; }
+.gx-lab__dot {
+  flex: none; width: 30px; height: 30px; border-radius: 10px;
+  display: grid; place-items: center;
+}
+.gx-lab__dot--ok { background: color-mix(in srgb, var(--gx-ok) 14%, transparent); color: var(--gx-ok); }
+.gx-lab__dot--warn { background: color-mix(in srgb, var(--gx-warn) 16%, transparent); color: var(--gx-warn); }
+.gx-lab__dot--bad { background: color-mix(in srgb, var(--gx-bad) 14%, transparent); color: var(--gx-bad); }
+.gx-lab__dry { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.gx-lab__result { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; width: 100%; }
+.gx-lab__result li { display: flex; align-items: flex-start; gap: 7px; font-size: 12.5px; line-height: 1.45; }
+.gx-lab__result li svg { flex: none; margin-top: 2px; }
+.gx-lab__result li.ok svg { color: var(--gx-ok); }
+.gx-lab__result li.bad { color: var(--gx-bad); }
+.gx-metric__v--bad { color: var(--gx-bad); }

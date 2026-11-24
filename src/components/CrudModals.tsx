@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Eye, EyeOff, MapPin, UserRound, Link2, Network, CalendarClock, ClipboardPaste, Loader2, HelpCircle, ChevronDown, Check, CircleAlert } from 'lucide-react';
 import { Address, ShopeeAccount, TargetUrl, ProxyMesh, Schedule, AseanCountryCode } from '../types/index.ts';
+import { Ring } from './gx/Skeleton.tsx';
 import { ASEAN_REGIONS, ALL_ASEAN_CODES, isAseanCode, formatAseanCurrency } from '../constants/asean.ts';
 import { useLang } from '../lib/i18n.tsx';
 import { parseShopeeLink, isValidHttpUrl } from '../lib/shopee.ts';
@@ -573,7 +574,7 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
           onClick={() => resolveAndFetch()}
           disabled={!valid || fetchState === 'loading'}
         >
-          {fetchState === 'loading' ? <Loader2 size={15} className="gx-spin" /> : <Link2 size={15} />}
+          {fetchState === 'loading' ? <Ring size={15} /> : <Link2 size={15} />}
           {fetchState === 'loading' ? L('Menghubungkan…', 'Connecting…') : L('Hubungkan & ambil data produk', 'Integrate & fetch product')}
         </button>
         {fetchNote ? (

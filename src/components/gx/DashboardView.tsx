@@ -52,6 +52,7 @@ import {
   Banner,
 } from '../../types/index.ts';
 import { BannerStrip } from './BannerStrip.tsx';
+import { Skel, SkelList } from './Skeleton.tsx';
 import { AdaptiveAdvice, WarSummary } from '../../lib/warstats.ts';
 import { ASEAN_REGIONS, formatAseanCurrency, paymentFamily } from '../../constants/asean.ts';
 import { ServerClock, useTicker } from '../../lib/useServerClock.ts';
@@ -151,6 +152,7 @@ interface DashboardViewProps {
   runMode: 'open' | 'practice';
   onRunMode: (m: 'open' | 'practice') => void;
   stockWatch: StockWatch | null;
+  dataReady: boolean;
   queue: ArmState[];
   warSummary: WarSummary;
   adaptive: AdaptiveAdvice;
@@ -1245,17 +1247,37 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
         </div>
 
         <div className="gx-col">
-          <SetupList
-            items={checklist}
-            targets={p.targets}
-            selected={p.selectedTarget}
-            onSelect={p.onSelectTarget}
-            region={p.region}
-            onSeeAll={() => p.onGoTab('targets')}
-          />
+          {p.dataReady ? (
+            <SetupList
+              items={checklist}
+              targets={p.targets}
+              selected={p.selectedTarget}
+              onSelect={p.onSelectTarget}
+              region={p.region}
+              onSeeAll={() => p.onGoTab('targets')}
+            />
+          ) : (
+            <section style={{ order: 5 }}>
+              <SectionHead title={L('Setup war', 'War setup')} />
+              <div className="gx-card" style={{ padding: '4px 16px' }}>
+                <SkelList rows={4} thumb label={L('Memuat target, akun, alamat & pembayaran', 'Loading targets, accounts, addresses & payment')} />
+              </div>
+            </section>
+          )}
           {p.stockWatch && <StockWatchCard w={p.stockWatch} region={p.region} />}
           <WarStatsCard summary={p.warSummary} adaptive={p.adaptive} aiMode={p.aiMode} onUseAdaptive={p.onUseAdaptive} onClear={p.onClearStats} />
-          <ReadinessCard items={checklist} />
+          {p.dataReady ? (
+            <ReadinessCard items={checklist} />
+          ) : (
+            <section className="gx-card gx-ready" style={{ order: 7, padding: 18, display: 'flex', alignItems: 'center', gap: 16 }} aria-hidden="true">
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <Skel w="45%" h={11} />
+                <Skel w="38%" h={30} r={8} />
+                <Skel w="55%" h={11} />
+              </div>
+              <Skel w={96} h={96} r="50%" />
+            </section>
+          )}
           <section style={{ order: 10 }}>
             <SectionHead
               title={L('Checkout terakhir', 'Recent checkouts')}
@@ -1266,7 +1288,11 @@ export const DashboardView: React.FC<DashboardViewProps> = (p) => {
               }
             />
             <div className="gx-card" style={{ padding: '4px 16px' }}>
-              <OrdersList orders={p.orders} limit={4} region={p.region} />
+              {p.dataReady ? (
+                <OrdersList orders={p.orders} limit={4} region={p.region} />
+              ) : (
+                <SkelList rows={3} thumb={false} label={L('Memuat riwayat checkout', 'Loading checkout history')} />
+              )}
             </div>
           </section>
           <TutorialCard onOpenGuide={p.onOpenGuide} onGoTab={p.onGoTab} />

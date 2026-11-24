@@ -39,6 +39,7 @@ import { FireOverlay, FireState } from './components/gx/FireOverlay.tsx';
 import { PracticeOverlay, PracticeState, PracticeResult } from './components/gx/PracticeOverlay.tsx';
 import { loadArmed, saveArmed, loadLogs, saveLogs, clearStoredLogs, flushLogs, savePendingFire, loadPendingFire, loadQueue, saveQueue, QUEUE_LIMIT } from './lib/session-store.ts';
 import { openNow } from './lib/autoopen.ts';
+import { warmShopee, prefetchProduct } from './lib/warmup.ts';
 import { addAttempt, adviseLead, clearAttempts, loadAttempts, setLastResult, summarize, WarAttempt } from './lib/warstats.ts';
 import { usePushReminder } from './lib/push.ts';
 import { StockWatch } from './components/gx/DashboardView.tsx';
@@ -84,11 +85,14 @@ function normalizeSettings(x: BotSettings): BotSettings {
     pollRate: Number(x.pollRate) < 2000 ? 5000 : num(x.pollRate, 5000, 2000, 60000),
     maxRetry: num(x.maxRetry, 2, 0, 9),
     retryDelay: num(x.retryDelay, 300, 0, 5000),
-    openLeadMs: num(x.openLeadMs, 800, 0, 3000),
+    openLeadMs: num(x.openLeadMs, 3000, 0, 10000),
     openMode: x.openMode === 'browser' ? 'browser' : 'app',
     runMode: x.runMode === 'practice' ? 'practice' : 'open',
   };
 }
+
+/** Tampilkan milidetik dengan aman — "—" kalau nilainya tidak ada, bukan "undefined". */
+const msTxt = (v: unknown) => (typeof v === 'number' && isFinite(v) ? `${Math.round(v)} ms` : '— ms');
 
 export const App: React.FC = () => {
   const { lang, setLang, L, locale } = useLang();
@@ -312,7 +316,7 @@ export const App: React.FC = () => {
     notifySuccess: true,
     notifyError: true,
     notifyRateLimit: true,
-    openLeadMs: 800,
+    openLeadMs: 3000,
     openMode: "app",
     runMode: "open",
     soundAlert: true,
@@ -320,7 +324,20 @@ export const App: React.FC = () => {
   };
     try {
       const saved = JSON.parse(localStorage.getItem('gx_bot_settings') || 'null');
-      return normalizeSettings(saved && typeof saved === 'object' ? { ...base, ...saved } : base);
+      const merged = saved && typeof saved === 'object' ? { ...base, ...saved } : base;
+      /*
+       * Migrasi sekali jalan: bawaan lama membuka Shopee cuma 800 ms sebelum
+       * detik 0 — terlalu singkat untuk halaman Shopee tampil di HP. Hanya
+       * yang masih di nilai bawaan itu yang dinaikkan; yang sudah memilih
+       * angka lain sendiri tidak disentuh.
+       */
+      if (saved && !localStorage.getItem('gx_lead_migrated_v1')) {
+        if (Number(saved.openLeadMs) === 800) merged.openLeadMs = 3000;
+        try {
+          localStorage.setItem('gx_lead_migrated_v1', '1');
+        } catch {}
+      }
+      return normalizeSettings(merged);
     } catch {
       return base;
     }
@@ -366,6 +383,10 @@ export const App: React.FC = () => {
       document.body.classList.remove('dark-theme');
       localStorage.setItem('shopee_bot_theme', 'light');
     }
+    // Bilah status & navigasi HP ikut warna latar aplikasi, bukan biru
+    const bg = isDarkTheme ? '#070c1c' : '#f2f6ff';
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', bg));
+    document.documentElement.style.backgroundColor = bg;
   }, [isDarkTheme]);
 
   const addLog = useCallback(
@@ -394,6 +415,9 @@ export const App: React.FC = () => {
     if (res.success && Array.isArray(res.data)) setAnnouncements(res.data);
     if (bn.success && Array.isArray(bn.data)) setBanners(bn.data);
   }, []);
+
+  /** Data akun sudah pernah termuat — sebelum itu dashboard menampilkan kerangka. */
+  const [dataReady, setDataReady] = useState(false);
 
   const loadUserData = useCallback(async () => {
     if (!currentUser) return;
@@ -440,6 +464,8 @@ export const App: React.FC = () => {
       }
     } catch (err: any) {
       console.warn('Error fetching initial user data:', err);
+    } finally {
+      setDataReady(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, currentUser?.role]);
@@ -527,6 +553,7 @@ export const App: React.FC = () => {
     localStorage.removeItem('shopee_bot_token');
     localStorage.removeItem('shopee_bot_user');
     setCurrentUser(null);
+    setDataReady(false);
     clearBotTimers();
     finishRun('idle');
     setQueue([]);
@@ -582,7 +609,7 @@ export const App: React.FC = () => {
   const botMode = botSettings.botMode || 'turbo';
   const runMode: 'open' | 'practice' = botSettings.runMode === 'practice' ? 'practice' : 'open';
   const avgLatency = latency.history.length ? latency.history.reduce((x, y) => x + y, 0) / latency.history.length : null;
-  const manualLead = Math.max(0, Math.min(5000, Number(botSettings.openLeadMs ?? 800)));
+  const manualLead = Math.max(0, Math.min(10000, Number(botSettings.openLeadMs ?? 3000)));
   // Mode AI: jeda buka dihitung dari latensi gateway yang terukur
   // Riwayat sesi yang terukur — dasar statistik & mesin adaptif
   const [attempts, setAttempts] = useState<WarAttempt[]>(() => loadAttempts());
@@ -592,7 +619,20 @@ export const App: React.FC = () => {
    * perangkat ini, bukan dari rumus latensi semata. Makin banyak sesi,
    * makin tepat sarannya.
    */
-  const adaptive = useMemo(() => adviseLead(attempts, manualLead, avgLatency), [attempts, manualLead, avgLatency]);
+  /**
+   * Latensi HP → Shopee yang diukur di Lab engine. Lebih relevan daripada
+   * latensi server ke Shopee, karena yang memuat halaman Shopee adalah HP user.
+   */
+  const [phoneLatency, setPhoneLatency] = useState<number | null>(() => {
+    try {
+      const v = Number(localStorage.getItem('gx_phone_latency'));
+      return isFinite(v) && v > 0 ? v : null;
+    } catch {
+      return null;
+    }
+  });
+  const effectiveLatency = phoneLatency ?? avgLatency;
+  const adaptive = useMemo(() => adviseLead(attempts, manualLead, effectiveLatency), [attempts, manualLead, effectiveLatency]);
   const openLeadMs = botMode === 'ai' ? adaptive.leadMs : manualLead;
   const standbyPollMs = botMode === 'stealth' ? 30000 : Math.max(2000, Number(botSettings.pollRate) || 5000);
   const pingSamples = Math.max(1, Math.min(8, Number(botSettings.threadCount) || 1, licenseThreadCap));
@@ -752,6 +792,13 @@ export const App: React.FC = () => {
   }, [armed?.epoch, selectedTarget?.id, selectedTarget?.url, pollStock]);
 
   // --- Pemeriksaan sebelum war ---
+  // Sambungan ke Shopee disiapkan sejak target dipilih, jauh sebelum tombol ditekan
+  useEffect(() => {
+    if (!currentUser || !selectedTarget?.url) return;
+    const reg = isAseanCode(selectedTarget.region) ? selectedTarget.region : selectedRegion;
+    warmShopee(reg);
+  }, [currentUser?.id, selectedTarget?.id, selectedTarget?.url, selectedRegion]);
+
   /** Batas waktu pemeriksaan: diisi saat ada jadwal, supaya tidak pernah menyerempet detik 0. */
   const fireDeadlineRef = useRef<number | null>(null);
   /** Sisa waktu sebelum Shopee harus dibuka; Infinity kalau tidak ada jadwal. */
@@ -889,7 +936,7 @@ export const App: React.FC = () => {
       scheduledEpoch,
       leadMs: openLeadMs,
       timerDeltaMs: delta,
-      latencyMs: avgLatency,
+      latencyMs: effectiveLatency,
       clockAccuracyMs: clock.rttMs != null ? Math.ceil(clock.rttMs / 2) : null,
       result: 'unknown',
       practice: runMode === 'practice',
@@ -1076,6 +1123,12 @@ export const App: React.FC = () => {
   startRef.current = handleStartBot;
   const precheckRef = useRef(runPrechecks);
   precheckRef.current = runPrechecks;
+  const targetUrlsRef = useRef(targetUrls);
+  targetUrlsRef.current = targetUrls;
+  const selectedTargetRef = useRef(selectedTarget);
+  selectedTargetRef.current = selectedTarget;
+  const selectedRegionRef = useRef(selectedRegion);
+  selectedRegionRef.current = selectedRegion;
   const logRef = useRef({ addLog, L, beep });
   logRef.current = { addLog, L, beep };
 
@@ -1104,6 +1157,16 @@ export const App: React.FC = () => {
         if (!milestonesRef.current.has(`s${sec}`)) {
           mark(`s${sec}`, `[COUNTDOWN] T-${sec}`, sec <= 3 ? 'warning' : 'info');
           if (sec <= 3) bp(880, 90);
+        }
+      }
+      if (remain <= 30_000 && !milestonesRef.current.has('warm')) {
+        milestonesRef.current.add('warm');
+        const tgt = armed.targetId ? targetUrlsRef.current.find((x) => x.id === armed.targetId) : selectedTargetRef.current;
+        if (tgt?.url) {
+          const reg = isAseanCode(tgt.region) ? tgt.region : selectedRegionRef.current;
+          warmShopee(reg);
+          prefetchProduct(tgt.url);
+          log(tr('[WARMUP] Sambungan ke Shopee disiapkan & halaman produk diunduh lebih dulu.', '[WARMUP] Connection to Shopee prepared & product page fetched ahead.'), 'info');
         }
       }
       if (remain <= 60_000 && !precheckStartedRef.current) {
@@ -1255,7 +1318,7 @@ export const App: React.FC = () => {
             checkedAt: Date.now(),
           }));
           log(
-            d.reachable === false ? tr(`[GATEWAY] ${reg.domain} tidak terjangkau dari server bot (${d.latency_ms} ms)`, `[GATEWAY] ${reg.domain} unreachable from bot server (${d.latency_ms} ms)`) : `[GATEWAY] ${reg.domain} → HTTP ${d.status} · ${d.latency_ms} ms`,
+            d.reachable === false ? tr(`[GATEWAY] ${reg.domain} tidak terjangkau dari server bot (${msTxt(d.latency_ms)})`, `[GATEWAY] ${reg.domain} unreachable from bot server (${msTxt(d.latency_ms)})`) : `[GATEWAY] ${reg.domain} → HTTP ${d.status} · ${msTxt(d.latency_ms)}`,
             d.reachable === false ? 'warning' : 'info'
           );
         } else {
@@ -1471,8 +1534,8 @@ export const App: React.FC = () => {
       if (d.proxy) setProxies((prev) => prev.map((x) => (x.id === p.id ? d.proxy : x)));
       addLog(
         d.ok
-          ? L(`[PROXY] ${p.host}:${p.port} AKTIF · tunnel ke ${d.target} ${d.latency_ms} ms`, `[PROXY] ${p.host}:${p.port} ACTIVE · tunnel to ${d.target} ${d.latency_ms} ms`)
-          : L(`[PROXY] ${p.host}:${p.port} MATI · ${d.detail} (${d.latency_ms} ms)`, `[PROXY] ${p.host}:${p.port} DEAD · ${d.detail} (${d.latency_ms} ms)`),
+          ? L(`[PROXY] ${p.host}:${p.port} AKTIF · tunnel ke ${d.target} ${msTxt(d.latency_ms)}`, `[PROXY] ${p.host}:${p.port} ACTIVE · tunnel to ${d.target} ${msTxt(d.latency_ms)}`)
+          : L(`[PROXY] ${p.host}:${p.port} MATI · ${d.detail} (${msTxt(d.latency_ms)})`, `[PROXY] ${p.host}:${p.port} DEAD · ${d.detail} (${msTxt(d.latency_ms)})`),
         d.ok ? 'success' : 'error'
       );
     } else {
@@ -1767,6 +1830,17 @@ export const App: React.FC = () => {
     backupTargetIds,
     onToggleBackupTarget: toggleBackupTarget,
     push,
+    clock,
+    logs,
+    onLog: addLog,
+    onPhonePing: (r: { avg: number | null }) => {
+      if (r.avg != null) {
+        setPhoneLatency(r.avg);
+        try {
+          localStorage.setItem('gx_phone_latency', String(r.avg));
+        } catch {}
+      }
+    },
     selectedAccountId: selectedAccount?.id || '',
     onSelectAccount: handleSelectAccount,
     onOpenAccountModal: (a?: ShopeeAccount) => {
@@ -1859,6 +1933,7 @@ export const App: React.FC = () => {
             onOpenAnnouncements={() => setIsAnnDrawerOpen(true)}
             runMode={runMode}
             stockWatch={stockWatch}
+            dataReady={dataReady}
             queue={queue}
             warSummary={warSummary}
             adaptive={adaptive}

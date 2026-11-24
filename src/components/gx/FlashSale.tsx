@@ -13,6 +13,9 @@ import {
   ExternalLink,
   PackageCheck,
   Info,
+  BellRing,
+  CircleCheck,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { AseanCountryCode, TargetUrl } from '../../types/index.ts';
 import { ASEAN_REGIONS, formatAseanCurrency } from '../../constants/asean.ts';
@@ -21,7 +24,8 @@ import { ServerClock, useTicker } from '../../lib/useServerClock.ts';
 import { formatClock, getSessionSlots, pad, splitDuration } from '../../lib/time.ts';
 import { isValidHttpUrl } from '../../lib/shopee.ts';
 import { useLang } from '../../lib/i18n.tsx';
-import { upcomingCampaigns, isToday } from '../../lib/campaigns.ts';
+import { upcomingCampaigns, isToday, Campaign } from '../../lib/campaigns.ts';
+import { Ring, SkelList } from './Skeleton.tsx';
 
 type Session = { promotion_id: string; name: string; start_time: string; end_time: string | null; type: number };
 type Item = {
@@ -82,15 +86,28 @@ const ProductThumb: React.FC<{ src?: string; alt: string }> = ({ src, alt }) => 
 };
 
 /**
- * Kampanye besar Shopee (tanggal kembar & Gajian Sale). Tanggalnya berulang
- * tiap tahun jadi bisa dihitung jauh hari; jam sesinya tetap menunggu Shopee.
+ * Kampanye besar Shopee (tanggal kembar & Gajian Sale).
+ *
+ * Yang bisa dipastikan jauh hari hanya TANGGALNYA — Shopee tidak menerbitkan
+ * daftar produk 12.12 berminggu-minggu sebelumnya. Jadi tab ini fokus ke yang
+ * nyata: pasang auto-start dari sekarang, dan begitu hari-H tiba, produk asli
+ * beserta fotonya diambil langsung dari Shopee.
  */
-const MegaEvents: React.FC<{ region: AseanCountryCode; clock: ServerClock }> = ({ region, clock }) => {
+const MegaEvents: React.FC<{
+  region: AseanCountryCode;
+  clock: ServerClock;
+  armedEpoch: number | null;
+  onArm: (a: { epoch: number; label: string }) => void;
+  onShowToday: () => void;
+}> = ({ region, clock, armedEpoch, onArm, onShowToday }) => {
   const { L, locale } = useLang();
   useTicker(1000);
   const now = clock.now();
   const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
   const list = useMemo(() => upcomingCampaigns(region, now, 14).slice(0, 10), [region, Math.floor(now / 3_600_000)]);
+  // Kartu utama: event kembar/mega terdekat (Gajian Sale tetap di daftar)
+  const hero = list.find((c) => c.tier !== 'payday') || list[0];
+  const flashUrl = `${reg.domain.startsWith('http') ? reg.domain : `https://${reg.domain}`}/flash_sale`;
 
   const sisa = (ms: number) => {
     if (ms <= 0) return L('sedang berlangsung', 'happening now');
@@ -102,24 +119,98 @@ const MegaEvents: React.FC<{ region: AseanCountryCode; clock: ServerClock }> = (
     return L(`${menit} menit lagi`, `in ${menit}m`);
   };
 
+  const two = (n: number) => String(Math.max(0, n)).padStart(2, '0');
+  const parts = (ms: number) => {
+    const t = Math.max(0, ms);
+    return {
+      d: Math.floor(t / 86_400_000),
+      h: Math.floor((t % 86_400_000) / 3_600_000),
+      m: Math.floor((t % 3_600_000) / 60_000),
+      s: Math.floor((t % 60_000) / 1000),
+    };
+  };
+
+  const arm = (c: Campaign) => {
+    onArm({ epoch: c.startsAt, label: `00:00 · ${c.code}` });
+  };
+
   const TIER_ICON = { mega: Flame, twin: CalendarHeart, payday: Wallet } as const;
 
   return (
     <>
+      {hero && (() => {
+        const ms = hero.startsAt - now;
+        const today = isToday(hero, now);
+        const p = parts(ms);
+        const armed = armedEpoch === hero.startsAt;
+        return (
+          <div className={`gx-mega gx-mega--${hero.tier}`}>
+            <div className="gx-mega__top">
+              <span className="gx-mega__code" aria-hidden="true">
+                {hero.code}
+              </span>
+              <div className="gx-mega__meta">
+                <span className="gx-mega__eyebrow">{hero.tier === 'mega' ? L('Event terbesar berikutnya', 'Next mega event') : L('Event berikutnya', 'Next event')}</span>
+                <b>{L(hero.nameId, hero.nameEn)}</b>
+                <span>
+                  {new Intl.DateTimeFormat(locale, { timeZone: reg.timezone, weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(hero.startsAt))} · 00:00 {reg.timezoneLabel}
+                </span>
+              </div>
+            </div>
+
+            {today ? (
+              <div className="gx-mega__live">
+                <span className="gx-led gx-led--pulse" /> {L('Sedang berlangsung hari ini', 'Happening today')}
+              </div>
+            ) : (
+              <div className="gx-mega__count" role="timer" aria-label={sisa(ms)}>
+                {[
+                  [p.d, L('hari', 'days')],
+                  [p.h, L('jam', 'hrs')],
+                  [p.m, L('menit', 'min')],
+                  [p.s, L('detik', 'sec')],
+                ].map(([v, lbl]) => (
+                  <div key={String(lbl)}>
+                    <b>{two(v as number)}</b>
+                    <small>{lbl}</small>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="gx-mega__actions">
+              {today ? (
+                <button type="button" className="gx-btn gx-btn--sm gx-mega__btn" onClick={onShowToday}>
+                  <ImageIcon size={14} /> {L('Lihat produk & foto', 'See products & photos')}
+                </button>
+              ) : (
+                <button type="button" className="gx-btn gx-btn--sm gx-mega__btn" onClick={() => arm(hero)} disabled={armed}>
+                  <BellRing size={14} /> {armed ? L('Auto-start terpasang', 'Auto-start set') : L('Pasang auto-start 00:00', 'Set auto-start 00:00')}
+                </button>
+              )}
+              <a className="gx-btn gx-btn--sm gx-mega__btn gx-mega__btn--ghost" href={flashUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink size={14} /> {L('Buka Shopee', 'Open Shopee')}
+              </a>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="gx-note">
         <Info size={15} />
         <span>
           {L(
-            'Shopee menggelar kampanye ini pada tanggal yang sama tiap tahun, jadi kamu bisa siap-siap dari jauh hari. Jam sesinya baru pasti saat sesinya terbit — cek tab "Jadwal & produk" pada hari-H.',
-            'Shopee runs these campaigns on the same dates every year, so you can prepare well ahead. Exact session times are only confirmed once sessions go live — check the "Schedule & products" tab on the day.'
+            'Tanggal kampanye ini tetap tiap tahun, jadi auto-start bisa dipasang dari sekarang. Daftar produk & fotonya baru diterbitkan Shopee pada hari-H — tombol "Lihat produk & foto" muncul otomatis saat harinya tiba.',
+            'These campaign dates repeat every year, so you can set auto-start now. Shopee only publishes the product list & photos on the day — the "See products & photos" button appears automatically when the day arrives.'
           )}
         </span>
       </div>
 
-      <ul className="gx-list gx-events">
+      <ul className="gx-list gx-events gx-reveal">
         {list.map((c) => {
           const hariIni = isToday(c, now);
           const Icon = TIER_ICON[c.tier];
+          const armed = armedEpoch === c.startsAt;
           return (
             <li key={c.id} className={`gx-row gx-event ${hariIni ? 'gx-event--now' : ''}`}>
               <span className={`gx-event__badge gx-event__badge--${c.tier}`}>
@@ -132,16 +223,24 @@ const MegaEvents: React.FC<{ region: AseanCountryCode; clock: ServerClock }> = (
                   {hariIni && <span className="gx-tag gx-tag--ok" style={{ marginLeft: 6 }}>{L('HARI INI', 'TODAY')}</span>}
                 </div>
                 <div className="gx-row__s">
-                  {new Intl.DateTimeFormat(locale, {
-                    timeZone: reg.timezone,
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  }).format(new Date(c.startsAt))}{' '}
-                  · {sisa(c.startsAt - now)}
+                  {new Intl.DateTimeFormat(locale, { timeZone: reg.timezone, weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(c.startsAt))} · {sisa(c.startsAt - now)}
                 </div>
               </div>
+              {hariIni ? (
+                <button type="button" className="gx-btn gx-btn--xs gx-btn--primary" onClick={onShowToday}>
+                  {L('Produk', 'Products')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={`gx-btn gx-btn--xs ${armed ? '' : 'gx-btn--ghost'}`}
+                  onClick={() => arm(c)}
+                  disabled={armed}
+                  aria-label={L(`Pasang auto-start ${c.nameId}`, `Set auto-start for ${c.nameEn}`)}
+                >
+                  {armed ? <CircleCheck size={12} /> : <BellRing size={12} />} {armed ? L('Terpasang', 'Set') : L('Jadwalkan', 'Schedule')}
+                </button>
+              )}
             </li>
           );
         })}
@@ -156,6 +255,7 @@ const MegaEvents: React.FC<{ region: AseanCountryCode; clock: ServerClock }> = (
     </>
   );
 };
+
 
 export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
   region,
@@ -201,7 +301,11 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
       setSessions(res.data.sessions || []);
       setNote(
         res.data.ok
-          ? L(`${res.data.sessions.length} sesi dibaca dari Shopee · ${res.data.latency_ms} ms`, `${res.data.sessions.length} sessions read from Shopee · ${res.data.latency_ms} ms`)
+          ? (() => {
+              // Latensi tidak selalu ada di respons — jangan sampai "undefined ms" tampil
+              const lat = typeof res.data.latency_ms === 'number' && isFinite(res.data.latency_ms) ? ` · ${Math.round(res.data.latency_ms)} ms` : '';
+              return L(`${res.data.sessions.length} sesi dibaca dari Shopee${lat}`, `${res.data.sessions.length} sessions read from Shopee${lat}`);
+            })()
           : res.data.reason || L('Shopee tidak mengirim data sesi.', 'Shopee did not return session data.')
       );
     } else {
@@ -340,12 +444,24 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
         </div>
 
         {tab === 'events' ? (
-          <MegaEvents region={region} clock={clock} />
+          <MegaEvents
+            region={region}
+            clock={clock}
+            armedEpoch={armedEpoch}
+            onArm={(a) => {
+              onArm(a);
+              toast(L(`Auto-start ${a.label} dipasang`, `Auto-start ${a.label} set`));
+            }}
+            onShowToday={() => {
+              setTab('schedule');
+              loadSessions();
+            }}
+          />
         ) : tab === 'schedule' ? (
           <>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <button type="button" className="gx-btn gx-btn--sm gx-btn--primary" onClick={loadSessions} disabled={loading}>
-                <RefreshCw size={14} className={loading ? 'gx-spin' : ''} />
+                {loading ? <Ring size={14} /> : <RefreshCw size={14} />}
                 {loading ? L('Mengecek…', 'Checking…') : checked ? L('Cek ulang', 'Check again') : L('Cek flash sale sekarang', 'Check flash sale now')}
               </button>
               {note && sessions.length > 0 && (
@@ -355,8 +471,10 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
               )}
             </div>
 
-            {sessions.length > 0 ? (
-              <ul className="gx-list">
+            {loading && sessions.length === 0 ? (
+              <SkelList rows={3} thumb action label={L('Membaca jadwal flash sale dari Shopee', 'Reading flash sale schedule from Shopee')} />
+            ) : sessions.length > 0 ? (
+              <ul className="gx-list gx-reveal">
                 {sessions.map((s) => {
                   const epoch = new Date(s.start_time).getTime();
                   const end = s.end_time ? new Date(s.end_time).getTime() : epoch + 2 * 3600 * 1000;
@@ -397,11 +515,9 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
                       {isOpen && (
                         <div style={{ padding: '0 0 12px 36px' }}>
                           {itemsLoading ? (
-                            <div className="gx-muted" style={{ fontSize: 12.5 }}>
-                              <RefreshCw size={13} className="gx-spin" /> {L('Mengambil produk flash sale…', 'Fetching flash sale products…')}
-                            </div>
+                            <SkelList rows={4} thumb action label={L('Mengambil produk flash sale', 'Fetching flash sale products')} />
                           ) : items.length > 0 ? (
-                            <ul className="gx-list">
+                            <ul className="gx-list gx-reveal">
                               {items.map((it) => {
                                 const active = selectedTargetUrl && it.url && selectedTargetUrl === it.url;
                                 return (

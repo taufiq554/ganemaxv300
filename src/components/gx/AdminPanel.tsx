@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { Announcement, AnnouncementType, Banner, BannerFit, BannerLayout, BannerRatio, BannerSlot, ProxyStockItem, RevenueEntry, User } from '../../types/index.ts';
 import { BannerCard, RATIO_HINT, RATIO_VALUE, sortBanners } from './BannerStrip.tsx';
+import { Ring, SkelKpi, SkelList } from './Skeleton.tsx';
 import { api } from '../../services/api.ts';
 import { LICENSE_TIERS, findTier, formatRp, formatRpShort, LicenseTier } from '../../constants/licenses.ts';
 import { monthKeyWib, monthLabel, shiftMonth, relativeTimeId } from '../../lib/time.ts';
@@ -211,7 +212,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
   const [banners, setBanners] = useState<Banner[]>([]);
   const [proxyStock, setProxyStock] = useState<ProxyStockItem[]>([]);
   const [sellFor, setSellFor] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const nowMonth = monthKeyWib(Date.now());
   const [month, setMonth] = useState(nowMonth);
@@ -233,6 +235,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
     if (u.success && Array.isArray(u.data)) setUsers(u.data);
     if (!r.success || !a.success) setLoadError(r.error?.message || a.error?.message || 'Gagal memuat data admin');
     setLoading(false);
+    setLoadedOnce(true);
   }, [setUsers]);
 
   useEffect(() => {
@@ -418,7 +421,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
         </div>
         <div className="gx-pagehead__aside">
           <button type="button" className="gx-btn gx-btn--sm" onClick={load} disabled={loading}>
-            <RefreshCw size={14} className={loading ? 'gx-spin' : ''} /> Muat ulang
+            {loading ? <Ring size={14} /> : <RefreshCw size={14} />} {loading ? 'Memuat…' : 'Muat ulang'}
           </button>
         </div>
       </div>
@@ -434,10 +437,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
           <Users size={14} /> Pengguna <span className="gx-count-badge">{customers.length}</span>
         </button>
         <button type="button" aria-pressed={section === 'banners'} onClick={() => setSection('banners')}>
-          Banner
+          <Images size={14} /> Banner
         </button>
         <button type="button" aria-pressed={section === 'proxy'} onClick={() => setSection('proxy')}>
-          Proxy <span className="gx-count-badge">{proxyStock.filter((x) => !x.assigned_user_id).length}</span>
+          <Server size={14} /> Proxy <span className="gx-count-badge">{proxyStock.filter((x) => !x.assigned_user_id).length}</span>
         </button>
         <button type="button" aria-pressed={section === 'announcements'} onClick={() => setSection('announcements')}>
           <Megaphone size={14} /> Pengumuman <span className="gx-count-badge">{announcements.filter((a) => isAnnouncementLive(a)).length}</span>
@@ -454,9 +457,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
       )}
 
       {/* ================= OVERVIEW ================= */}
-      {section === 'overview' && (
+      {/* Muatan pertama: kerangka, bukan angka nol yang menyesatkan */}
+      {loading && !loadedOnce && (
+        <div className="gx-kpis" role="status" aria-live="polite">
+          <span className="gx-sr">Memuat data admin</span>
+          <SkelKpi />
+          <SkelKpi />
+          <SkelKpi />
+          <SkelKpi />
+        </div>
+      )}
+
+      {section === 'overview' && (loadedOnce || !loading) && (
         <>
-          <div className="gx-kpis">
+          <div className="gx-kpis gx-reveal">
             <Kpi hero label={`Pendapatan ${monthLabel(nowMonth)}`} value={formatRp(monthStat(nowMonth).total)} delta={
               monthStat(shiftMonth(nowMonth, -1)).total > 0
                 ? ((monthStat(nowMonth).total - monthStat(shiftMonth(nowMonth, -1)).total) / monthStat(shiftMonth(nowMonth, -1)).total) * 100
@@ -541,7 +555,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
             </div>
             <div className="gx-card__body" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <button type="button" className="gx-btn gx-btn--sm" onClick={onRunMigration} disabled={isMigrating}>
-                <RefreshCw size={14} className={isMigrating ? 'gx-spin' : ''} /> {isMigrating ? 'Menyinkronkan…' : 'Cek & isi koleksi cloud kosong'}
+                {isMigrating ? <Ring size={14} /> : <RefreshCw size={14} />} {isMigrating ? 'Menyinkronkan…' : 'Cek & isi koleksi cloud kosong'}
               </button>
               <span className="gx-muted" style={{ fontSize: 12 }}>
                 Aman: hanya mengisi koleksi Firestore yang masih kosong, tidak menimpa data yang sudah ada.

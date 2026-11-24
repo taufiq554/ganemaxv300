@@ -27,7 +27,10 @@ import {
   Play,
 } from 'lucide-react';
 import { PushStatus } from '../lib/push.ts';
-import { User, TargetUrl, ShopeePayment, BotSettings, AseanCountryCode, ShopeeAccount, Address, ProxyMesh, Schedule } from '../types/index.ts';
+import { Ring } from './gx/Skeleton.tsx';
+import { EngineLab, PhonePing } from './gx/EngineLab.tsx';
+import { ServerClock } from '../lib/useServerClock.ts';
+import { User, TargetUrl, ShopeePayment, BotSettings, AseanCountryCode, ShopeeAccount, Address, ProxyMesh, Schedule, BotLogItem } from '../types/index.ts';
 import { ASEAN_REGIONS, ALL_ASEAN_CODES, formatAseanCurrency, paymentFamily, isAseanCode } from '../constants/asean.ts';
 import { AseanFlag } from './AseanFlag.tsx';
 import { api } from '../services/api.ts';
@@ -58,6 +61,10 @@ interface ControlPanelProps {
   onSelectTarget: (id: string) => void;
   backupTargetIds: string[];
   onToggleBackupTarget: (id: string) => void;
+  clock: ServerClock;
+  logs: BotLogItem[];
+  onLog: (text: string, type?: 'info' | 'success' | 'error' | 'warning') => void;
+  onPhonePing: (p: PhonePing) => void;
   push: {
     status: PushStatus;
     busy: boolean;
@@ -481,13 +488,27 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
 
   /* ================================================================ */
   // ENGINE
-  const lead = Number(s.openLeadMs ?? 800);
+  const lead = Number(s.openLeadMs ?? 3000);
   const now = Date.now();
   const sortedSchedules = [...p.schedules].sort((a, b) => new Date(a.target_time).getTime() - new Date(b.target_time).getTime());
 
   return (
     <div className="gx-grid gx-grid--2" style={{ alignItems: 'start' }}>
       <div className="gx-col">
+        {/* LAB ENGINE: semua diukur langsung dari HP */}
+        <EngineLab
+          region={selectedRegion}
+          clock={p.clock}
+          target={p.targetUrls.find((t) => t.id === p.selectedTargetId)}
+          accountId={p.selectedAccountId}
+          currentLeadMs={lead}
+          aiMode={s.botMode === 'ai'}
+          logs={p.logs}
+          onLog={p.onLog}
+          onApplyLead={(ms) => p.onUpdateSettings({ ...s, openLeadMs: ms })}
+          onPhonePing={p.onPhonePing}
+        />
+
         {/* WILAYAH + BAHASA */}
         <Card icon={<Globe size={16} />} title={L('Wilayah Shopee ASEAN', 'Shopee ASEAN region')}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -604,7 +625,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
                       </div>
                     </div>
                     <button type="button" className="gx-btn gx-btn--xs" onClick={() => p.onTestProxy(px)} disabled={p.testingProxyId === px.id}>
-                      <RefreshCw size={12} className={p.testingProxyId === px.id ? 'gx-spin' : ''} /> {L('Tes', 'Test')}
+                      {p.testingProxyId === px.id ? <Ring size={12} /> : <RefreshCw size={12} />} {L('Tes', 'Test')}
                     </button>
                     <RowBtns label={px.host} onEdit={() => p.onOpenProxyModal(px)} onDelete={() => p.onDeleteProxy(px.id)} />
                   </li>
@@ -666,22 +687,48 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
               </select>
             </label>
           </div>
-          <label className="gx-field" style={{ marginTop: 14 }}>
-            <span style={{ display: 'flex', justifyContent: 'space-between' }}>
-              {L('Pre-fire: buka Shopee lebih awal', 'Pre-fire: open Shopee early')} <b className="gx-mono">{s.botMode === 'ai' ? `${p.effectiveLeadMs} ms (AI)` : `${lead} ms`}</b>
+          <div className="gx-field" style={{ marginTop: 14 }}>
+            <span style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+              {L('Buka Shopee lebih awal', 'Open Shopee early')}
+              <b className="gx-mono">{s.botMode === 'ai' ? `${(p.effectiveLeadMs / 1000).toFixed(1)} dtk (AI)` : `${(lead / 1000).toFixed(1)} dtk`}</b>
             </span>
+            <div className="gx-leadchips" role="group" aria-label={L('Pilih jeda buka', 'Pick open lead')}>
+              {[
+                { ms: 1000, id: '1 dtk', en: '1 s', hint: L('wifi kencang', 'fast wifi') },
+                { ms: 3000, id: '3 dtk', en: '3 s', hint: L('disarankan', 'recommended') },
+                { ms: 5000, id: '5 dtk', en: '5 s', hint: L('4G biasa', 'normal 4G') },
+                { ms: 8000, id: '8 dtk', en: '8 s', hint: L('sinyal lemah', 'weak signal') },
+              ].map((o) => (
+                <button
+                  key={o.ms}
+                  type="button"
+                  aria-pressed={s.botMode !== 'ai' && lead === o.ms}
+                  disabled={s.botMode === 'ai'}
+                  onClick={() => p.onUpdateSettings({ ...s, openLeadMs: o.ms })}
+                >
+                  <b>{L(o.id, o.en)}</b>
+                  <small>{o.hint}</small>
+                </button>
+              ))}
+            </div>
             <input
               type="range"
               min={0}
-              max={3000}
-              step={100}
+              max={10000}
+              step={250}
               value={lead}
               disabled={s.botMode === 'ai'}
               onChange={(e) => p.onUpdateSettings({ ...s, openLeadMs: Number(e.target.value) })}
-              style={{ accentColor: 'var(--gx-brand)', minHeight: 0, padding: 0, border: 0 }}
+              style={{ accentColor: 'var(--gx-brand)', minHeight: 0, padding: 0, border: 0, marginTop: 8 }}
+              aria-label={L('Atur jeda buka manual', 'Set open lead manually')}
             />
-            <small>{L('App Shopee butuh ±0,5–1,5 dtk untuk terbuka. Atur supaya halaman produk muncul pas detik 0.', 'The Shopee app needs about 0.5–1.5 s to open. Tune it so the product page appears right at second zero.')}</small>
-          </label>
+            <small>
+              {L(
+                'Halaman Shopee butuh 2–5 detik untuk tampil di HP. Kalau dibuka pas detik 0, produknya baru kelihatan setelah sesi lewat dan keburu habis. Dengan dibuka lebih awal, halaman produk sudah siap — hitung mundur milik Shopee sendiri yang membawanya ke detik 0, kamu tinggal tap Beli.',
+                'A Shopee page needs 2–5 seconds to show on a phone. Opened right at zero, the product appears after the session started and sells out. Opened early, the product page is ready — Shopee\'s own countdown carries it to zero and you just tap Buy.'
+              )}
+            </small>
+          </div>
         </Card>
 
         {/* NOTIFIKASI */}
