@@ -53,6 +53,7 @@ import {
 } from '../../types/index.ts';
 import { BannerStrip } from './BannerStrip.tsx';
 import { Skel, SkelList } from './Skeleton.tsx';
+import { ProductThumb } from './ProductThumb.tsx';
 import { AdaptiveAdvice, WarSummary } from '../../lib/warstats.ts';
 import { ASEAN_REGIONS, formatAseanCurrency, paymentFamily } from '../../constants/asean.ts';
 import { ServerClock, useTicker } from '../../lib/useServerClock.ts';
@@ -536,9 +537,13 @@ const SetupList: React.FC<{
                 : L('Atur', 'Set up');
             return (
               <button key={it.key} type="button" className="gx-acc" onClick={it.action}>
-                <span className="gx-acc__icon" style={{ background: `${it.color}1A`, color: it.color }}>
-                  <Icon size={18} />
-                </span>
+                {it.key === 'target' && selected?.image_url ? (
+                  <ProductThumb src={selected.image_url} alt={selected.title} />
+                ) : (
+                  <span className="gx-acc__icon" style={{ background: `${it.color}1A`, color: it.color }}>
+                    <Icon size={18} />
+                  </span>
+                )}
                 <span className="gx-acc__main">
                   <span className="gx-acc__t">{it.label}</span>
                   <span className="gx-acc__s">{it.value}</span>

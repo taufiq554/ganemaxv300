@@ -523,6 +523,7 @@ router.post('/bot/flash-items', requireAuth, async (req: AuthenticatedRequest, r
         image: shopeeImage(x, region),
       };
     });
+    for (const it of items) if (it.item_id && it.image) rememberImage(it.item_id, it.image);
     const withImage = items.filter((i) => !!i.image).length;
     return successRes(res, {
       ok: true,
@@ -598,6 +599,150 @@ router.post('/bot/resolve-link', requireAuth, async (req: AuthenticatedRequest, 
       clean = u.href;
     } catch {}
     return successRes(res, { url: clean, raw: finalUrl, shop_id: ids?.shopId || null, item_id: ids?.itemId || null, resolved: !!ids });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* Gambar produk untuk target                                          */
+/* ------------------------------------------------------------------ */
+
+const MOBILE_UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36';
+
+/** Cache gambar per item_id selama instance server hidup (diisi juga oleh daftar flash sale). */
+const imageCache = new Map<string, { image: string; at: number }>();
+function rememberImage(itemId: string, image: string) {
+  if (!itemId || !image) return;
+  if (imageCache.size > 2000) imageCache.delete(imageCache.keys().next().value as string);
+  imageCache.set(String(itemId), { image, at: Date.now() });
+}
+
+/** Hanya gambar dari CDN Shopee yang diterima, supaya tidak bisa disisipi link sembarang. */
+function isShopeeImage(u: string): boolean {
+  try {
+    const h = new URL(u).hostname;
+    return /(^|\.)susercontent\.com$|(^|\.)shopee\.[a-z.]+$|(^|\.)shopeemobile\.com$/i.test(h);
+  } catch {
+    return false;
+  }
+}
+
+/** Ikuti redirect link pendek (s.shopee / shope.ee) sampai ketemu ID produk. */
+async function resolveShopeeUrl(url: string): Promise<string> {
+  let cur = url;
+  for (let i = 0; i < 5; i++) {
+    if (parseShopeeLink(cur)) return cur;
+    let r: globalThis.Response;
+    try {
+      r = await fetch(cur, { method: 'GET', redirect: 'manual', headers: { 'User-Agent': MOBILE_UA, Accept: 'text/html' }, signal: AbortSignal.timeout(4000) });
+    } catch {
+      return cur;
+    }
+    const loc = r.headers.get('location');
+    if (r.status >= 300 && r.status < 400 && loc) {
+      cur = loc.startsWith('http') ? loc : new URL(loc, cur).href;
+      continue;
+    }
+    return cur;
+  }
+  return cur;
+}
+
+async function tryJson(url: string, headers: Record<string, string>, ms = 3500): Promise<any> {
+  try {
+    const r = await fetch(url, { headers, signal: AbortSignal.timeout(ms) });
+    if (!r.ok) return null;
+    return await r.json().catch(() => null);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cari foto produk dari link target. Urutannya: cache → API item Shopee →
+ * API halaman produk → meta og:image di HTML. Shopee kadang menolak request
+ * server; kalau semua gagal, hasilnya kosong (bukan gambar palsu).
+ */
+router.post('/bot/product-image', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const region = String(req.body?.region || 'ID').toUpperCase();
+    const config = REGIONAL_DOMAINS[region] || REGIONAL_DOMAINS.ID;
+    const raw = String(req.body?.url || '').trim().slice(0, 2000);
+    let host = '';
+    try {
+      host = new URL(raw).hostname;
+    } catch {
+      return errorRes(res, 'Link tidak valid', 400);
+    }
+    if (!/(^|\.)shopee\.|(^|\.)shope\.ee$/i.test(host)) return errorRes(res, 'Hanya link Shopee yang didukung', 400);
+
+    const url = await resolveShopeeUrl(raw);
+    const ids = parseShopeeLink(url);
+    if (ids) {
+      const hit = imageCache.get(ids.itemId);
+      if (hit && Date.now() - hit.at < 12 * 3600_000) return successRes(res, { image: hit.image, source: 'cache', item_id: ids.itemId });
+    }
+
+    let cookie = '';
+    const accountId = String(req.body?.account_id || '');
+    if (accountId) {
+      try {
+        const acc: any = await storage.get('shopee_accounts', accountId);
+        if (acc && acc.user_id === req.user!.id && acc.cookies) cookie = String(acc.cookies).replace(/[\r\n]+/g, ' ').trim().slice(0, 8000);
+      } catch (_) {}
+    }
+    const headers: Record<string, string> = {
+      'User-Agent': MOBILE_UA,
+      Accept: 'application/json',
+      Referer: `${config.domain}/`,
+      'X-Requested-With': 'XMLHttpRequest',
+      ...(cookie ? { Cookie: cookie } : {}),
+    };
+
+    let image = '';
+    let title = '';
+    let source = '';
+    if (ids) {
+      const [a, b] = await Promise.all([
+        tryJson(`${config.domain}/api/v4/item/get?itemid=${ids.itemId}&shopid=${ids.shopId}`, headers),
+        tryJson(`${config.domain}/api/v4/pdp/get_pc?item_id=${ids.itemId}&shop_id=${ids.shopId}`, headers),
+      ]);
+      for (const [j, name] of [[a, 'item'], [b, 'pdp']] as const) {
+        const d = j?.data?.item || j?.data || j?.item;
+        const img = d ? shopeeImage(d, region) : '';
+        if (img) {
+          image = img;
+          title = String(d.name || d.title || '');
+          source = name;
+          break;
+        }
+      }
+    }
+    if (!image) {
+      try {
+        const r = await fetch(url, { headers: { 'User-Agent': MOBILE_UA, Accept: 'text/html' }, signal: AbortSignal.timeout(4000) });
+        const html = (await r.text()).slice(0, 400_000);
+        const m =
+          html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+          html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+        if (m && isShopeeImage(m[1])) {
+          image = m[1].replace(/&amp;/g, '&');
+          source = 'og';
+          const t = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
+          if (t) title = t[1];
+        }
+      } catch (_) {}
+    }
+    if (image && !isShopeeImage(image)) image = '';
+    if (image && ids) rememberImage(ids.itemId, image);
+    return successRes(res, {
+      image: image || null,
+      title: title || null,
+      source: source || null,
+      item_id: ids?.itemId || null,
+      reason: image ? '' : 'Shopee tidak mengirim gambar untuk produk ini ke server (bisa coba lagi nanti).',
+    });
   } catch (err: any) {
     return errorRes(res, err.message, 500);
   }
@@ -680,7 +825,13 @@ router.post('/bot/check-item', requireAuth, async (req: AuthenticatedRequest, re
 });
 
 // Tes proxy sungguhan: buka tunnel HTTP CONNECT ke domain Shopee wilayah proxy
-function testProxyConnect(host: string, port: number, targetHost: string, timeoutMs = 5000): Promise<{ ok: boolean; latency_ms: number; detail: string }> {
+function testProxyConnect(
+  host: string,
+  port: number,
+  targetHost: string,
+  timeoutMs = 5000,
+  auth?: { username?: string; password?: string },
+): Promise<{ ok: boolean; latency_ms: number; detail: string }> {
   return new Promise((resolve) => {
     const start = Date.now();
     let done = false;
@@ -693,7 +844,10 @@ function testProxyConnect(host: string, port: number, targetHost: string, timeou
       resolve({ ok, latency_ms: Date.now() - start, detail });
     };
     const sock = net.connect({ host, port }, () => {
-      sock.write(`CONNECT ${targetHost}:443 HTTP/1.1\r\nHost: ${targetHost}:443\r\n\r\n`);
+      const authLine = auth?.username
+        ? `Proxy-Authorization: Basic ${Buffer.from(`${auth.username}:${auth.password || ''}`).toString('base64')}\r\n`
+        : '';
+      sock.write(`CONNECT ${targetHost}:443 HTTP/1.1\r\nHost: ${targetHost}:443\r\n${authLine}\r\n`);
     });
     sock.setTimeout(timeoutMs, () => finish(false, 'Timeout'));
     sock.on('error', (e: any) => finish(false, e?.code || 'Gagal terhubung'));
@@ -720,7 +874,7 @@ router.post('/proxy-test/:id', requireAuth, async (req: AuthenticatedRequest, re
     }
     const region = String(proxy.region || 'ID').toUpperCase();
     const target = (REGIONAL_DOMAINS[region] || REGIONAL_DOMAINS.ID).domain.replace('https://', '');
-    const r = await testProxyConnect(host, port, target);
+    const r = await testProxyConnect(host, port, target, 5000, { username: proxy.username, password: proxy.password });
     const updated = await storage.update('proxies', proxy.id, {
       status: r.ok ? 'active' : 'dead',
       latency_ms: r.latency_ms,
@@ -731,6 +885,240 @@ router.post('/proxy-test/:id', requireAuth, async (req: AuthenticatedRequest, re
     return errorRes(res, err.message, 500);
   }
 });
+
+/* ------------------------------------------------------------------ */
+/* Paket proxy: 5 proxy / Rp100.000, sekali klik "Kirim proxy"         */
+/* ------------------------------------------------------------------ */
+
+const PROXY_PACKAGE = {
+  qty: Math.max(1, Math.min(20, Number(process.env.PROXY_PACKAGE_QTY) || 5)),
+  price: Math.max(0, Number(process.env.PROXY_PACKAGE_PRICE) || 100000),
+  days: Math.max(0, Number(process.env.PROXY_PACKAGE_DAYS) || 30),
+};
+
+const isPrivateHost = (h: string) => /^(localhost|127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1|\[)/i.test(h);
+
+/** Kunci API penyedia proxy hanya dibaca dari environment server (tidak pernah disimpan di database). */
+function providerConfig() {
+  const key = String(process.env.WEBSHARE_API_KEY || '').trim();
+  return {
+    enabled: !!key,
+    key,
+    mode: String(process.env.WEBSHARE_MODE || 'direct').toLowerCase() === 'backbone' ? 'backbone' : 'direct',
+    planId: String(process.env.WEBSHARE_PLAN_ID || '').trim(),
+    country: String(process.env.WEBSHARE_COUNTRY || '').trim().toUpperCase(),
+  };
+}
+
+/** Ambil daftar proxy milik akun Webshare (API v2, maksimal 4 halaman x 100). */
+async function fetchWebshareProxies(): Promise<any[]> {
+  const cfg = providerConfig();
+  if (!cfg.enabled) return [];
+  const out: any[] = [];
+  for (let page = 1; page <= 4; page++) {
+    const qs = new URLSearchParams({ mode: cfg.mode, page: String(page), page_size: '100' });
+    if (cfg.planId) qs.set('plan_id', cfg.planId);
+    if (cfg.country) qs.set('country_code__in', cfg.country);
+    if (cfg.mode === 'direct') qs.set('valid', 'true');
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    let r: globalThis.Response;
+    try {
+      r = await fetch(`${(process.env.WEBSHARE_API_BASE || 'https://proxy.webshare.io').replace(/\/+$/, '')}/api/v2/proxy/list/?${qs}`, {
+        headers: { Authorization: `Token ${cfg.key}` },
+        signal: ctrl.signal,
+      });
+    } finally {
+      clearTimeout(t);
+    }
+    if (r.status === 401 || r.status === 403) throw new Error('Kunci API Webshare ditolak (cek WEBSHARE_API_KEY).');
+    if (!r.ok) throw new Error(`Webshare membalas HTTP ${r.status}`);
+    const j: any = await r.json();
+    for (const p of j?.results || []) {
+      if (p && p.valid === false) continue;
+      out.push({
+        provider: 'webshare',
+        provider_id: String(p.id),
+        host: p.proxy_address || 'p.webshare.io',
+        port: Number(p.port),
+        username: p.username || undefined,
+        password: p.password || undefined,
+        region: p.country_code || undefined,
+      });
+    }
+    if (!j?.next) break;
+  }
+  return out;
+}
+
+/** Status sumber proxy untuk Admin Panel (berapa yang masih bisa dikirim). */
+router.get('/proxy-package', requireAuth, requireAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const cfg = providerConfig();
+    const [stock, owned] = await Promise.all([storage.list('proxy_stock') as Promise<any[]>, storage.list('proxies') as Promise<any[]>]);
+    const stockFree = stock.filter((x) => !x.assigned_user_id).length;
+    let providerFree: number | null = null;
+    let providerError: string | null = null;
+    if (cfg.enabled) {
+      try {
+        const used = new Set(owned.filter((p) => p.provider === 'webshare' && p.provider_id).map((p) => String(p.provider_id)));
+        providerFree = (await fetchWebshareProxies()).filter((p) => !used.has(p.provider_id)).length;
+      } catch (e: any) {
+        providerError = e?.message || 'Gagal menghubungi Webshare';
+      }
+    }
+    return successRes(res, {
+      ...PROXY_PACKAGE,
+      provider: cfg.enabled ? 'webshare' : null,
+      provider_free: providerFree,
+      provider_error: providerError,
+      stock_free: stockFree,
+      packages_available: Math.floor(((providerFree || 0) + stockFree) / PROXY_PACKAGE.qty),
+    });
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
+/**
+ * Kirim satu paket proxy ke user: ambil N proxy yang belum terpakai
+ * (dari akun Webshare kalau WEBSHARE_API_KEY diisi, lalu dari stok manual),
+ * pasang ke daftar proxy user, tes masing-masing, dan catat SATU pemasukan.
+ * Kalau proxy yang tersedia kurang dari N, tidak ada yang dibuat.
+ */
+router.post('/proxy/send-package', requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { user_id, method = 'QRIS', note } = req.body || {};
+    const qty = Math.max(1, Math.min(20, Number(req.body?.qty) || PROXY_PACKAGE.qty));
+    const amount = req.body?.amount === undefined ? PROXY_PACKAGE.price : Math.max(0, Number(req.body.amount) || 0);
+    const days = req.body?.days === undefined ? PROXY_PACKAGE.days : Math.max(0, Number(req.body.days) || 0);
+    if (!user_id) return errorRes(res, 'User tujuan wajib dipilih.', 400);
+    const buyer: any = await storage.get('users', String(user_id));
+    if (!buyer) return errorRes(res, 'User tidak ditemukan.', 404);
+
+    const owned = (await storage.list('proxies')) as any[];
+    const usedProvider = new Set(owned.filter((p) => p.provider === 'webshare' && p.provider_id).map((p) => String(p.provider_id)));
+    const usedHostPort = new Set(owned.map((p) => `${p.host}:${p.port}:${p.username || ''}`));
+
+    // 1) Penyedia (Webshare)
+    const picked: any[] = [];
+    let providerError: string | null = null;
+    if (providerConfig().enabled) {
+      try {
+        for (const p of await fetchWebshareProxies()) {
+          if (picked.length >= qty) break;
+          if (usedProvider.has(p.provider_id)) continue;
+          if (!p.host || !p.port || isPrivateHost(p.host)) continue;
+          picked.push(p);
+        }
+      } catch (e: any) {
+        providerError = e?.message || 'Gagal menghubungi Webshare';
+      }
+    }
+    // 2) Stok manual
+    if (picked.length < qty) {
+      const stock = ((await storage.list('proxy_stock')) as any[])
+        .filter((x) => !x.assigned_user_id && x.host && Number(x.port) > 0)
+        .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+      for (const x of stock) {
+        if (picked.length >= qty) break;
+        if (usedHostPort.has(`${x.host}:${x.port}:${x.username || ''}`)) continue;
+        picked.push({ ...x, stock_id: x.id, provider: 'stock' });
+      }
+    }
+    if (picked.length < qty) {
+      const why = providerError ? ` (${providerError})` : !providerConfig().enabled ? ' Isi WEBSHARE_API_KEY di Vercel atau tambah stok manual.' : '';
+      return errorRes(res, `Proxy tersedia cuma ${picked.length} dari ${qty}. Paket belum dikirim.${why}`, 409);
+    }
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const expires = days > 0 ? new Date(now.getTime() + days * 86_400_000).toISOString() : undefined;
+    const packageId = `pkg_${now.getTime().toString(36)}_${crypto.randomBytes(3).toString('hex')}`;
+    const priceEach = Math.round(amount / qty);
+
+    // Pasang ke akun user
+    const created: any[] = [];
+    for (let i = 0; i < picked.length; i++) {
+      const s = picked[i];
+      created.push(
+        await storage.create('proxies', {
+          user_id: String(user_id),
+          host: String(s.host).trim(),
+          port: Number(s.port),
+          username: s.username ? String(s.username) : undefined,
+          password: s.password ? String(s.password) : undefined,
+          region: s.region || buyer.region || 'ID',
+          label: `Paket GaneMaX #${i + 1}`,
+          status: 'checking',
+          provider: s.provider,
+          provider_id: s.provider_id || undefined,
+          package_id: packageId,
+          sold_price: priceEach,
+          sold_at: nowIso,
+          expires_at: expires,
+          created_at: nowIso,
+        }),
+      );
+      if (s.stock_id) {
+        await storage.update('proxy_stock', s.stock_id, {
+          assigned_user_id: String(user_id),
+          assigned_username: buyer.username,
+          assigned_at: nowIso,
+        });
+      }
+    }
+
+    // Tes semua sekaligus (paralel, maks 5 detik)
+    const tested = await Promise.all(
+      created.map(async (p) => {
+        const region = String(p.region || 'ID').toUpperCase();
+        const target = (REGIONAL_DOMAINS[region] || REGIONAL_DOMAINS.ID).domain.replace('https://', '');
+        const r = await testProxyConnect(p.host, Number(p.port), target, 5000, { username: p.username, password: p.password });
+        const upd = await storage.update('proxies', p.id, {
+          status: r.ok ? 'active' : 'dead',
+          latency_ms: r.latency_ms,
+          last_checked: new Date().toISOString(),
+        });
+        return { proxy: upd || { ...p, status: r.ok ? 'active' : 'dead' }, ok: r.ok, latency_ms: r.latency_ms, detail: r.detail };
+      }),
+    );
+
+    let revenue: any = null;
+    if (amount > 0) {
+      revenue = await storage.create('revenues', {
+        user_id: String(user_id),
+        username: buyer.username,
+        plan: 'proxy',
+        amount,
+        type: 'proxy',
+        method: String(method),
+        note: note ? String(note) : `Paket ${qty} API proxy (${packageId})`,
+        paid_at: nowIso,
+        created_by: req.user!.username,
+        created_at: nowIso,
+      });
+    }
+
+    return successRes(
+      res,
+      {
+        package_id: packageId,
+        qty,
+        amount,
+        expires_at: expires,
+        ok_count: tested.filter((t) => t.ok).length,
+        results: tested,
+        revenue,
+        buyer: sanitizeUser(buyer),
+      },
+      201,
+    );
+  } catch (err: any) {
+    return errorRes(res, err.message, 500);
+  }
+});
+
 
 /* ------------------------------------------------------------------ */
 /* PUSH NOTIFICATION (pengingat T-5 menit, tetap masuk walau app tutup) */

@@ -26,6 +26,7 @@ import { isValidHttpUrl } from '../../lib/shopee.ts';
 import { useLang } from '../../lib/i18n.tsx';
 import { upcomingCampaigns, isToday, Campaign } from '../../lib/campaigns.ts';
 import { Ring, SkelList } from './Skeleton.tsx';
+import { ProductThumb } from './ProductThumb.tsx';
 
 type Session = { promotion_id: string; name: string; start_time: string; end_time: string | null; type: number };
 type Item = {
@@ -61,29 +62,6 @@ interface FlashSalePanelProps {
   selectedTargetUrl?: string;
   toast: (m: string) => void;
 }
-
-/** Foto produk asli dari CDN Shopee. Kalau gagal dimuat, tampil ikon, bukan gambar rusak. */
-const ProductThumb: React.FC<{ src?: string; alt: string }> = ({ src, alt }) => {
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) {
-    return (
-      <span className="gx-thumb gx-thumb--empty" aria-hidden="true">
-        <ImageOff size={16} />
-      </span>
-    );
-  }
-  return (
-    <img
-      className="gx-thumb"
-      src={src}
-      alt={alt}
-      loading="lazy"
-      decoding="async"
-      referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
-    />
-  );
-};
 
 /**
  * Kampanye besar Shopee (tanggal kembar & Gajian Sale).
@@ -367,6 +345,7 @@ export const FlashSalePanel: React.FC<FlashSalePanelProps> = ({
         region,
         currency: reg.currency,
         target_price: it.price ?? 0,
+        ...(it.image ? { image_url: it.image } : {}),
       });
       toast(L('Target diperbarui dari flash sale', 'Target set from flash sale'));
     } catch (e: any) {

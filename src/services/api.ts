@@ -232,6 +232,10 @@ export const api = {
     return api.post('bot/check-item', { region, url, account_id: accountId });
   },
 
+  async productImage(url: string, region: string, accountId?: string): Promise<ApiResponse<{ image: string | null; title: string | null; source: string | null; item_id: string | null; reason?: string }>> {
+    return api.post('bot/product-image', { url, region, account_id: accountId });
+  },
+
   async sellProxy(payload: {
     user_id: string;
     stock_id?: string;

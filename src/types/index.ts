@@ -55,6 +55,8 @@ export interface TargetUrl {
   target_price: number;
   is_active?: boolean;
   created_at?: string;
+  /** Foto produk dari CDN Shopee, diambil otomatis dari link. */
+  image_url?: string;
 }
 
 export interface ProxyMesh {

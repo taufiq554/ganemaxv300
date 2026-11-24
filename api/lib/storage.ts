@@ -16,6 +16,13 @@ import {
 } from 'firebase/firestore/lite';
 import { getFirestoreDb } from './firebase.ts';
 
+/** Firestore menolak nilai `undefined`; buang kolom yang kosong sebelum menulis. */
+function dropUndefined<T extends Record<string, any>>(o: T): T {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(o)) if (v !== undefined) out[k] = v;
+  return out as T;
+}
+
 // Helper to retry transient cloud network errors (ECONNRESET, UNAVAILABLE)
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, delayMs = 200): Promise<T> {
   let lastErr: any;
@@ -229,11 +236,11 @@ class FirestoreStorageAdapter implements StorageAdapter {
 
     const id = payload.id || crypto.randomUUID();
     const created_at = payload.created_at || new Date().toISOString();
-    const newRecord = {
+    const newRecord = dropUndefined({
       ...payload,
       id,
       created_at,
-    } as T;
+    }) as T;
 
     const docRef = doc(db, table, id);
     await withRetry(() => setDoc(docRef, newRecord as any));
@@ -261,10 +268,10 @@ class FirestoreStorageAdapter implements StorageAdapter {
       return null;
     }
 
-    const payload = {
+    const payload = dropUndefined({
       ...updates,
       updated_at: updates.updated_at || new Date().toISOString(),
-    };
+    });
 
     await withRetry(() => updateDoc(docRef, payload));
     const updatedSnap = await withRetry(() => getDoc(docRef));

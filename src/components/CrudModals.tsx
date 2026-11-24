@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { X, Eye, EyeOff, MapPin, UserRound, Link2, Network, CalendarClock, ClipboardPaste, Loader2, HelpCircle, ChevronDown, Check, CircleAlert } from 'lucide-react';
 import { Address, ShopeeAccount, TargetUrl, ProxyMesh, Schedule, AseanCountryCode } from '../types/index.ts';
-import { Ring } from './gx/Skeleton.tsx';
+import { Ring, Skel } from './gx/Skeleton.tsx';
+import { ProductThumb } from './gx/ProductThumb.tsx';
 import { ASEAN_REGIONS, ALL_ASEAN_CODES, isAseanCode, formatAseanCurrency } from '../constants/asean.ts';
 import { useLang } from '../lib/i18n.tsx';
 import { parseShopeeLink, isValidHttpUrl } from '../lib/shopee.ts';
@@ -420,6 +421,9 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
   const [price, setPrice] = useState<string>('1000');
   const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
   const [fetchNote, setFetchNote] = useState('');
+  const [image, setImage] = useState('');
+  const [imgState, setImgState] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
+  const imgReq = React.useRef(0);
   const { busy, error, setError, save } = useSaver(onSave, onClose);
 
   useEffect(() => {
@@ -427,6 +431,8 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
     setError(null);
     setFetchState('idle');
     setFetchNote('');
+    setImage(initialData?.image_url || '');
+    setImgState(initialData?.image_url ? 'ok' : 'idle');
     setTitle(initialData?.title || '');
     setUrl(initialData?.url || '');
     setRegion(isAseanCode(initialData?.region) ? initialData!.region! : defaultRegion);
@@ -497,6 +503,11 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
     if (ck.success && ck.data?.item) {
       const it = ck.data.item;
       if (it.name && !title.trim()) setTitle(it.name);
+      if (it.image) {
+        imgReq.current++;
+        setImage(it.image);
+        setImgState('ok');
+      }
       const best = it.flash_sale?.price ?? it.price;
       if (best != null) setPrice(String(best));
       setFetchState('ok');
@@ -519,6 +530,31 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
       );
     }
   };
+
+  /** Ambil foto produk dari link (otomatis, tanpa menimpa isian lain). */
+  const fetchImage = async (link: string, reg0: AseanCountryCode) => {
+    const id = ++imgReq.current;
+    setImgState('loading');
+    const r = await api.productImage(link, reg0);
+    if (id !== imgReq.current) return; // sudah ada link yang lebih baru
+    if (r.success && r.data?.image) {
+      setImage(r.data.image);
+      setImgState('ok');
+      if (r.data.title) setTitle((t) => (t.trim() ? t : String(r.data!.title).slice(0, 120)));
+    } else {
+      setImgState('fail');
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const link = url.trim();
+    if (!isValidHttpUrl(link) || !/shopee\.|shope\.ee/i.test(link)) return;
+    if (initialData?.image_url && link === initialData.url) return;
+    const t = setTimeout(() => fetchImage(link, regionFromHost(link) || region), 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, isOpen]);
 
   const reg = ASEAN_REGIONS[region] || ASEAN_REGIONS.ID;
   const ids = parseShopeeLink(url);
@@ -555,6 +591,7 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
           variant: variant.trim(),
           model_id: modelId.trim(),
           target_price: p,
+          ...(image ? { image_url: image } : {}),
         });
       }}
     >
@@ -589,6 +626,22 @@ export const TargetUrlModal: React.FC<TargetUrlModalProps> = ({ isOpen, onClose,
           </small>
         ) : null}
       </label>
+      {imgState !== 'idle' && (
+        <div className="gx-tprev" aria-live="polite">
+          {imgState === 'loading' ? (
+            <Skel w={64} h={64} r={12} />
+          ) : (
+            <ProductThumb src={imgState === 'ok' ? image : undefined} alt={title || 'Produk'} />
+          )}
+          <small>
+            {imgState === 'loading'
+              ? L('Mengambil foto produk dari Shopee…', 'Fetching product photo from Shopee…')
+              : imgState === 'ok'
+              ? L('Foto produk terpasang otomatis ✓', 'Product photo attached ✓')
+              : L('Shopee belum mengirim fotonya. Target tetap bisa disimpan; foto dicoba lagi otomatis nanti.', "Shopee didn't send the photo. You can still save; it will retry later.")}
+          </small>
+        </div>
+      )}
       <label className="gx-field">
         <span>{L('Nama produk', 'Product name')}</span>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Samsung Galaxy S24 Ultra 256GB" />

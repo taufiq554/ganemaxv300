@@ -83,7 +83,7 @@ export const FireOverlay: React.FC<{
         </div>
         <div className="gx-fire__product">
           <span className="gx-fire__thumb">
-            <ShoppingBag size={22} />
+            {t.image_url ? <img src={t.image_url} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')} /> : <ShoppingBag size={22} />}
           </span>
           <div style={{ minWidth: 0 }}>
             <div className="gx-fire__title">{t.title}</div>

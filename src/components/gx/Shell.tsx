@@ -177,7 +177,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         <nav className="gx-topnav" aria-label={L('Navigasi utama', 'Main navigation')}>
-          {NAV_ITEMS.filter((n) => !n.adminOnly || user.role === 'admin').map((n) => (
+          {NAV_ITEMS.filter((n) => !n.adminOnly).map((n) => (
             <button key={n.id} type="button" aria-current={tab === n.id ? 'page' : undefined} onClick={() => onTab(n.id)}>
               {L(n.label, n.en)}
             </button>
@@ -224,6 +224,20 @@ export const TopBar: React.FC<TopBarProps> = ({
             )}
           </div>
 
+          {user.role === 'admin' && (
+            <button
+              type="button"
+              className={`gx-adminbtn ${tab === 'admin' ? 'gx-adminbtn--on' : ''}`}
+              onClick={() => onTab('admin')}
+              aria-label={L('Buka Admin Panel', 'Open Admin Panel')}
+              aria-current={tab === 'admin' ? 'page' : undefined}
+              title="Admin Panel"
+            >
+              <ShieldCheck size={16} />
+              <span>Admin</span>
+            </button>
+          )}
+
           <button type="button" className="gx-iconbtn" onClick={onOpenAnnouncements} aria-label={L('Pengumuman', 'Announcements')}>
             <Bell size={17} />
             {unreadCount > 0 && <span className="gx-dot">{unreadCount > 9 ? '9+' : unreadCount}</span>}
@@ -240,6 +254,11 @@ export const TopBar: React.FC<TopBarProps> = ({
             {menuOpen && (
               <div className="gx-popover" role="menu">
                 <div className="gx-popover__label">{L('Akun', 'Account')} @{user.username}</div>
+                {user.role === 'admin' && (
+                  <button type="button" className="gx-menuitem" onClick={() => { onTab('admin'); setMenuOpen(false); }}>
+                    <ShieldCheck size={16} /> Admin Panel
+                  </button>
+                )}
                 <button type="button" className="gx-menuitem" onClick={() => { onOpenQris(); setMenuOpen(false); }}>
                   <QrCode size={16} /> {L('Perpanjang / sewa via QRIS', 'Renew / rent via QRIS')}
                 </button>
@@ -296,12 +315,12 @@ export const TopBar: React.FC<TopBarProps> = ({
 export const Dock: React.FC<{
   tab: AppTab;
   onTab: (t: AppTab) => void;
-  isAdmin: boolean;
+  isAdmin?: boolean;
   isBotRunning: boolean;
   onToggleBot: () => void;
-}> = ({ tab, onTab, isAdmin, isBotRunning, onToggleBot }) => {
+}> = ({ tab, onTab, isBotRunning, onToggleBot }) => {
   const { L } = useLang();
-  const items = NAV_ITEMS.filter((n) => !n.adminOnly || isAdmin);
+  const items = NAV_ITEMS.filter((n) => !n.adminOnly); // Admin ada di bar atas, bukan dock
   const left = items.slice(0, 2);
   const right = items.slice(2);
   const renderTab = (n: (typeof NAV_ITEMS)[number]) => {

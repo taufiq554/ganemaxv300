@@ -31,6 +31,8 @@ import {
   Server,
   Zap,
   CircleAlert,
+  Send,
+  CheckCircle2,
 } from 'lucide-react';
 import { Announcement, AnnouncementType, Banner, BannerFit, BannerLayout, BannerRatio, BannerSlot, ProxyStockItem, RevenueEntry, User } from '../../types/index.ts';
 import { BannerCard, RATIO_HINT, RATIO_VALUE, sortBanners } from './BannerStrip.tsx';
@@ -212,6 +214,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
   const [banners, setBanners] = useState<Banner[]>([]);
   const [proxyStock, setProxyStock] = useState<ProxyStockItem[]>([]);
   const [sellFor, setSellFor] = useState<User | null>(null);
+  const [pkgInfo, setPkgInfo] = useState<ProxyPackageInfo | null>(null);
+  const [pkgLoading, setPkgLoading] = useState(false);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [pkgResult, setPkgResult] = useState<ProxyPackageResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -237,6 +243,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
     setLoading(false);
     setLoadedOnce(true);
   }, [setUsers]);
+
+  const loadPkgInfo = useCallback(async () => {
+    setPkgLoading(true);
+    const r = await api.get<ProxyPackageInfo>('proxy-package');
+    if (r.success && r.data) setPkgInfo(r.data);
+    setPkgLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (section === 'proxy' || section === 'users') loadPkgInfo();
+  }, [section, loadPkgInfo]);
+
+  /** Satu klik: pasang paket proxy ke user, tes, catat pemasukan, salin pesan. */
+  const sendProxyPackage = async (u: User) => {
+    if (sendingId) return;
+    const qty = pkgInfo?.qty ?? 5;
+    const price = pkgInfo?.price ?? 100000;
+    if (!confirm(`Kirim paket ${qty} proxy ke ${u.username}?\n\nRp ${price.toLocaleString('id-ID')} akan dicatat ke pemasukan (QRIS). Proxy langsung terpasang & dites di dashboard user.`)) return;
+    setSendingId(u.id);
+    const res = await api.post<ProxyPackageResult>('proxy/send-package', { user_id: u.id, method: 'QRIS' });
+    setSendingId(null);
+    if (!res.success || !res.data) {
+      toast(res.error?.message || 'Gagal mengirim proxy');
+      loadPkgInfo();
+      return;
+    }
+    const r = res.data;
+    setPkgResult(r);
+    if (r.revenue) setRevenues((p) => [r.revenue as RevenueEntry, ...p]);
+    const ps = await api.get<ProxyStockItem[]>('proxy_stock');
+    if (ps.success && Array.isArray(ps.data)) setProxyStock(ps.data);
+    loadPkgInfo();
+    copy(proxyPackageText(u, r), `${r.qty} proxy terkirim ke ${u.username} (${r.ok_count} lolos tes) — pesan disalin`);
+  };
 
   useEffect(() => {
     load();
@@ -736,10 +776,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
       {/* ================= USERS ================= */}
       {section === 'users' && (
         <UsersSection
-          onSellProxy={(u) => {
-            setSection('proxy');
-            toast(`Pilih ${u.username} di daftar "Jual ke user" di bawah`);
-          }}
+          onSellProxy={sendProxyPackage}
+          sendingProxyId={sendingId}
           currentUser={currentUser}
           users={users}
           setUsers={setUsers}
@@ -761,10 +799,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, users, setU
           setStock={setProxyStock}
           users={users.filter((u) => u.role !== 'admin')}
           toast={toast}
-          copy={copy}
-          onSold={(rev) => {
-            if (rev) setRevenues((p) => [rev, ...p]);
-          }}
+          info={pkgInfo}
+          infoLoading={pkgLoading}
+          onReloadInfo={loadPkgInfo}
+          sendingId={sendingId}
+          lastResult={pkgResult}
+          onSend={sendProxyPackage}
+          onCopyResult={() => pkgResult && copy(proxyPackageText(pkgResult.buyer, pkgResult), 'Pesan untuk pembeli disalin')}
         />
       )}
 
@@ -1251,22 +1292,46 @@ const BannerDialog: React.FC<{
 /* Proxy: stok & penjualan                                             */
 /* ------------------------------------------------------------------ */
 
-const PROXY_PRICE_DEFAULT = 100000;
+export interface ProxyPackageInfo {
+  qty: number;
+  price: number;
+  days: number;
+  provider: string | null;
+  provider_free: number | null;
+  provider_error: string | null;
+  stock_free: number;
+  packages_available: number;
+}
 
-/** Teks siap kirim ke pembeli setelah proxy diberikan. */
-function proxyInfoText(u: User, p: any): string {
-  const auth = p.username ? `Username : ${p.username}\nPassword : ${p.password || '-'}\n` : '';
-  const exp = p.expires_at
-    ? new Date(p.expires_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+export interface ProxyPackageResult {
+  package_id: string;
+  qty: number;
+  amount: number;
+  expires_at?: string;
+  ok_count: number;
+  results: { proxy: any; ok: boolean; latency_ms: number; detail: string }[];
+  revenue: RevenueEntry | null;
+  buyer: User;
+}
+
+/** Teks siap kirim ke pembeli setelah paket proxy dipasang. */
+export function proxyPackageText(u: User, r: ProxyPackageResult): string {
+  const exp = r.expires_at
+    ? new Date(r.expires_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
     : 'tanpa batas';
+  const lines = r.results
+    .map((t, i) => {
+      const p = t.proxy || {};
+      const cred = p.username ? `:${p.username}:${p.password || ''}` : '';
+      return `${i + 1}. ${p.host}:${p.port}${cred}  ${t.ok ? '✅' : '⚠️'}`;
+    })
+    .join('\n');
   return (
-    `Halo kak ${u.username}, API proxy kamu sudah aktif 🎉\n\n` +
-    `Host     : ${p.host}\n` +
-    `Port     : ${p.port}\n` +
-    auth +
-    `Aktif s/d: ${exp}\n\n` +
-    `Proxy ini sudah otomatis masuk ke dashboard kamu — buka tab Engine, bagian Proxy. ` +
-    `Tinggal tekan Tes untuk memastikan jalan.\n\n` +
+    `Halo kak ${u.username}, paket ${r.qty} API proxy kamu sudah aktif 🎉\n\n` +
+    `${lines}\n\n` +
+    `Aktif s/d: ${exp}\n` +
+    `Hasil tes ke Shopee: ${r.ok_count}/${r.qty} tersambung.\n\n` +
+    `Semua proxy sudah otomatis terpasang di dashboard bot kamu (tab Engine → Proxy), tidak perlu input manual.\n\n` +
     `Terima kasih sudah order 🙏`
   );
 }
@@ -1276,19 +1341,23 @@ const ProxySection: React.FC<{
   setStock: React.Dispatch<React.SetStateAction<ProxyStockItem[]>>;
   users: User[];
   toast: (m: string) => void;
-  copy: (text: string, msg: string) => void;
-  onSold: (rev: RevenueEntry | null) => void;
-}> = ({ stock, setStock, users, toast, copy, onSold }) => {
+  info: ProxyPackageInfo | null;
+  infoLoading: boolean;
+  onReloadInfo: () => void;
+  sendingId: string | null;
+  lastResult: ProxyPackageResult | null;
+  onSend: (u: User) => void;
+  onCopyResult: () => void;
+}> = ({ stock, setStock, users, toast, info, infoLoading, onReloadInfo, sendingId, lastResult, onSend, onCopyResult }) => {
   const [bulk, setBulk] = useState('');
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState('');
-  const [price, setPrice] = useState(PROXY_PRICE_DEFAULT);
-  const [days, setDays] = useState(30);
-  const [method, setMethod] = useState('QRIS');
 
-  const free = stock.filter((x) => !x.assigned_user_id);
   const sold = stock.filter((x) => x.assigned_user_id);
   const buyers = users.filter((u) => !q || u.username.toLowerCase().includes(q.toLowerCase()));
+  const qty = info?.qty ?? 5;
+  const price = info?.price ?? 100000;
+  const ready = info ? info.packages_available : 0;
 
   /** Satu proxy per baris: host:port atau host:port:user:pass */
   const addBulk = async () => {
@@ -1303,7 +1372,10 @@ const ProxySection: React.FC<{
         const [host, port, username, password] = parts;
         const portNum = Number(port);
         if (!host || !isFinite(portNum) || portNum <= 0 || portNum > 65535) return null;
-        return { host, port: portNum, username: username || undefined, password: password || undefined, created_at: new Date().toISOString() };
+        const it: any = { host, port: portNum, created_at: new Date().toISOString() };
+        if (username) it.username = username;
+        if (password) it.password = password;
+        return it;
       })
       .filter(Boolean);
     const buruk = lines.length - items.length;
@@ -1318,52 +1390,128 @@ const ProxySection: React.FC<{
       setStock((p) => [...p, ...res.data!.items]);
       setBulk('');
       toast(`${res.data.items.length} proxy masuk stok${buruk ? ` · ${buruk} baris dilewati` : ''}`);
+      onReloadInfo();
     } else toast(res.error?.message || 'Gagal menambah stok');
-  };
-
-  const sellTo = async (u: User) => {
-    if (!free.length) {
-      toast('Stok proxy habis — tambah dulu di atas');
-      return;
-    }
-    if (!confirm(`Jual proxy ke ${u.username} seharga Rp ${price.toLocaleString('id-ID')}?\n\nProxy langsung masuk ke dashboard user dan pemasukan otomatis tercatat.`)) return;
-    setBusy(true);
-    const res = await api.sellProxy({ user_id: u.id, amount: price, method, days });
-    setBusy(false);
-    if (!res.success || !res.data) {
-      toast(res.error?.message || 'Gagal menjual proxy');
-      return;
-    }
-    const { proxy, revenue } = res.data;
-    setStock((p) => p.map((x) => (x.host === proxy.host && String(x.port) === String(proxy.port) && !x.assigned_user_id ? { ...x, assigned_user_id: u.id, assigned_username: u.username, assigned_at: new Date().toISOString() } : x)));
-    onSold(revenue || null);
-    copy(proxyInfoText(u, proxy), `Proxy terkirim ke ${u.username} — info sudah disalin`);
   };
 
   return (
     <>
       <div className="gx-kpis">
         <div className="gx-card gx-kpi gx-kpi--hero">
-          <div className="gx-kpi__k">Stok siap jual</div>
-          <div className="gx-kpi__v">{free.length}</div>
-          <div className="gx-kpi__d">@ Rp {price.toLocaleString('id-ID')}</div>
+          <div className="gx-kpi__k">Paket siap kirim</div>
+          <div className="gx-kpi__v">{infoLoading && !info ? '…' : ready}</div>
+          <div className="gx-kpi__d">
+            {qty} proxy · Rp {price.toLocaleString('id-ID')}
+          </div>
         </div>
         <div className="gx-card gx-kpi">
-          <div className="gx-kpi__k">Sudah terjual</div>
-          <div className="gx-kpi__v">{sold.length}</div>
-          <div className="gx-kpi__d">tercatat di pemasukan</div>
+          <div className="gx-kpi__k">Sumber proxy</div>
+          <div className="gx-kpi__v" style={{ fontSize: 18 }}>{info?.provider ? 'Webshare' : 'Stok manual'}</div>
+          <div className="gx-kpi__d">
+            {info?.provider ? `${info.provider_free ?? '?'} di akun · ` : ''}
+            {info?.stock_free ?? 0} di stok
+          </div>
         </div>
       </div>
+
+      {info?.provider_error && (
+        <div className="gx-note gx-note--warn">
+          <CircleAlert size={16} />
+          <span>{info.provider_error}</span>
+        </div>
+      )}
+      {info && !info.provider && ready === 0 && (
+        <div className="gx-note gx-note--warn">
+          <CircleAlert size={16} />
+          <span>
+            Belum ada proxy untuk dikirim. Hubungkan akun penyedia proxy: isi <b>WEBSHARE_API_KEY</b> di Vercel → Settings →
+            Environment Variables, lalu Redeploy. Atau tempel proxy ke "Stok manual" di bawah.
+          </span>
+        </div>
+      )}
+
+      {lastResult && (
+        <section className="gx-card gx-pkgres">
+          <div className="gx-card__head">
+            <h2 className="gx-card__title">
+              <CheckCircle2 size={16} /> Terkirim ke {lastResult.buyer?.username}
+            </h2>
+            <button type="button" className="gx-btn gx-btn--xs" onClick={onCopyResult}>
+              <Copy size={12} /> Salin pesan
+            </button>
+          </div>
+          <div className="gx-card__body">
+            <p className="gx-hint" style={{ margin: "0 0 8px", fontSize: 12.5, color: "var(--gx-ink-2)", fontWeight: 600 }}>
+              {lastResult.ok_count}/{lastResult.qty} lolos tes ke Shopee · Rp {lastResult.amount.toLocaleString('id-ID')} masuk pemasukan
+            </p>
+            <ul className="gx-list">
+              {lastResult.results.map((t, i) => (
+                <li key={t.proxy?.id || i} className="gx-row">
+                  <span className={`gx-tag ${t.ok ? 'gx-tag--ok' : 'gx-tag--bad'}`}>{t.ok ? 'Aktif' : 'Gagal'}</span>
+                  <div className="gx-row__main">
+                    <div className="gx-row__t gx-mono">
+                      {t.proxy?.host}:{t.proxy?.port}
+                    </div>
+                    <div className="gx-row__s">{t.ok ? `${t.latency_ms} ms` : t.detail}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       <section className="gx-card">
         <div className="gx-card__head">
           <h2 className="gx-card__title">
-            <Server size={16} /> Tambah stok proxy
+            <Send size={16} /> Kirim proxy ke user
           </h2>
         </div>
+        <div className="gx-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <p className="gx-hint" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: "var(--gx-ink-3)" }}>
+            Setelah user transfer via QRIS, tekan <b>Kirim proxy</b>. Sistem mengambil {qty} proxy yang belum dipakai,
+            memasangnya di dashboard user, mengetes masing-masing ke Shopee, lalu mencatat Rp {price.toLocaleString('id-ID')} ke pemasukan.
+          </p>
+          <div style={{ position: 'relative' }}>
+            <Search size={15} style={{ position: 'absolute', left: 11, top: 12, color: 'var(--gx-ink-3)' }} />
+            <input className="gx-input" style={{ paddingLeft: 34 }} placeholder="Cari user pembeli…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari user pembeli" />
+          </div>
+          {buyers.length === 0 ? (
+            <div className="gx-empty">Tidak ada user yang cocok.</div>
+          ) : (
+            <ul className="gx-list">
+              {buyers.slice(0, 30).map((u) => (
+                <li key={u.id} className="gx-row">
+                  <span className="gx-avatar">{u.username.slice(0, 1)}</span>
+                  <div className="gx-row__main">
+                    <div className="gx-row__t">{u.username}</div>
+                    <div className="gx-row__s">{activityText(u)}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="gx-btn gx-btn--xs gx-btn--primary"
+                    onClick={() => onSend(u)}
+                    disabled={!!sendingId || ready === 0}
+                    data-testid="send-proxy"
+                  >
+                    {sendingId === u.id ? <Ring size={12} /> : <Send size={12} />} {sendingId === u.id ? 'Mengirim…' : 'Kirim proxy'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <details className="gx-card gx-details">
+        <summary className="gx-card__head">
+          <h2 className="gx-card__title">
+            <Server size={16} /> Stok manual (cadangan) · {stock.filter((x) => !x.assigned_user_id).length}
+          </h2>
+        </summary>
         <div className="gx-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <p className="gx-hint" style={{ margin: 0 }}>
-            Satu proxy per baris. Format: <b>host:port</b> atau <b>host:port:username:password</b>.
+          <p className="gx-hint" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: "var(--gx-ink-3)" }}>
+            Dipakai kalau akun penyedia belum terhubung atau kurang. Satu proxy per baris: <b>host:port</b> atau <b>host:port:username:password</b>.
           </p>
           <textarea
             className="gx-input"
@@ -1376,75 +1524,7 @@ const ProxySection: React.FC<{
           <button type="button" className="gx-btn gx-btn--primary" style={{ alignSelf: 'flex-start' }} onClick={addBulk} disabled={busy || !bulk.trim()}>
             <Plus size={14} /> {busy ? 'Menyimpan…' : 'Masukkan ke stok'}
           </button>
-        </div>
-      </section>
-
-      <section className="gx-card">
-        <div className="gx-card__head">
-          <h2 className="gx-card__title">
-            <Wallet size={16} /> Jual ke user
-          </h2>
-        </div>
-        <div className="gx-card__body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="gx-formgrid gx-formgrid--3">
-            <label className="gx-field">
-              <span>Harga (Rp)</span>
-              <input type="number" min={0} step={5000} value={price} onChange={(e) => setPrice(Math.max(0, Number(e.target.value) || 0))} />
-            </label>
-            <label className="gx-field">
-              <span>Masa aktif (hari)</span>
-              <input type="number" min={0} value={days} onChange={(e) => setDays(Math.max(0, Number(e.target.value) || 0))} />
-            </label>
-            <label className="gx-field">
-              <span>Metode bayar</span>
-              <select value={method} onChange={(e) => setMethod(e.target.value)}>
-                <option value="QRIS">QRIS</option>
-                <option value="Transfer">Transfer</option>
-                <option value="E-Wallet">E-Wallet</option>
-                <option value="Lainnya">Lainnya</option>
-              </select>
-            </label>
-          </div>
-
-          <div style={{ position: 'relative' }}>
-            <Search size={15} style={{ position: 'absolute', left: 11, top: 12, color: 'var(--gx-ink-3)' }} />
-            <input className="gx-input" style={{ paddingLeft: 34 }} placeholder="Cari user pembeli…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari user pembeli" />
-          </div>
-
-          {free.length === 0 && (
-            <div className="gx-note gx-note--warn">
-              <CircleAlert size={16} />
-              <span>Stok proxy habis. Tambah dulu di kotak atas sebelum bisa menjual.</span>
-            </div>
-          )}
-
-          {buyers.length === 0 ? (
-            <div className="gx-empty">Tidak ada user yang cocok.</div>
-          ) : (
-            <ul className="gx-list">
-              {buyers.slice(0, 30).map((u) => (
-                <li key={u.id} className="gx-row">
-                  <span className="gx-avatar">{u.username.slice(0, 1)}</span>
-                  <div className="gx-row__main">
-                    <div className="gx-row__t">{u.username}</div>
-                    <div className="gx-row__s">{sold.filter((x) => x.assigned_user_id === u.id).length} proxy sudah dibeli</div>
-                  </div>
-                  <button type="button" className="gx-btn gx-btn--xs gx-btn--primary" onClick={() => sellTo(u)} disabled={busy || free.length === 0}>
-                    <Zap size={12} /> Jual &amp; kirim
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
-
-      {sold.length > 0 && (
-        <section className="gx-card">
-          <div className="gx-card__head">
-            <h2 className="gx-card__title">Riwayat proxy terjual</h2>
-          </div>
-          <div className="gx-card__body">
+          {sold.length > 0 && (
             <ul className="gx-list">
               {sold
                 .slice()
@@ -1463,9 +1543,9 @@ const ProxySection: React.FC<{
                   </li>
                 ))}
             </ul>
-          </div>
-        </section>
-      )}
+          )}
+        </div>
+      </details>
     </>
   );
 };
@@ -1510,9 +1590,10 @@ const UsersSection: React.FC<{
   copy: (text: string, msg: string) => void;
   onExtend: (u: User) => void;
   onSellProxy: (u: User) => void;
+  sendingProxyId?: string | null;
   onRevenueCreated: (r: RevenueEntry) => void;
   reloadRevenues: () => Promise<void>;
-}> = ({ currentUser, users, setUsers, toast, copy, onExtend, onSellProxy, reloadRevenues }) => {
+}> = ({ currentUser, users, setUsers, toast, copy, onExtend, onSellProxy, sendingProxyId, reloadRevenues }) => {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'expiring' | 'expired' | 'disabled' | 'idle'>('all');
   const [showForm, setShowForm] = useState(false);
@@ -1772,8 +1853,15 @@ const UsersSection: React.FC<{
                         <Copy size={12} /> Info
                       </button>
                       {u.role !== 'admin' && (
-                        <button type="button" className="gx-btn gx-btn--xs" onClick={() => onSellProxy(u)} title="Jual API proxy ke user ini">
-                          <Server size={12} /> Proxy
+                        <button
+                          type="button"
+                          className="gx-btn gx-btn--xs"
+                          onClick={() => onSellProxy(u)}
+                          disabled={!!sendingProxyId}
+                          title="Kirim paket proxy ke user ini (sudah bayar via QRIS)"
+                          data-testid="user-send-proxy"
+                        >
+                          {sendingProxyId === u.id ? <Ring size={12} /> : <Send size={12} />} Kirim proxy
                         </button>
                       )}
                       {u.role !== 'admin' && (

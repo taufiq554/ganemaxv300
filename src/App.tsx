@@ -419,6 +419,34 @@ export const App: React.FC = () => {
   /** Data akun sudah pernah termuat — sebelum itu dashboard menampilkan kerangka. */
   const [dataReady, setDataReady] = useState(false);
 
+  /**
+   * Lengkapi foto produk target yang belum punya gambar, di latar belakang.
+   * Satu per satu (tidak membanjiri server), tiap target dicoba sekali per sesi.
+   */
+  const imgTriedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!dataReady) return;
+    const todo = targetUrls.filter((t) => !t.image_url && t.url && !imgTriedRef.current.has(t.id)).slice(0, 6);
+    if (!todo.length) return;
+    let cancelled = false;
+    (async () => {
+      for (const t of todo) {
+        if (cancelled) return;
+        imgTriedRef.current.add(t.id);
+        const region = isAseanCode(t.region) ? t.region : selectedRegion;
+        const r = await api.productImage(t.url, region, selectedAccountId || undefined);
+        const img = r.success ? r.data?.image : null;
+        if (!img) continue;
+        const up = await api.put<TargetUrl>('target-urls', t.id, { image_url: img });
+        setTargetUrls((prev) => prev.map((x) => (x.id === t.id ? { ...x, ...(up.success && up.data ? up.data : {}), image_url: img } : x)));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataReady, targetUrls]);
+
   const loadUserData = useCallback(async () => {
     if (!currentUser) return;
 

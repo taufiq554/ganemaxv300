@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { PushStatus } from '../lib/push.ts';
 import { Ring } from './gx/Skeleton.tsx';
+import { ProductThumb } from './gx/ProductThumb.tsx';
 import { EngineLab, PhonePing } from './gx/EngineLab.tsx';
 import { ServerClock } from '../lib/useServerClock.ts';
 import { User, TargetUrl, ShopeePayment, BotSettings, AseanCountryCode, ShopeeAccount, Address, ProxyMesh, Schedule, BotLogItem } from '../types/index.ts';
@@ -241,6 +242,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
                     <li key={t.id} style={{ borderTop: '1px solid var(--gx-line)' }}>
                       <div className="gx-row" style={{ borderTop: 0 }}>
                         <Radio name="active-target" checked={active} onChange={() => p.onSelectTarget(t.id)} label={t.title} />
+                        <ProductThumb src={t.image_url} alt={t.title} />
                         <div className="gx-row__main" onClick={() => p.onSelectTarget(t.id)} style={{ cursor: 'pointer' }}>
                           <div className="gx-row__t">{t.title}</div>
                           <div className="gx-row__s">
@@ -623,6 +625,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = (p) => {
                         {st === 'active' ? `${L('aktif', 'active')} · ${px.latency_ms ?? '-'} ms` : st === 'dead' ? L('mati', 'dead') : L('belum dites', 'not tested')}
                         {px.last_checked ? ` · ${relativeTimeId(px.last_checked, Date.now(), lang)}` : ''}
                       </div>
+                      {(px.label || px.expires_at) && (
+                        <div className="gx-row__s" style={{ color: 'var(--gx-brand)', fontWeight: 600 }}>
+                          {px.label || 'Proxy'}
+                          {px.expires_at ? ` · ${L('s/d', 'until')} ${new Date(px.expires_at).toLocaleDateString(lang === 'en' ? 'en-GB' : 'id-ID', { day: 'numeric', month: 'short' })}` : ''}
+                        </div>
+                      )}
                     </div>
                     <button type="button" className="gx-btn gx-btn--xs" onClick={() => p.onTestProxy(px)} disabled={p.testingProxyId === px.id}>
                       {p.testingProxyId === px.id ? <Ring size={12} /> : <RefreshCw size={12} />} {L('Tes', 'Test')}

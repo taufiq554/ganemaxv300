@@ -2153,3 +2153,42 @@ body.dark-theme .gx-skel::after {
 .gx-lab__result li.ok svg { color: var(--gx-ok); }
 .gx-lab__result li.bad { color: var(--gx-bad); }
 .gx-metric__v--bad { color: var(--gx-bad); }
+
+/* ===== v21: tombol Admin di bar atas (bukan di dock) ===== */
+.gx-adminbtn {
+  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid var(--gx-line); background: var(--gx-surface);
+  color: var(--gx-ink-2); font-family: inherit; font-weight: 700; font-size: 12.5px; cursor: pointer; white-space: nowrap;
+}
+.gx-adminbtn:hover { color: var(--gx-brand); border-color: color-mix(in srgb, var(--gx-brand) 40%, var(--gx-line)); }
+.gx-adminbtn--on { background: var(--gx-ink); color: var(--gx-surface); border-color: transparent; }
+@media (max-width: 420px) { .gx-adminbtn span { display: none; } .gx-adminbtn { width: 36px; padding: 0; justify-content: center; } }
+
+/* ===== v21: logo GaneMaX tanpa pinggiran biru ===== */
+.gx-dock__fire,
+.gx-dock__fire--running {
+  background: #fff !important;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14), 0 0 0 5px var(--gx-bg) !important;
+  animation: none !important;
+}
+.gx-dock__logo { box-shadow: none !important; }
+.gx-qa__btn--go .gx-qa__icon--logo { box-shadow: 0 4px 12px rgba(15, 23, 42, 0.10), inset 0 0 0 1px var(--gx-line) !important; }
+
+/* ===== v21: kartu lipat (stok manual) & hasil kirim paket ===== */
+.gx-details > summary { list-style: none; cursor: pointer; }
+.gx-details > summary::-webkit-details-marker { display: none; }
+.gx-details > summary::after { content: '▾'; margin-left: auto; color: var(--gx-ink-3); transition: transform .2s; }
+.gx-details[open] > summary::after { transform: rotate(180deg); }
+.gx-pkgres { border-color: color-mix(in srgb, var(--gx-ok) 40%, var(--gx-line)); }
+
+/* ===== v21: pratinjau foto produk di form target ===== */
+.gx-tprev { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 14px; background: var(--gx-surface-2); border: 1px solid var(--gx-line); }
+.gx-tprev .gx-thumb { width: 64px; height: 64px; border-radius: 12px; }
+.gx-tprev small { font-size: 12px; color: var(--gx-ink-2); line-height: 1.45; }
+.gx-acc > .gx-thumb { width: 40px; height: 40px; border-radius: 12px; flex: none; }
+.gx-fire__thumb { overflow: hidden; }
+/* v21: bayangan dock netral (bukan biru) supaya area di bawah navigasi tidak kebiruan */
+.gx-dock { box-shadow: 0 10px 28px rgba(15, 23, 42, 0.10) !important; }
+body.dark-theme .gx-dock { box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45) !important; }
+
+.gx-hint { font-size: 12.5px; line-height: 1.5; color: var(--gx-ink-3); }
